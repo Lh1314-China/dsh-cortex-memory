@@ -1,0 +1,84 @@
+{
+  "name": "dsh-cortex-memory",
+  "version": "0.1.0",
+  "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness: working, episodic, semantic, procedural and reflective memory with hybrid retrieval, DSR forgetting, reflection, consolidation, gated self-evolution and guardian.",
+  "type": "module",
+  "main": "./index.js",
+  "icon": "./icon.svg",
+  "bin": {
+    "dsh-cortex": "./bin/cortex.mjs"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./api/client": "./src/api/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "src",
+    "bench",
+    "bin",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "docs/install-windows.md",
+    "docs/models.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/unit/ test/integration/",
+    "test:unit": "node --test test/unit/",
+    "test:integration": "node --test test/integration/",
+    "bench": "node bench/run.js",
+    "check": "node --check index.js && node --check client.js"
+  },
+  "engines": {
+    "node": ">=24",
+    "dsh": ">=0.2.1-rc.2 <0.4.0"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    },
+    "compatibility": {
+      "dsh": ">=0.2.1-rc.2 <0.4.0",
+      "node": ">=24",
+      "profiles": [
+        "desktop",
+        "web"
+      ]
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "memory",
+    "agent-memory",
+    "temporal-graph",
+    "spaced-repetition",
+    "self-evolving",
+    "sqlite"
+  ],
+  "license": "MIT",
+  "author": "dsh-cortex-memory contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-name/dsh-cortex-memory.git"
+  },
+  "homepage": "https://github.com/your-name/dsh-cortex-memory#readme",
+  "bugs": {
+    "url": "https://github.com/your-name/dsh-cortex-memory/issues"
+  }
+}
