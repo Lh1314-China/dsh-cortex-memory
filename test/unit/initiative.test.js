@@ -60,7 +60,9 @@ test('hourly budget limits proactive intentions', () => {
 test('quiet hours suppress all proactive intentions', () => {
   const proposed = [{ kind: 'question', priority: 0.9, createdAt: new Date(NOON).toISOString() }];
   const policy = { ...DEFAULT_INITIATIVE_POLICY, quietHours: [[23, 8]] };
-  const night = Date.parse('2026-11-11T02:00:00+08:00');
+  // quietHours are local wall-clock hours; use a local Date so the test is
+  // independent of the runner's timezone (GitHub Actions is UTC).
+  const night = new Date(2026, 10, 11, 2, 0, 0).getTime();
   assert.deepEqual(filterIntentions(proposed, { now: night, recent: [], policy }), []);
 });
 
