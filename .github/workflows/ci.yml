@@ -12,4 +12,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test --test-isolation=none "test/unit/*.test.js" "test/integration/*.test.js"
+      - shell: pwsh
+        run: |
+          $files = @(
+            Get-ChildItem "test/unit/*.test.js", "test/integration/*.test.js" |
+              ForEach-Object { $_.FullName }
+          )
+          Write-Host "node: $(node --version)"
+          Write-Host "test files: $($files.Count)"
+          node --test --test-isolation=none @files
