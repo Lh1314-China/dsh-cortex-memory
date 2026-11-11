@@ -28,6 +28,7 @@
     "README.md",
     "docs/install-windows.md",
     "docs/models.md",
+    "docs/compatibility.md",
     "LICENSE"
   ],
   "scripts": {

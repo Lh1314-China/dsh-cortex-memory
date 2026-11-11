@@ -91,6 +91,26 @@ node bin/cortex.mjs --data C:\path\to\data search --query "米食"
 node bin/cortex.mjs --data C:\path\to\data export-md --dir C:\path\to\mirror
 ```
 
+## Compatibility
+
+Tested in our environment:
+
+- Windows 11
+- DSH 0.2.2-rc.1
+- Node.js 26.13.0
+- Fresh `~/.dsh/cortex` data root
+- No native runtime dependencies
+
+Requirements:
+
+- **Node.js >= 24** (the engine uses `node:sqlite`)
+- DSH `>=0.2.1-rc.2 <0.4.0`
+- One profile should run only one `cortex` host entry
+
+It is **not** guaranteed to work on Node 20/22, older DSH releases, or a
+profile that already has another plugin using the same `cortex` id. This is a
+real compatibility boundary, not a marketing detail.
+
 ## Testing
 
 ```powershell
@@ -99,7 +119,10 @@ npm test
 
 The repository includes unit and integration tests for storage, retrieval,
 temporal facts, playbook, consolidation, guardian, API, client contract,
-installation packaging and edge cases.
+installation packaging and edge cases. Public copy test result: **373 passing**.
+
+A package-level smoke test is also run from the packed tgz before release.
+
 
 ## Architecture
 
@@ -113,8 +136,9 @@ prompt <- budgets <- tiered recall <- hybrid retrieval (FTS + graph + vector)
                      identity versions / policies / guardian / audit
 ```
 
-See [docs/install-windows.md](docs/install-windows.md) and
-[docs/models.md](docs/models.md).
+See [docs/install-windows.md](docs/install-windows.md),
+[docs/models.md](docs/models.md) and
+[docs/compatibility.md](docs/compatibility.md).
 
 ## Data and privacy
 
