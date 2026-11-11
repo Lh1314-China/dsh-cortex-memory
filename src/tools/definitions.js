@@ -589,6 +589,7 @@ export function createToolDefinitions(service) {
       output: TEXT_OUTPUT,
       isConcurrencySafe: () => true,
       async execute(args = {}) {
+        if (!args.id || !String(args.id).trim()) return { text: `没有这条记忆：${args.id}` };
         const trace = service.get(args.id);
         if (!trace) return { text: `没有这条记忆：${args.id}` };
         return {
@@ -730,6 +731,7 @@ export function createToolDefinitions(service) {
       output: TEXT_OUTPUT,
       isConcurrencySafe: () => false,
       async execute(args = {}) {
+        if (!args.id || !String(args.id).trim()) throw new Error('traceId is required');
         if (!service.scopeWritableById('trace', args.id)) return { text: '未执行：该记忆属于只读共享 scope。' };
         const result = service.forget({ traceId: args.id, mode: args.mode });
         if (!result.removed) {

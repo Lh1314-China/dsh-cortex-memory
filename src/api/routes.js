@@ -299,6 +299,9 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
       }
       if (route === '/forget') {
         const input = validateForget(body);
+        if (!input.id || typeof input.id !== 'string' || !input.id.trim()) {
+          return sendJson(response, 400, { ok: false, error: 'traceId is required' });
+        }
         if (!cortex.scopeWritableById('trace', input.id, agentOf(request))) {
           return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
         }
