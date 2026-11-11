@@ -1,14 +1,11 @@
-# Changelog
+﻿
+## 0.2.0-rc.12 — 2026-11-12
 
-## 0.1.0
+- Trace UI: added OCR layout selector (auto/single/two-column/handwriting), passed through the extractor boundary.
+- `cortex_forget` / `cortex_get` validate ids before touching SQLite; Node 24 now returns readable sentinels instead of `ERR_INVALID_ARG_TYPE`.
+- CI runs `node --test --test-isolation=none` with explicit test files and a Node version line.
 
-First public release.
+## 0.2.0-rc.13 — 2026-11-12
 
-- Layered L0–L5 memory engine with event ledger and SQLite FTS5
-- Temporal facts and `strict / historical / belief / associative` queries
-- Hybrid retrieval: FTS, graph, optional local bge-m3 or remote embeddings
-- Reflection, consolidation, playbook candidates and gated evolution
-- Self-state, emotion, relationships, intentions and development
-- Guardian: health, budget, circuit breaker, backup/restore, privacy cascade
-- DSH host capture, API, CLI and web panel
-- 373 tests and package-level smoke test
+- Layout selection is passed from the Trace UI through `/attachments/extract`.
+- Node 24 CI compatible; id validation before SQLite.

@@ -372,6 +372,7 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
             uri: requireString(body.uri, 'uri', { max: 2000 }),
             mode: requireString(body.mode, 'mode', { max: 16 }),
             language: body.language ? requireString(body.language, 'language', { max: 32 }) : undefined,
+            layout: body.layout ? requireString(body.layout, 'layout', { max: 16 }) : undefined,
           });
           const ingested = cortex.ingestExtractedText({
             targetTraceId: requireString(body.traceId, 'traceId', { max: 200 }),

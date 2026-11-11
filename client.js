@@ -105,6 +105,11 @@ window.__ModuleLoader__.load({
         extractTitle: '从本地提取到记忆',
         extractHint: 'OCR/ASR 结果会写成一条派生记忆，不改原 trace。',
         extractTarget: '目标记忆',
+        extractLayout: '版面',
+        layoutAuto: '自动',
+        layoutSingle: '单栏',
+        layoutTwoColumn: '双栏',
+        layoutHandwriting: '手写',
         extractRun: '提取并写入',
         extractSaved: '已写入派生记忆',
         extractSuggested: '建议：当前这条',
@@ -363,6 +368,11 @@ window.__ModuleLoader__.load({
         extractTitle: 'Extract into memory',
         extractHint: 'OCR/ASR output is stored as a derived trace; the original trace is unchanged.',
         extractTarget: 'Target trace',
+        extractLayout: 'Layout',
+        layoutAuto: 'Auto',
+        layoutSingle: 'Single column',
+        layoutTwoColumn: 'Two columns',
+        layoutHandwriting: 'Handwriting',
         extractRun: 'Extract and write',
         extractSaved: 'Derived trace written',
         extractSuggested: 'Suggested: current trace',
@@ -1080,6 +1090,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       const [uri, setUri] = useState('');
       const [mode, setMode] = useState('ocr');
       const [language, setLanguage] = useState('');
+      const [layout, setLayout] = useState('auto');
       const [targetId, setTargetId] = useState(trace.id);
       const [candidates, setCandidates] = useState([{ id: trace.id, title: trace.title || trace.snippet || trace.id }]);
       const [busy, setBusy] = useState(false);
@@ -1110,7 +1121,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         try {
           const result = await api('/attachments/extract', {
             method: 'POST',
-            body: JSON.stringify({ uri: uri.trim(), mode, language: language.trim() || undefined, traceId: targetId }),
+            body: JSON.stringify({ uri: uri.trim(), mode, language: language.trim() || undefined, layout, traceId: targetId }),
           });
           setNote(`${t('extractSaved')} ${result.extractedTraceId ?? ''}`.trim());
           setUri('');
@@ -1129,6 +1140,12 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             h('option', { key: 'asr', value: 'asr' }, 'ASR'),
           ]),
           h('input', { className: 'cortex-input', value: language, placeholder: mode === 'ocr' ? 'zh-Hans' : 'zh', onChange: (event) => setLanguage(event.target.value) }),
+          h('select', { className: 'cortex-input', value: layout, title: t('extractLayout'), onChange: (event) => setLayout(event.target.value) }, [
+            h('option', { key: 'auto', value: 'auto' }, t('layoutAuto')),
+            h('option', { key: 'single', value: 'single' }, t('layoutSingle')),
+            h('option', { key: 'two-column', value: 'two-column' }, t('layoutTwoColumn')),
+            h('option', { key: 'handwriting', value: 'handwriting' }, t('layoutHandwriting')),
+          ]),
         ]),
         h('label', { className: 'cortex-line', style: { marginTop: 8 } }, [
           t('extractTarget'),

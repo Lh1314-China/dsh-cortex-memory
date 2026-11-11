@@ -1,7 +1,7 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.2.0-rc.11",
-  "description": "A local-first layered memory engine for DeepSeek Harness: temporal facts, hybrid retrieval, DSR forgetting, reflection, growth and controlled evolution.",
+  "version": "0.2.0-rc.13",
+  "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness: working, episodic, semantic, procedural and reflective memory with hybrid retrieval, DSR forgetting, reflection, consolidation, gated self-evolution and guardian.",
   "type": "module",
   "main": "./index.js",
   "icon": "./icon.svg",
