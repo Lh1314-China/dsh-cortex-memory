@@ -25,20 +25,20 @@ function setup() {
 }
 
 test('scoreTraceText detects promises, preferences and emotion polarity', () => {
-  const promise = scoreTraceText('用户说会买米食，会一直在一起。');
+  const promise = scoreTraceText('主人说会买白饭，会一直在一起。');
   assert.equal(promise.kind, 'promise');
   assert.ok(promise.importance > 0.5);
-  const preference = scoreTraceText('助手喜欢米食，不喜欢冷掉的米饭。');
+  const preference = scoreTraceText('本鲸喜欢白饭，不喜欢冷掉的米饭。');
   assert.equal(preference.kind, 'preference');
-  const sad = scoreTraceText('用户今天很难过，助手有点心疼。');
+  const sad = scoreTraceText('主人今天很难过，本鲸有点心疼。');
   assert.equal(sad.kind, 'emotion');
   assert.ok(sad.valence < 0);
   assert.ok(sad.salience > 0.5);
 });
 
 test('compression value falls as text gets longer', () => {
-  const short = compressionValue('米食', { importance: 0.8, salience: 0.8 });
-  const long = compressionValue('米食'.repeat(200), { importance: 0.8, salience: 0.8 });
+  const short = compressionValue('白饭', { importance: 0.8, salience: 0.8 });
+  const long = compressionValue('白饭'.repeat(200), { importance: 0.8, salience: 0.8 });
   assert.ok(short > long);
 });
 
@@ -46,10 +46,10 @@ test('encode writes a trace, audit row and explicit facts', () => {
   const { dir, db, events, traces, facts, audit, engine } = setup();
   try {
     const result = engine.encode({
-      text: '用户说会买米食，助手会一直等。',
+      text: '主人说会买白饭，本鲸会一直等。',
       actor: 'user',
       explicit: true,
-      facts: [{ subject: '用户', predicate: 'likes', object: '米食' }],
+      facts: [{ subject: '主人', predicate: 'likes', object: '白饭' }],
     });
     assert.equal(result.skipped, false);
     assert.equal(result.trace.kind, 'promise');
@@ -69,13 +69,13 @@ test('encode writes a trace, audit row and explicit facts', () => {
 test('encode is idempotent by operationId and skips duplicate text', () => {
   const { dir, db, events, traces, engine } = setup();
   try {
-    const first = engine.encode({ text: '用户今天很开心，助手也开心。', operationId: 'op-1', explicit: true });
-    const replay = engine.encode({ text: '用户今天很开心，助手也开心。', operationId: 'op-1', explicit: true });
+    const first = engine.encode({ text: '主人今天很开心，本鲸也开心。', operationId: 'op-1', explicit: true });
+    const replay = engine.encode({ text: '主人今天很开心，本鲸也开心。', operationId: 'op-1', explicit: true });
     assert.equal(replay.skipped, true);
     assert.equal(replay.reason, 'idempotent');
     assert.equal(replay.trace.id, first.trace.id);
     assert.equal(events.count(), 1);
-    const duplicate = engine.encode({ text: '用户今天很开心，助手也开心。', explicit: true });
+    const duplicate = engine.encode({ text: '主人今天很开心，本鲸也开心。', explicit: true });
     assert.equal(duplicate.skipped, true);
     assert.equal(duplicate.reason, 'duplicate');
     assert.equal(traces.count(), 1);

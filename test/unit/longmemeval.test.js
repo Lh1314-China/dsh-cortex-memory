@@ -10,13 +10,13 @@ const fixture = [
   {
     question_id: 'q1',
     question_type: 'single-session-user',
-    question: '用户喜欢什么主食？',
-    answer: '米食',
+    question: '主人喜欢什么主食？',
+    answer: '白饭',
     question_date: '2026-11-11T12:00:00+08:00',
     haystack_session_ids: ['s1', 's2'],
     haystack_dates: ['2026-11-01T12:00:00+08:00', '2026-11-02T12:00:00+08:00'],
     haystack_sessions: [
-      [{ role: 'user', content: '用户最喜欢米食。', has_answer: true }],
+      [{ role: 'user', content: '主人最喜欢白饭。', has_answer: true }],
       [{ role: 'user', content: '今天修插件。' }],
     ],
     answer_session_ids: ['s1'],

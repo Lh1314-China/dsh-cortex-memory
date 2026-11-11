@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { appraise, estimateNovelty, estimateRelevance, mergeDriveDeltas } from '../../src/self/appraisal.js';
 
 test('warm identity-relevant text raises care and valence', () => {
-  const result = appraise('用户说会一直陪着助手，助手很开心。', {
+  const result = appraise('主人说会一直陪着本鲸，本鲸很开心。', {
     actor: 'user',
-    relationship: { target: '用户', trust: 0.8, care: 0.8 },
+    relationship: { target: '主人', trust: 0.8, care: 0.8 },
     selfState: { drives: { safety: 0.8 } },
   });
   assert.ok(result.valence > 0);
@@ -16,7 +16,7 @@ test('warm identity-relevant text raises care and valence', () => {
 });
 
 test('hostile text raises threat and lowers safety', () => {
-  const result = appraise('助手讨厌你，滚，别烦我。', { relationship: { target: '用户', trust: 0.3, care: 0.3 } });
+  const result = appraise('本鲸讨厌你，滚，别烦我。', { relationship: { target: '主人', trust: 0.3, care: 0.3 } });
   assert.ok(result.threat > 0.3);
   assert.ok(result.valence < 0);
   assert.ok(result.driveDeltas.safety < 0);

@@ -1,7 +1,7 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.1.0",
-  "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness: working, episodic, semantic, procedural and reflective memory with hybrid retrieval, DSR forgetting, reflection, consolidation, gated self-evolution and guardian.",
+  "version": "0.2.0-rc.11",
+  "description": "A local-first layered memory engine for DeepSeek Harness: temporal facts, hybrid retrieval, DSR forgetting, reflection, growth and controlled evolution.",
   "type": "module",
   "main": "./index.js",
   "icon": "./icon.svg",
@@ -28,7 +28,9 @@
     "README.md",
     "docs/install-windows.md",
     "docs/models.md",
-    "docs/compatibility.md",
+    "docs/scopes.md",
+    "docs/multimodal.md",
+    "examples",
     "LICENSE"
   ],
   "scripts": {
@@ -72,14 +74,5 @@
     "self-evolving",
     "sqlite"
   ],
-  "license": "MIT",
-  "author": "dsh-cortex-memory contributors",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Lh1314-China/dsh-cortex-memory.git"
-  },
-  "homepage": "https://github.com/Lh1314-China/dsh-cortex-memory#readme",
-  "bugs": {
-    "url": "https://github.com/Lh1314-China/dsh-cortex-memory/issues"
-  }
+  "license": "MIT"
 }

@@ -50,8 +50,8 @@ const LOAD_BOUND_MS = 60_000;
 const SCOPE = 'global';
 
 const LOAD_WORDS = [
-  '鲸鱼', '米食', '潮汐', '星图', '海风', '灯塔',
-  '月光', '小鱼', '用户', '薄荷', '玻璃', '海盐',
+  '鲸鱼', '白饭', '潮汐', '星图', '海风', '灯塔',
+  '月光', '小鱼', '主人', '薄荷', '玻璃', '海盐',
 ];
 
 const LOAD_ACTIONS = [
@@ -486,7 +486,7 @@ test('FTS plus hash-vector retrieval stays healthy across 1000 writes and 50 sea
       count,
       seed: 909,
       prefix: 'vector',
-      extraTokens: ['鲸鱼', '米食', '记忆', 'alpha', 'beta'],
+      extraTokens: ['鲸鱼', '白饭', '记忆', 'alpha', 'beta'],
       importance: 0.6,
       confidence: 0.8,
     });
@@ -495,7 +495,7 @@ test('FTS plus hash-vector retrieval stays healthy across 1000 writes and 50 sea
     assert.equal(cortex.repos.traces.ftsCount(), count);
     assert.equal(cortex.vector.status().count, count);
 
-    const queries = ['鲸鱼', '米食', '记忆', 'alpha', 'beta'];
+    const queries = ['鲸鱼', '白饭', '记忆', 'alpha', 'beta'];
     const started = performance.now();
     let totalItems = 0;
     for (let index = 0; index < 50; index += 1) {
@@ -655,7 +655,7 @@ test('retention is bounded on 1000 traces and privacy deleteScope keeps the even
       stepMs: 1_000,
       importance: 0.04,
       confidence: 0.5,
-      extraTokens: ['鲸鱼', '米食'],
+      extraTokens: ['鲸鱼', '白饭'],
     });
     cortex.writeMany(inputs, { chunkSize: 250 });
 

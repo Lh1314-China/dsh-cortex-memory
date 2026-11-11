@@ -26,9 +26,9 @@ test('OpenAI-compatible embedder batches text and preserves dimensions', async (
 test('HTTP reranker maps indices back to documents', async () => {
   const { fetchImpl, calls } = mockFetch({ results: [{ index: 1, relevance_score: 0.9 }, { index: 0, relevance_score: 0.2 }] });
   const reranker = createHttpReranker({ baseUrl: 'http://127.0.0.1:9000/v1', model: 'r', fetchImpl });
-  const ranked = await reranker.rerank('米食', ['无关', '米食']);
+  const ranked = await reranker.rerank('白饭', ['无关', '白饭']);
   assert.equal(ranked[0].index, 1);
-  assert.equal(ranked[0].document, '米食');
+  assert.equal(ranked[0].document, '白饭');
   assert.equal(ranked[0].score, 0.9);
   assert.equal(calls[0].url, 'http://127.0.0.1:9000/v1/rerank');
 });

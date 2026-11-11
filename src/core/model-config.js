@@ -43,7 +43,9 @@ function clean(value) {
 
 export function readModelConfig(dataRoot) {
   try {
-    const parsed = JSON.parse(fs.readFileSync(modelConfigPath(dataRoot), 'utf8'));
+    // Windows PowerShell's `Set-Content -Encoding utf8` writes a BOM.
+    // JSON.parse rejects it, which would silently downgrade to hash embeddings.
+    const parsed = JSON.parse(fs.readFileSync(modelConfigPath(dataRoot), 'utf8').replace(/^\uFEFF/, ''));
     return normalizeModelConfig(parsed);
   } catch {
     return normalizeModelConfig({});

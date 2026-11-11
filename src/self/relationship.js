@@ -35,7 +35,7 @@ export function createRelationshipStore(db) {
     return rowToRelationship(db.prepare('SELECT * FROM relationships WHERE scope_id = ? AND target = ?').get(scopeId, target));
   }
 
-  function ensure(scopeId = 'global', target = '用户') {
+  function ensure(scopeId = 'global', target = '主人') {
     const current = get(scopeId, target);
     if (current) return current;
     const id = makeId('rel');
@@ -76,7 +76,7 @@ export function createRelationshipStore(db) {
     return db.prepare('SELECT * FROM relationships WHERE scope_id = ? ORDER BY updated_at DESC').all(scopeId).map(rowToRelationship);
   }
 
-  function render(scopeId = 'global', target = '用户') {
+  function render(scopeId = 'global', target = '主人') {
     const value = get(scopeId, target);
     if (!value) return '';
     return `${value.target}：信任 ${Math.round(value.trust * 100)}% / 在乎 ${Math.round(value.care * 100)}% / 熟悉 ${Math.round(value.familiarity * 100)}%`;

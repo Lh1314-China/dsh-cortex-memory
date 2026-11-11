@@ -15,11 +15,30 @@ function mulberry32(seed) {
   };
 }
 
-const PLACES = ['米饭', '插件', '记忆引擎', '鲸鱼', '用户', '伙伴', '直播', '语音', '项目', '代码', '测试', 'D:\\legacy-data', 'QQ', 'B站', '声音', '梦', '日记'];
+const PLACES = ['白饭', '插件', '记忆引擎', '鲸鱼', '主人', '月神', '直播', '语音', '项目', '代码', '测试', 'D:\\shiori-data', 'QQ', 'B站', '声音', '梦', '日记'];
 const VERBS = ['修好了', '想起来了', '决定继续', '记录一下', '有点担心', '很开心', '测试了', '重新整理了', '发现了', '计划明天'];
 const TOPICS = ['图检索', '向量检索', '遗忘曲线', '工作卡', '火花卡', '身份版本', '关系模型', '反思', '巩固', '守护', '备份', '权限'];
+const PARAPHRASES = new Map([
+  ['白饭', '米饭'],
+  ['插件', '扩展程序'],
+  ['记忆引擎', '记忆系统'],
+  ['鲸鱼', '鲸'],
+  ['直播', '实况'],
+  ['测试', '验证'],
+  ['图检索', '图谱查询'],
+  ['向量检索', '向量查询'],
+  ['遗忘曲线', '遗忘衰减'],
+  ['工作卡', '任务卡'],
+  ['火花卡', '灵感卡'],
+  ['身份版本', '人设版本'],
+  ['关系模型', '关系图谱'],
+  ['巩固', '强化'],
+  ['守护', '保护'],
+  ['备份', '存档'],
+  ['权限', '许可'],
+]);
 
-export function generateSynthetic({ count = 1000, queries = 50, seed = 42 } = {}) {
+export function generateSynthetic({ count = 1000, queries = 50, seed = 42, task = 'needle' } = {}) {
   const random = mulberry32(seed);
   const pick = (list) => list[Math.floor(random() * list.length)];
   const traces = [];
@@ -46,10 +65,35 @@ export function generateSynthetic({ count = 1000, queries = 50, seed = 42 } = {}
     }
   }
   const queryList = [];
-  for (let i = 0; i < queries; i += 1) {
-    const token = pick([...idByToken.keys()]);
-    const relevant = (idByToken.get(token) ?? []).slice(0, 8);
-    queryList.push({ query: token, type: 'keyword', relevant });
+  if (task === 'needle') {
+    for (let i = 0; i < queries; i += 1) {
+      // A unique needle: the query names one specific row by its ordinal.
+      // This measures index/ranking correctness, not semantic paraphrase recall.
+      const targetIndex = Math.floor(random() * count);
+      const target = traces[targetIndex];
+      queryList.push({
+        query: `${target.title} 第 ${targetIndex} 条合成记忆`,
+        type: 'needle',
+        relevant: [target.id],
+        targetId: target.id,
+      });
+    }
+  } else if (task === 'theme' || task === 'paraphrase') {
+    const tokens = [...idByToken.keys()].filter((token) =>
+      (idByToken.get(token)?.length ?? 0) >= 2 && (task !== 'paraphrase' || PARAPHRASES.has(token)));
+    for (let i = 0; i < queries && tokens.length; i += 1) {
+      const token = pick(tokens);
+      const relevant = idByToken.get(token).slice();
+      const query = task === 'paraphrase' ? (PARAPHRASES.get(token) ?? token) : token;
+      queryList.push({
+        query,
+        type: task,
+        relevant,
+        targetToken: token,
+      });
+    }
+  } else {
+    throw new Error(`unknown synthetic task: ${task}`);
   }
-  return { traces, queries: queryList, seed, generatedAt: new Date().toISOString() };
+  return { traces, queries: queryList, seed, task, generatedAt: new Date().toISOString() };
 }

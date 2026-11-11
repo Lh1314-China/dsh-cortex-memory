@@ -15,15 +15,15 @@ test('service writes, searches, reads, reflects and reports self/health', () => 
   const { dir, cortex } = setup();
   try {
     const written = cortex.write({
-      text: '用户说会买米食，助手会一直等。',
+      text: '主人说会买白饭，本鲸会一直等。',
       explicit: true,
-      facts: [{ subject: '用户', predicate: 'likes', object: '米食' }],
+      facts: [{ subject: '主人', predicate: 'likes', object: '白饭' }],
     });
     assert.equal(written.skipped, false);
-    const search = cortex.search('米食');
+    const search = cortex.search('白饭');
     assert.ok(search.items.length >= 1);
     const get = cortex.get(written.trace.id);
-    assert.match(get.content, /米食/);
+    assert.match(get.content, /白饭/);
     const self = cortex.self();
     assert.equal(self.self.scopeId, 'global');
     assert.ok(self.identity.version >= 1);
@@ -41,7 +41,7 @@ test('service feedback and reflection work through the facade', () => {
   const { dir, cortex } = setup();
   try {
     const a = cortex.write({ text: '今天修好了检索的预算裁剪。', explicit: true });
-    const b = cortex.write({ text: '用户说米食的承诺还算数。', explicit: true });
+    const b = cortex.write({ text: '主人说白饭的承诺还算数。', explicit: true });
     const feedback = cortex.feedback({ traceId: a.trace.id, signal: 'helpful', predicted: 0.8 });
     assert.ok(feedback.trace.stability > 0);
     const reflected = cortex.reflect({ windowDays: 1, force: true });

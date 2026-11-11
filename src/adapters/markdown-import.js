@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { hashText } from '../core/ids.js';
+import { normalizeAttachments } from '../core/attachments.js';
 
 function parseFrontmatter(text) {
   const source = String(text ?? '');
@@ -14,6 +15,10 @@ function parseFrontmatter(text) {
     const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
     if (!match) continue;
     let value = match[2].trim();
+    if (match[1] === 'attachments') {
+      meta.attachments = value;
+      continue;
+    }
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
     if (value.startsWith('[') && value.endsWith(']')) value = value.slice(1, -1).split(',').map((item) => item.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     meta[match[1]] = value;
@@ -24,6 +29,14 @@ function parseFrontmatter(text) {
 export function parseMemoryMarkdown(text) {
   const { meta, body } = parseFrontmatter(text);
   const title = meta.title || body.split(/\r?\n/).find((line) => line.startsWith('# '))?.slice(2).trim() || '未命名记忆';
+  let attachments = [];
+  if (meta.attachments) {
+    try {
+      attachments = normalizeAttachments(JSON.parse(meta.attachments));
+    } catch {
+      attachments = [];
+    }
+  }
   return {
     id: meta.id || null,
     kind: meta.kind || 'utterance',
@@ -33,6 +46,7 @@ export function parseMemoryMarkdown(text) {
     importance: Number(meta.importance ?? 0.5),
     recordedAt: meta.recorded_at || meta.date || null,
     state: meta.state || 'active',
+    attachments,
   };
 }
 
@@ -103,6 +117,7 @@ export function importMarkdown(cortex, root, { dryRun = false, scopeId = 'global
           kind: parsed.kind,
           tags: parsed.tags,
           importance: parsed.importance,
+          attachments: parsed.attachments,
           explicit: true,
           operationId: `markdown:${parsed.id ?? hashText(`${file}:${parsed.title}:${parsed.content}`)}`,
           now: parsed.recordedAt ? Date.parse(parsed.recordedAt) : undefined,
@@ -142,10 +157,12 @@ export function syncMarkdown(cortex, root, { dryRun = false, scopeId = 'global',
         if (parsed.id) {
           const current = cortex.repos.traces.get(parsed.id);
           if (current) {
+            const currentAttachments = current.metadata?.attachments ?? [];
             const changed = current.content.trim() !== parsed.content.trim()
               || (current.title ?? '') !== (parsed.title ?? '')
               || JSON.stringify(current.tags ?? []) !== JSON.stringify(parsed.tags ?? [])
-              || Number(current.importance) !== Number(parsed.importance);
+              || Number(current.importance) !== Number(parsed.importance)
+              || JSON.stringify(currentAttachments) !== JSON.stringify(parsed.attachments ?? []);
             if (!changed) {
               items.push({ file, action: 'unchanged', traceId: parsed.id });
               continue;
@@ -156,6 +173,7 @@ export function syncMarkdown(cortex, root, { dryRun = false, scopeId = 'global',
                 content: parsed.content,
                 tags: parsed.tags,
                 importance: parsed.importance,
+                metadata: { ...(current.metadata ?? {}), attachments: parsed.attachments },
               });
               cortex.repos.audit?.record?.({ actor: 'user', action: 'markdown.sync.update', targetType: 'trace', targetId: parsed.id, detail: { file } });
             }
@@ -171,6 +189,7 @@ export function syncMarkdown(cortex, root, { dryRun = false, scopeId = 'global',
             kind: parsed.kind,
             tags: parsed.tags,
             importance: parsed.importance,
+            attachments: parsed.attachments,
             explicit: true,
             operationId: `markdown:${parsed.id ?? hashText(`${file}:${parsed.title}:${parsed.content}`)}`,
             now: parsed.recordedAt ? Date.parse(parsed.recordedAt) : undefined,

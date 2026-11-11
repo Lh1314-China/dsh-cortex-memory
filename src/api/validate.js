@@ -1,4 +1,5 @@
 import { CortexError, ERROR_CODES } from '../core/errors.js';
+import { normalizeAttachments } from '../core/attachments.js';
 
 function fail(message) {
   throw new CortexError(ERROR_CODES.INVALID_INPUT, message);
@@ -32,6 +33,29 @@ export function optionalStringArray(value, name, { max = 50 } = {}) {
   return value.map((item) => item.trim()).filter(Boolean);
 }
 
+function optionalFacts(value) {
+  if (value == null) return undefined;
+  if (!Array.isArray(value) || value.length > 50) fail('facts must be an array of at most 50 items');
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) fail(`facts[${index}] must be an object`);
+    return {
+      subject: requireString(item.subject, `facts[${index}].subject`, { max: 200 }),
+      predicate: requireString(item.predicate, `facts[${index}].predicate`, { max: 200 }),
+      object: requireString(item.object, `facts[${index}].object`, { optional: true, max: 200 }),
+      objectLiteral: requireString(item.objectLiteral, `facts[${index}].objectLiteral`, { optional: true, max: 2000 }),
+      confidence: optionalNumber(item.confidence, `facts[${index}].confidence`, { min: 0, max: 1 }),
+    };
+  });
+}
+
+function optionalAttachments(value) {
+  try {
+    return normalizeAttachments(value);
+  } catch (error) {
+    return fail(error.message);
+  }
+}
+
 export function validateWrite(body) {
   return {
     text: requireString(body.text, 'text'),
@@ -41,6 +65,8 @@ export function validateWrite(body) {
     importance: optionalNumber(body.importance, 'importance', { min: 0, max: 1 }),
     explicit: optionalBoolean(body.explicit, 'explicit'),
     operationId: requireString(body.operationId, 'operationId', { optional: true, max: 200 }),
+    facts: optionalFacts(body.facts),
+    attachments: optionalAttachments(body.attachments),
   };
 }
 

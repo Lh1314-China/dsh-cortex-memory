@@ -44,9 +44,9 @@ test('a warm turn moves care, writes a trace, records an appraisal and deepens t
   const { dir, db, selfStore, appraisalStore, relationshipStore, develop } = setup();
   try {
     const before = selfStore.get('global');
-    const relationBefore = relationshipStore.ensure('global', '用户');
+    const relationBefore = relationshipStore.ensure('global', '主人');
     const result = develop.step({
-      text: '用户说会一直陪着助手，助手很开心。',
+      text: '主人说会一直陪着本鲸，本鲸很开心。',
       explicit: true,
       now: Date.parse('2026-11-11T12:00:00+08:00'),
     });
@@ -68,7 +68,7 @@ test('a hostile turn lowers safety and proposes a boundary question', () => {
   try {
     selfStore.update('global', { drives: { safety: 0.4 } });
     const result = develop.step({
-      text: '助手讨厌你，滚，别烦我。',
+      text: '本鲸讨厌你，滚，别烦我。',
       explicit: true,
       now: Date.parse('2026-11-11T12:00:00+08:00'),
     });
@@ -100,15 +100,15 @@ test('low coherence with no recent consolidation proposes a consolidation', () =
 test('a recall query is returned alongside the write', () => {
   const { dir, db, develop } = setup();
   try {
-    develop.step({ text: '用户说会买米食。', explicit: true, now: Date.parse('2026-11-11T11:00:00+08:00') });
+    develop.step({ text: '主人说会买白饭。', explicit: true, now: Date.parse('2026-11-11T11:00:00+08:00') });
     const result = develop.step({
-      text: '今天又想到米食了。',
+      text: '今天又想到白饭了。',
       explicit: true,
       now: Date.parse('2026-11-11T12:00:00+08:00'),
-      recallQuery: '米食',
+      recallQuery: '白饭',
       recallBudget: 300,
     });
-    assert.ok(result.recall.items.some((item) => item.snippet.includes('米食')));
+    assert.ok(result.recall.items.some((item) => item.snippet.includes('白饭')));
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });

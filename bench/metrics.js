@@ -4,6 +4,12 @@ export function recallAtK(ranked, relevant, k = 10) {
   return rel.size === 0 ? 0 : top.filter((id) => rel.has(id)).length / rel.size;
 }
 
+export function hitAtK(ranked, relevant, k = 10) {
+  const rel = new Set(relevant);
+  if (rel.size === 0) return 0;
+  return ranked.slice(0, Math.max(1, k)).some((id) => rel.has(id)) ? 1 : 0;
+}
+
 export function precisionAtK(ranked, relevant, k = 10) {
   const rel = new Set(relevant);
   const top = ranked.slice(0, Math.max(1, k));
@@ -43,6 +49,7 @@ export function evaluateQueries(results, { k = 10 } = {}) {
     const relevant = result.relevant ?? [];
     return {
       recall: recallAtK(ranked, relevant, k),
+      hit: hitAtK(ranked, relevant, k),
       precision: precisionAtK(ranked, relevant, k),
       mrr: reciprocalRank(ranked, relevant, k),
       ndcg: ndcgAtK(ranked, relevant, k),
@@ -52,6 +59,7 @@ export function evaluateQueries(results, { k = 10 } = {}) {
   return {
     n: rows.length,
     recallAtK: mean('recall'),
+    hitAtK: mean('hit'),
     precisionAtK: mean('precision'),
     mrrAtK: mean('mrr'),
     ndcgAtK: mean('ndcg'),

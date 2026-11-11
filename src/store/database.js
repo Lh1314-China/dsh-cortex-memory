@@ -5,10 +5,19 @@ import { DatabaseSync } from 'node:sqlite';
 import { nowIso } from '../core/time.js';
 import { normalizeConfig, validateConfig } from '../core/config.js';
 import { CortexError, ERROR_CODES } from '../core/errors.js';
+import { ftsText } from '../memory/tokenizer.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_FILE = path.join(HERE, 'schema.sql');
 export const SCHEMA_VERSION = 6;
+export const FTS_INDEX_VERSION = 2;
+
+function ensureTraceColumns(db) {
+  const columns = db.prepare('PRAGMA table_info(traces)').all();
+  if (!columns.some((column) => column.name === 'metadata_json')) {
+    db.exec("ALTER TABLE traces ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'");
+  }
+}
 
 function ensureFactsColumns(db) {
   const columns = db.prepare('PRAGMA table_info(facts)').all();
@@ -23,6 +32,27 @@ function ensureFactsColumns(db) {
 function ensureParent(file) {
   if (file === ':memory:') return;
   fs.mkdirSync(path.dirname(file), { recursive: true });
+}
+
+function rebuildFtsIndex(db) {
+  db.exec('DELETE FROM traces_fts_index');
+  const insert = db.prepare('INSERT INTO traces_fts_index(trace_id, text) VALUES (?, ?)');
+  const rows = db.prepare('SELECT id, title, content, summary FROM traces').all();
+  for (const row of rows) {
+    const text = ftsText(`${row.title ?? ''} ${row.content ?? ''} ${row.summary ?? ''}`, { soft: true });
+    if (text) insert.run(row.id, text);
+  }
+}
+
+function ensureFtsIndex(db) {
+  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('fts_index_version');
+  if (Number(row?.value ?? 0) === FTS_INDEX_VERSION) return false;
+  rebuildFtsIndex(db);
+  db.prepare(`
+    INSERT INTO meta(key, value, updated_at) VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run('fts_index_version', String(FTS_INDEX_VERSION), nowIso());
+  return true;
 }
 
 function readSchema() {
@@ -44,6 +74,7 @@ export function migrate(db, { version = SCHEMA_VERSION } = {}) {
   db.exec('BEGIN IMMEDIATE');
   try {
     db.exec(readSchema());
+    ensureTraceColumns(db);
     ensureFactsColumns(db);
     const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
     if (!row) {
@@ -53,8 +84,9 @@ export function migrate(db, { version = SCHEMA_VERSION } = {}) {
     } else if (Number(row.value) < version) {
       db.prepare('UPDATE meta SET value = ?, updated_at = ? WHERE key = ?').run(String(version), nowIso(), 'schema_version');
     }
+    const ftsRebuilt = ensureFtsIndex(db);
     db.exec('COMMIT');
-    return { version, applied: true };
+    return { version, applied: true, ftsRebuilt };
   } catch (error) {
     try { db.exec('ROLLBACK'); } catch { /* ignore rollback failure */ }
     throw error;

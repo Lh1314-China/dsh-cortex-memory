@@ -15,8 +15,8 @@ test('makeId is prefixed and lexically ordered by time', () => {
 });
 
 test('hashText and chainHash are stable', () => {
-  assert.equal(hashText('米食'), hashText('米食'));
-  assert.notEqual(hashText('米食'), hashText('米饭'));
+  assert.equal(hashText('白饭'), hashText('白饭'));
+  assert.notEqual(hashText('白饭'), hashText('米饭'));
   assert.equal(chainHash(null, 'x'), chainHash(null, 'x'));
   assert.notEqual(chainHash(null, 'x'), chainHash('a', 'x'));
 });
@@ -29,26 +29,26 @@ test('stableStringify sorts object keys and rejects cycles', () => {
 });
 
 test('tokenizer builds CJK bigrams and latin terms', () => {
-  const list = tokenList('用户说米食很好吃 DSH-plugin 2026');
-  assert.ok(list.includes('米食'));
-  assert.ok(list.includes('用户'));
+  const list = tokenList('主人说白饭很好吃 DSH-plugin 2026');
+  assert.ok(list.includes('白饭'));
+  assert.ok(list.includes('主人'));
   assert.ok(list.includes('dsh'));
   assert.ok(list.includes('plugin'));
-  assert.ok(tokens('米食').has('米食'));
-  assert.equal(ftsText('米食'), '米食');
+  assert.ok(tokens('白饭').has('白饭'));
+  assert.equal(ftsText('白饭'), '白饭');
 });
 
 test('FTS match query quotes tokens and supports AND', () => {
-  assert.equal(buildMatchQuery('米食 用户'), '"米食" OR "用户"');
-  assert.equal(buildMatchQuery('米食 用户', { mode: 'and' }), '"米食" AND "用户"');
+  assert.equal(buildMatchQuery('白饭 主人'), '"白饭" OR "主人"');
+  assert.equal(buildMatchQuery('白饭 主人', { mode: 'and' }), '"白饭" AND "主人"');
   assert.equal(buildMatchQuery(''), '');
 });
 
 test('jaccard and estimateTokens are bounded', () => {
-  assert.equal(jaccard('米食 用户', '米食 用户'), 1);
-  assert.ok(jaccard('米食 用户', '插件 安装') < 0.2);
+  assert.equal(jaccard('白饭 主人', '白饭 主人'), 1);
+  assert.ok(jaccard('白饭 主人', '插件 安装') < 0.2);
   assert.ok(estimateTokens('') === 0);
-  assert.ok(estimateTokens('米食') >= 1);
+  assert.ok(estimateTokens('白饭') >= 1);
 });
 
 test('config normalizes paths and clamps numbers', () => {

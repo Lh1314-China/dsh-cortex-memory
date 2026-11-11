@@ -1,154 +1,93 @@
-# Cortex Memory for DeepSeek Harness
+﻿# dsh-cortex
 
-A layered, temporal, self-developing memory engine for DeepSeek Harness (DSH).
-It is designed for long-lived personal agents: memory that can be recalled,
-audited, consolidated and changed **without silently rewriting identity**.
+> 鏈哺鐨勬柊澶ц剳銆傚垎灞傘€佹椂搴忋€佸彲鑷垜宸╁浐鐨勮蹇嗗紩鎿庛€?> 鐘舵€侊細**鍙墦鍖呫€佸彲瀹夎**锛涙湰鏈哄紑鍙戝壇鏈粛鏈畨瑁咃紝涔熸病鏈夋帴 profile銆?> Windows 鐩存帴瀹夎/鍥炴粴瑙?[docs/install-windows.md](docs/install-windows.md)銆?
+`dsh-cortex` is a local-first memory engine for DeepSeek Harness. It is designed
+as a successor to the `dsh-shiori` + `dsh-shiori-companion` pair, not a patch on
+top of them.
 
-> Current public version: **0.1.0**
-> Package: `dsh-cortex-memory` (the npm name `dsh-cortex` is already taken by another project)
-> License: MIT
+## Why another memory plugin
 
-## Why
+The shiori stack is good at four things: a stable persona, a compact core,
+triggered spark cards and on-demand topics. It is weaker at temporal facts,
+episodic provenance, procedural learning, consolidation and calibrated
+forgetting. `dsh-cortex` keeps the good parts and adds the missing layers:
 
-Most memory plugins stop at "store and recall". Cortex adds four things that are
-hard to bolt on later:
-
-1. **Layered memory** — L0 identity, L1 working, L1.5 playbook, L2 episodic,
-   L3 semantic/temporal graph, L4 procedural, L5 reflection, archive.
-2. **Temporal truth** — event ledger, bitemporal facts, `strict / historical /
-   belief / associative` queries, DSR forgetting.
-3. **Gated growth** — consolidation, reflection, playbook candidates, policy
-   proposals; identity and core changes require approval and can be rolled back.
-4. **Guardian** — health audit, budgets, circuit breaker, backup/validate/restore,
-   privacy cascade, secret/injection scanning.
-
-## Install
-
-Requirements:
-
-- Node.js **>= 24** (uses the built-in `node:sqlite`)
-- DSH `>=0.2.1-rc.2 <0.4.0`
-
-### From a GitHub release tgz
-
-```powershell
-dsh plugin --profile desktop add "C:\path\to\dsh-cortex-memory-0.1.0.tgz"
-```
-
-### From npm (after publishing)
-
-```powershell
-dsh plugin --profile desktop add dsh-cortex-memory
-```
-
-The plugin owns `~/.dsh/cortex` and does not read or write another memory
-plugin's data.
-
-## Models
-
-Cortex works with **no model** by default:
-
-| Mode | What it uses | Key |
+| Layer | What it holds | Lifetime |
 |---|---|---|
-| `hash` | local lexical fallback | no |
-| `local` | OpenAI-compatible local service, default Ollama `bge-m3` | no |
-| `remote` | OpenAI-compatible `/embeddings` | **required** |
+| L0 identity | self-model, values, boundaries, stable traits | long, explicit promotion |
+| L1 working | current goals, focus, pinned context, recent turn buffer | minutes鈥揾ours |
+| L2 episodic | what happened, when, with whom, provenance, emotion | days鈥搚ears |
+| L3 semantic | entities, facts with validity windows, preferences | until invalidated |
+| L4 procedural | skills, workflows, preconditions, success/failure stats | until superseded |
+| L5 reflective | episode summaries, insights, narratives | derived, regenerable |
+| archive | cold but searchable, wake-word recall | until privacy deletion |
 
-For local semantic search:
+## Engines
 
-```powershell
-ollama pull bge-m3
-```
+- **event log** 鈥?append-only, hash-chained, `event_id` / `operation_id`; the
+  only source of truth.
+- **write pipeline** 鈥?scan secrets/injection 鈫?classify 鈫?dedupe 鈫?  conflict-resolve 鈫?link 鈫?persist; async jobs with idempotent operation IDs.
+- **temporal graph** 鈥?entities, facts and edges with `valid_from` /
+  `valid_to`; old facts are invalidated, never silently overwritten.
+- **hybrid retrieval** 鈥?FTS5 BM25 + optional vector + graph activation +
+  recency / importance / feedback, fused with RRF, diversified with a greedy
+  MMR-style marginal-gain pass; query filters (`kind:`, `tag:`, `after:`,
+  `importance:>`, 鈥?.
+- **DSR forgetting** 鈥?FSRS-inspired stability / difficulty / retrievability;
+  archive instead of delete, revive on successful recall.
+- **compression / retention** 鈥?archive only when a derived model covers the
+  trace, or when a reviewed retention plan says it is old/low-value; important
+  memories are never auto-archived.
+- **reflection** 鈥?episode segmentation, summaries, narrative threads,
+  duplicate/contradiction detection, optional LLM dream/summary.
+- **self model** 鈥?drives, mood, attention, appraisal, relationships,
+  initiatives, 24-category emotion/affect, identity versions.
+- **development** 鈥?maturity/stage from memory depth, feedback, calibration,
+  skills, narrative and relationships.
+- **evolution** 鈥?policy proposals 鈫?replay evaluation 鈫?explicit approval 鈫?  rollback; identity changes are separate and approval-only.
+- **guardian** 鈥?invariants, circuit breaker, budget, backup/validate/offline
+  restore, FTS repair, privacy cascade, secret/injection scanner.
+- **host runtime** 鈥?`session/event` turn capture + `user/message` /
+  `agent/pre-step` recall prefetch into the systemPrompt section.
+- **API/UI/CLI** 鈥?loopback-only HTTP API, sidebar panel, `bin/cortex.mjs`.
 
-Then in **Settings → Embedding / rerank models** choose `local`, keep
-`http://127.0.0.1:11434/v1`, model `bge-m3`, dimension `1024`.
+## Status
 
-Remote mode refuses to save without an API key. Keys are stored in the local
-data directory and are never returned by the settings API.
+This is a source-only development tree. `npm test` uses `node:test` and the
+built-in `node:sqlite`; no native dependency and no network are required for
+the core suite. Profiles install a built tgz explicitly; this tree is not
+auto-linked into them.
 
-Optional rerank uses an OpenAI-compatible `/rerank` endpoint; if it is off or
-fails, fusion order is kept.
+- **395** tests passing (unit + integration).
+- 21 model-facing tools.
+- **`cortex_as_of`**锛歴trict / historical / belief / associative銆?- **`cortex_playbook`**锛歀1.5 宸ヤ綔鍑嗗垯锛屽甫 helpful/harmful銆乿alidTo銆佽繃鏈熶笉娉ㄥ叆銆?- **`cortex_consolidate`**锛歀LM 鍐崇瓥娓呭崟 + 鏍￠獙 + `dream_runs` 鍙洖鏀捐褰曪紱鏃?LLM 鏃惰褰?skipped 骞堕浂鏀瑰姩銆?- **`cortex_search({tiered:true})`**锛歱erm/hot/cold 鍒嗗眰棰勭畻锛宑old 鍙粰绱㈠紩銆?- **寮傛娣峰悎妫€绱?*锛歚GET /search?async=true` / QA 璧?`searchAsync`锛涜繙绋?embedder 鍙储寮曪紝涓嶉樆濉炲啓銆?- 5k synthetic benchmark (needle, vector off): ~2.6-2.8k writes/s, p50 ~20-35ms; 100k migration ~2.3s. These are local numbers, not an official score.
+- Source/tests/docs 鈮?33k lines (includes `docs/book/`); source-only, not installed here.
+- Windows tgz: `dist/dsh-cortex-0.2.0-rc.11.tgz` (zero runtime deps; Node >= 24).
 
-## UI
+## Design docs
 
-The client panel includes:
-
-- Self / working memory / search / timeline / graph
-- Emotion and life views
-- Guardian, evolution, audit, retention
-- **Playbook** with candidate review before activation
-- Settings: feature switches, embedding/rerank configuration, permission
-  overrides and rollback
-
-All settings changes that affect runtime take effect after a plugin reload or
-DSH restart.
-
-## CLI
-
-```powershell
-node bin/cortex.mjs --data C:\path\to\data health
-node bin/cortex.mjs --data C:\path\to\data search --query "米食"
-node bin/cortex.mjs --data C:\path\to\data export-md --dir C:\path\to\mirror
-```
-
-## Compatibility
-
-Tested in our environment:
-
-- Windows 11
-- DSH 0.2.2-rc.1
-- Node.js 26.13.0
-- Fresh `~/.dsh/cortex` data root
-- No native runtime dependencies
-
-Requirements:
-
-- **Node.js >= 24** (the engine uses `node:sqlite`)
-- DSH `>=0.2.1-rc.2 <0.4.0`
-- One profile should run only one `cortex` host entry
-
-It is **not** guaranteed to work on Node 20/22, older DSH releases, or a
-profile that already has another plugin using the same `cortex` id. This is a
-real compatibility boundary, not a marketing detail.
-
-## Testing
-
-```powershell
-npm test
-```
-
-The repository includes unit and integration tests for storage, retrieval,
-temporal facts, playbook, consolidation, guardian, API, client contract,
-installation packaging and edge cases. Public copy test result: **373 passing**.
-
-A package-level smoke test is also run from the packed tgz before release.
-
-
-## Architecture
-
-```text
-Host events -> capture -> encode -> event ledger + trace + facts + FTS
-                                      |
-prompt <- budgets <- tiered recall <- hybrid retrieval (FTS + graph + vector)
-                                      |
-                     reflection / consolidation / playbook / growth
-                                      |
-                     identity versions / policies / guardian / audit
-```
-
-See [docs/install-windows.md](docs/install-windows.md),
-[docs/models.md](docs/models.md) and
-[docs/compatibility.md](docs/compatibility.md).
-
-## Data and privacy
-
-- Default data root: `~/.dsh/cortex`
-- No telemetry and no network calls by default
-- `hash` mode is fully offline
-- `local` mode talks only to the configured local service
-- `remote` mode sends text to the configured embedding endpoint
-- Do not put API keys in prompts or issue reports
+- [research notes](docs/research/README.md)
+- [architecture](docs/architecture.md)
+- [Anima: from memory engine to a growing individual](docs/anima.md)
+- [modules and invariants](docs/modules.md)
+- [operations / CLI / backup](docs/operations.md)
+- [security and privacy](docs/security.md)
+- [scope isolation and read-only sharing](docs/scopes.md)
+- [multimodal attachment metadata](docs/multimodal.md)
+- [benchmark](docs/benchmark.md)
+- [OpenAPI 3.1](docs/openapi.yaml)
+- [API client](src/api/client.js)
+- [UI guide](docs/ui.md)
+- [design book](docs/book/README.md)
+- [four-plugin comparison](docs/comparison-2026-11-11.md)
+- [Windows install and rollback](docs/install-windows.md)
+- [optional models](docs/models.md)
+- [shiori companion review](docs/companion-feature-review.md)
+- [ecosystem comparison 2026-11-11](docs/ecosystem-comparison-2026-11-11.md)
+- [roadmap](docs/roadmap.md)
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. External ideas are cited in the research notes; no third-party source
+code is copied into this package.
+

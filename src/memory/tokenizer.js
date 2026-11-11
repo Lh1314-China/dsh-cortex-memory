@@ -1,5 +1,6 @@
 const LATIN = /[a-z0-9_]+/g;
 const HAN = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+/g;
+const STOP_HAN = new Set('的了是在有和与我你他她它们这那就也都一个第条件把被让给对从到为以于及或而且但不没有很可能会吧呢啊'.split(''));
 
 export function tokenList(text) {
   const value = String(text ?? '').toLowerCase();
@@ -22,18 +23,32 @@ export function tokens(text) {
   return new Set(tokenList(text));
 }
 
-export function ftsText(text) {
+export function ftsTokenList(text) {
+  // Bigrams preserve phrase specificity; single non-stop CJK chars act as a
+  // cheap fuzzy fallback for near-synonyms that share a character (米饭/白饭).
+  const out = tokenList(text);
+  const value = String(text ?? '');
+  for (const run of value.match(HAN) ?? []) {
+    for (const ch of run) {
+      if (!STOP_HAN.has(ch)) out.push(ch);
+    }
+  }
+  return out;
+}
+
+export function ftsText(text, { soft = false } = {}) {
   // FTS5 needs a whitespace-separated token stream; CJK bigrams are built here
   // so the index does not depend on the host locale or a dictionary.
-  return tokenList(text).join(' ');
+  return (soft ? ftsTokenList(text) : tokenList(text)).join(' ');
 }
 
 function quote(token) {
   return `"${String(token).replace(/"/g, '""')}"`;
 }
 
-export function buildMatchQuery(query, { mode = 'or', maxTokens = 24 } = {}) {
-  const list = [...new Set(tokenList(query))].slice(0, maxTokens);
+export function buildMatchQuery(query, { mode = 'or', maxTokens = 24, soft = false } = {}) {
+  const source = soft ? ftsTokenList(query) : tokenList(query);
+  const list = [...new Set(source)].slice(0, soft ? Math.max(maxTokens, 48) : maxTokens);
   if (list.length === 0) return '';
   const joiner = mode === 'and' ? ' AND ' : ' OR ';
   return list.map(quote).join(joiner);

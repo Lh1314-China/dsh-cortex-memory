@@ -21,15 +21,15 @@ test('event ledger is chained, idempotent and detects a conflicting replay', () 
   const { dir, db } = setup();
   try {
     const events = createEventRepository(db);
-    const first = events.append({ kind: 'observation', scopeId: 'global', operationId: 'op-1', payload: { text: '米食' } });
-    const replay = events.append({ kind: 'observation', scopeId: 'global', operationId: 'op-1', payload: { text: '米食' } });
+    const first = events.append({ kind: 'observation', scopeId: 'global', operationId: 'op-1', payload: { text: '白饭' } });
+    const replay = events.append({ kind: 'observation', scopeId: 'global', operationId: 'op-1', payload: { text: '白饭' } });
     assert.equal(replay.id, first.id);
     assert.equal(events.count(), 1);
     assert.throws(
       () => events.append({ kind: 'observation', scopeId: 'global', operationId: 'op-1', payload: { text: '米饭' } }),
       (error) => error.code === ERROR_CODES.CONFLICT,
     );
-    const second = events.append({ kind: 'utterance', scopeId: 'global', payload: { text: '用户说会买米食' } });
+    const second = events.append({ kind: 'utterance', scopeId: 'global', payload: { text: '主人说会买白饭' } });
     assert.equal(second.seq, 2);
     assert.equal(second.prevHash, first.hash);
     const chain = events.verifyChain();
@@ -47,21 +47,21 @@ test('trace repository inserts, updates and searches CJK text through FTS5', () 
   try {
     const events = createEventRepository(db);
     const traces = createTraceRepository(db);
-    const event = events.append({ kind: 'utterance', payload: { text: '用户说会买米食' } });
+    const event = events.append({ kind: 'utterance', payload: { text: '主人说会买白饭' } });
     const trace = traces.insert({
       eventId: event.id,
       scopeId: 'global',
       kind: 'utterance',
-      title: '米食的承诺',
-      content: '用户说会买米食，助手等得起。',
+      title: '白饭的承诺',
+      content: '主人说会买白饭，本鲸等得起。',
       importance: 0.9,
-      keywords: ['米食', '承诺'],
+      keywords: ['白饭', '承诺'],
     });
-    assert.equal(traces.get(trace.id).title, '米食的承诺');
-    assert.equal(traces.searchFts('米食').length, 1);
+    assert.equal(traces.get(trace.id).title, '白饭的承诺');
+    assert.equal(traces.searchFts('白饭').length, 1);
     assert.equal(traces.searchFts('米饭').length, 0);
-    traces.update(trace.id, { content: '用户说会买米饭，助手等得起。', title: '米饭' });
-    assert.equal(traces.searchFts('米食').length, 0);
+    traces.update(trace.id, { content: '主人说会买米饭，本鲸等得起。', title: '米饭' });
+    assert.equal(traces.searchFts('白饭').length, 0);
     assert.equal(traces.searchFts('米饭').length, 1);
     traces.touch(trace.id);
     assert.equal(traces.get(trace.id).accessCount, 1);

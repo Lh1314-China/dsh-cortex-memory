@@ -1,6 +1,6 @@
 /**
  * Small, explicit query filter language:
- *   kind:utterance tag:米饭 after:2026-11-01 before:2026-12-01 importance:>0.5 用户
+ *   kind:utterance tag:白饭 after:2026-11-01 before:2026-12-01 importance:>0.5 主人
  * Unknown prefixes stay in the free text, so normal searches are unchanged.
  */
 const KEYS = new Set(['kind', 'tag', 'after', 'before', 'state', 'importance', 'source', 'actor']);

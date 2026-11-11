@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 import os from 'node:os';
 import path from 'node:path';
 import { createCortex } from '../src/service/cortex.js';
@@ -34,7 +34,7 @@ Commands:
   self
   health
   guard
-  import-shiori --root <legacy-data>
+  import-shiori --root <shiori-data>
   export-md --dir <target>
   import-md --dir <vault> [--dry-run]
   bench [--count 10000] [--queries 100]
@@ -94,4 +94,3 @@ function main() {
 }
 
 main();
-

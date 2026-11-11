@@ -15,7 +15,7 @@ function setup() {
 test('guardian checks invariants and repairs FTS drift', () => {
   const { dir, cortex } = setup();
   try {
-    cortex.write({ text: '用户说会买米食。', explicit: true });
+    cortex.write({ text: '主人说会买白饭。', explicit: true });
     const clean = cortex.guardian.check();
     assert.equal(clean.ok, true);
     cortex.db.exec('DELETE FROM traces_fts_index');

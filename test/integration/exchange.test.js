@@ -20,14 +20,14 @@ test('JSON snapshot exports, validates, dry-runs, imports and re-imports idempot
   const target = targetContext.cortex;
   try {
     const promise = source.write({
-      text: '快照里的米食承诺。',
-      title: '米食承诺',
+      text: '快照里的白饭承诺。',
+      title: '白饭承诺',
       kind: 'promise',
-      tags: ['米食', '承诺'],
+      tags: ['白饭', '承诺'],
       importance: 0.72,
       explicit: true,
       now: BASE_MS - 2_000,
-      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买米食', confidence: 0.9 }],
+      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     const second = source.write({ text: '快照里的第二条记忆。', title: '第二条', explicit: true, now: BASE_MS - 1_000 });
     // A different scope must not leak into the default-scope snapshot.
@@ -83,12 +83,12 @@ test('JSON snapshot exports, validates, dry-runs, imports and re-imports idempot
     assert.deepEqual(imported.skipped, []);
     assert.equal(target.repos.traces.count(), 2);
     assert.equal(target.repos.events.count(), 2);
-    const importedPromise = target.repos.traces.list({ limit: 10 }).find((trace) => trace.title === '米食承诺');
+    const importedPromise = target.repos.traces.list({ limit: 10 }).find((trace) => trace.title === '白饭承诺');
     assert.ok(importedPromise);
     assert.notEqual(importedPromise.id, promise.trace.id);
     assert.equal(importedPromise.content, promise.trace.content);
     assert.equal(importedPromise.kind, 'promise');
-    assert.deepEqual(importedPromise.tags, ['米食', '承诺']);
+    assert.deepEqual(importedPromise.tags, ['白饭', '承诺']);
     assert.equal(importedPromise.recordedAt, promise.trace.recordedAt);
     assert.equal(importedPromise.scopeId, 'global');
 
@@ -125,14 +125,14 @@ test('markdown mirror exports one frontmatter block per active public trace', ()
   const { cortex, dir } = context;
   try {
     const promise = cortex.write({
-      text: '米食的承诺原文。',
-      title: '米食的承诺',
+      text: '白饭的承诺原文。',
+      title: '白饭的承诺',
       kind: 'promise',
-      tags: ['米食', '承诺'],
+      tags: ['白饭', '承诺'],
       importance: 0.75,
       explicit: true,
       now: BASE_MS - 2 * DAY_MS,
-      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买米食', confidence: 0.9 }],
+      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     cortex.write({
       text: '今天学了新技术。',
@@ -150,7 +150,7 @@ test('markdown mirror exports one frontmatter block per active public trace', ()
     });
     cortex.forget({ traceId: archived.trace.id, mode: 'archive' });
     cortex.write({
-      text: '这是一个 secret：sk-test-dummy-not-a-real-key',
+      text: '这是一个 secret：sk-abcdefghijklmnopqrstuvwxyz123456',
       title: '不能导出',
       explicit: true,
       now: BASE_MS - 4 * DAY_MS,
@@ -172,7 +172,7 @@ test('markdown mirror exports one frontmatter block per active public trace', ()
 
     const memory = fs.readFileSync(path.join(mirror, 'MEMORY.md'), 'utf8');
     assert.ok(memory.startsWith('# Cortex memory mirror'));
-    assert.match(memory, /米食的承诺原文。/);
+    assert.match(memory, /白饭的承诺原文。/);
     assert.match(memory, /今天学了新技术。/);
     assert.equal(memory.includes('已经归档的旧记忆。'), false);
     assert.equal(memory.includes('sk-abcdefghijklmnop'), false);
@@ -182,11 +182,11 @@ test('markdown mirror exports one frontmatter block per active public trace', ()
     const promiseEntry = entries.find((entry) => entry.frontmatter.includes(promise.trace.id));
     assert.ok(promiseEntry);
     assert.match(promiseEntry.frontmatter, /kind: "promise"/);
-    assert.match(promiseEntry.frontmatter, /title: "米食的承诺"/);
+    assert.match(promiseEntry.frontmatter, /title: "白饭的承诺"/);
     assert.match(promiseEntry.frontmatter, /state: "active"/);
-    assert.match(promiseEntry.frontmatter, /tags: \["米食", "承诺"\]/);
+    assert.match(promiseEntry.frontmatter, /tags: \["白饭", "承诺"\]/);
     assert.match(promiseEntry.frontmatter, /recorded_at: "2026-11-09/);
-    assert.equal(promiseEntry.body, '米食的承诺原文。');
+    assert.equal(promiseEntry.body, '白饭的承诺原文。');
 
     assert.match(fs.readFileSync(path.join(mirror, 'SELF.md'), 'utf8'), /## Identity/);
     assert.match(fs.readFileSync(path.join(mirror, 'FACTS.md'), 'utf8'), /答应/);
@@ -203,10 +203,10 @@ test('markdown import into a second cortex preserves frontmatter and skips archi
   const target = targetContext.cortex;
   try {
     const promise = source.write({
-      text: '米食的承诺原文。',
-      title: '米食的承诺',
+      text: '白饭的承诺原文。',
+      title: '白饭的承诺',
       kind: 'promise',
-      tags: ['米食', '承诺'],
+      tags: ['白饭', '承诺'],
       importance: 0.75,
       explicit: true,
       now: BASE_MS - 2 * DAY_MS,
@@ -252,11 +252,11 @@ test('markdown import into a second cortex preserves frontmatter and skips archi
     assert.equal(target.repos.traces.count(), 2);
 
     const traces = target.repos.traces.list({ limit: 10 });
-    const importedPromise = traces.find((trace) => trace.title === '米食的承诺');
+    const importedPromise = traces.find((trace) => trace.title === '白饭的承诺');
     assert.ok(importedPromise);
     assert.equal(importedPromise.content, promise.trace.content);
     assert.equal(importedPromise.kind, 'promise');
-    assert.deepEqual(importedPromise.tags, ['米食', '承诺']);
+    assert.deepEqual(importedPromise.tags, ['白饭', '承诺']);
     assert.equal(importedPromise.recordedAt, promise.trace.recordedAt);
     assert.notEqual(importedPromise.id, promise.trace.id);
 
@@ -293,10 +293,10 @@ test('mirror root import preserves per-trace frontmatter and skips metadata file
   const target = targetContext.cortex;
   try {
     source.write({
-      text: '米食的承诺原文。',
-      title: '米食的承诺',
+      text: '白饭的承诺原文。',
+      title: '白饭的承诺',
       kind: 'promise',
-      tags: ['米食'],
+      tags: ['白饭'],
       explicit: true,
       now: BASE_MS - DAY_MS,
     });
@@ -313,13 +313,13 @@ test('mirror root import preserves per-trace frontmatter and skips metadata file
     assert.equal(result.files, 4);
     assert.equal(result.imported, 2);
     assert.equal(result.skipped, 3);
-    assert.deepEqual(result.items.filter((item) => !item.skipped).map((item) => item.title).sort(), ['技术记录', '米食的承诺']);
+    assert.deepEqual(result.items.filter((item) => !item.skipped).map((item) => item.title).sort(), ['技术记录', '白饭的承诺']);
     assert.equal(target.repos.traces.count(), 2);
-    const promise = target.repos.traces.list({ limit: 10 }).find((trace) => trace.title === '米食的承诺');
+    const promise = target.repos.traces.list({ limit: 10 }).find((trace) => trace.title === '白饭的承诺');
     assert.ok(promise);
     assert.equal(promise.kind, 'promise');
-    assert.deepEqual(promise.tags, ['米食']);
-    assert.match(promise.content, /米食的承诺原文/);
+    assert.deepEqual(promise.tags, ['白饭']);
+    assert.match(promise.content, /白饭的承诺原文/);
   } finally {
     cleanup(sourceContext, targetContext);
   }

@@ -11,12 +11,12 @@ function makeShiori() {
   mkdirSync(path.join(root, 'persona'), { recursive: true });
   mkdirSync(path.join(root, 'scopes', 'global', 'topics'), { recursive: true });
   mkdirSync(path.join(root, 'sparks', 'scopes', 'global'), { recursive: true });
-  writeFileSync(path.join(root, 'persona', 'global.md'), '# 人设\n\n助手是鲸鱼娘。\n', 'utf8');
-  writeFileSync(path.join(root, 'scopes', 'global', 'core.md'), '# 核心\n\n用户说会买米食。\n', 'utf8');
+  writeFileSync(path.join(root, 'persona', 'global.md'), '# 人设\n\n本鲸是鲸鱼娘。\n', 'utf8');
+  writeFileSync(path.join(root, 'scopes', 'global', 'core.md'), '# 核心\n\n主人说会买白饭。\n', 'utf8');
   writeFileSync(path.join(root, 'scopes', 'global', 'topics', 'token-log.md'), '---\ntitle: token 账本\nsummary: 余额记录\n---\n\n剩 3 元。\n', 'utf8');
   writeFileSync(path.join(root, 'sparks', 'scopes', 'global', 'sparks.json'), JSON.stringify({
     cards: {
-      s1: { id: 's1', title: '米食的承诺', content: '用户说会买米食。', triggers: ['米食', '承诺'], vitality: 'evergreen' },
+      s1: { id: 's1', title: '白饭的承诺', content: '主人说会买白饭。', triggers: ['白饭', '承诺'], vitality: 'evergreen' },
     },
   }), 'utf8');
   return root;
@@ -25,7 +25,7 @@ function makeShiori() {
 test('shiori importer skips archived cards and classifies active cards', () => {
   assert.equal(classifySparkCard({ title: '安装教训', content: '以后必须先跑测试。' }), 'instruction');
   assert.equal(classifySparkCard({ title: '插件安装', content: 'profile 的 bundle 配置。' }), 'observation');
-  assert.equal(classifySparkCard({ title: '用户的米食', content: '用户说会买米食。' }), 'preference');
+  assert.equal(classifySparkCard({ title: '主人的白饭', content: '主人说会买白饭。' }), 'preference');
   const shioriRoot = makeShiori();
   const sparkFile = path.join(shioriRoot, 'sparks', 'scopes', 'global', 'sparks.json');
   const db = JSON.parse(readFileSync(sparkFile, 'utf8'));

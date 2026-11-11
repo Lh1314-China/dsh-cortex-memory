@@ -55,7 +55,7 @@ export function createEmotionModel({ db, scopeId = 'global' } = {}) {
     return `又${entries[0][0]}又${entries[1][0]}`;
   }
 
-  function record({ text, target = '用户', traceId = null, source = 'user', at = nowIso() } = {}) {
+  function record({ text, target = '主人', traceId = null, source = 'user', at = nowIso() } = {}) {
     const result = detect(text);
     if (result.emotions.length === 0) return { ...result, event: null, target: null };
     const id = makeId('emo');

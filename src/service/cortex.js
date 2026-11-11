@@ -55,6 +55,9 @@ import { createQaEngine } from '../engines/qa.js';
 import { summarizeGraph } from '../engines/graph-analytics.js';
 import { createMetrics } from '../observability/metrics.js';
 import { parseQuery } from '../memory/query.js';
+import { normalizeAttachments } from '../core/attachments.js';
+import { createScopeGrantStore } from '../security/scope-grants.js';
+import { inspectLocalAttachment } from '../core/attachment-reader.js';
 
 /**
  * Facade that wires the repositories and engines together. The host plugin and
@@ -105,10 +108,16 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       embedder: vectorEmbedder,
       model: config.vectorModel ?? (remoteEmbedding ? modelConfig.embedding.model : undefined),
       dim: config.vectorDim ?? (remoteEmbedding ? modelConfig.embedding.dim : undefined),
+      annEnabled: config.features?.vectorAnn === true,
+      annMin: config.vectorAnnMin ?? 20000,
+      annEngine: config.vectorAnnEngine === 'nsw' ? 'nsw' : 'hnsw',
+      annOptions: { M: 24, efConstruction: 200, efSearch: 800 },
+      externalAnnEnabled: config.features?.vectorAnnExternal === true,
+      externalAnnOptions: { endpoint: config.vectorAnnEndpoint, timeoutMs: config.vectorAnnTimeoutMs },
     })
     : null;
 
-  const encode = createEncodeEngine({ events, traces, entities, facts, audit, vector, config });
+  const encode = createEncodeEngine({ events, traces, entities, facts, edges, audit, vector, config });
   const graph = createGraphEngine({ entities, facts, edges, traces });
   const policies = createPolicyRepository(db);
   const policyConfig = (kind) => {
@@ -174,9 +183,60 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   });
 
   const llmFactTasks = new Set();
+  const readOnlyScopes = new Set(Array.isArray(config.readOnlyScopes) ? config.readOnlyScopes : []);
+  const scopeGrantStore = createScopeGrantStore(config.dataRoot);
+  let scopeWriteGrants = new Map();
+
+  function rebuildScopeGrants() {
+    const persisted = scopeGrantStore.all();
+    const revoked = new Set(persisted.revoked);
+    const next = new Map();
+    const entries = [...(Array.isArray(config.scopeWriteGrants) ? config.scopeWriteGrants : []), ...persisted.grants];
+    for (const entry of entries) {
+      const grant = typeof entry === 'string' ? entry : entry?.grant;
+      const until = typeof entry === 'string' ? null : entry?.until ?? null;
+      if (typeof grant !== 'string' || !grant.includes(':') || revoked.has(grant)) continue;
+      next.set(grant, until ? Date.parse(until) : null);
+    }
+    scopeWriteGrants = next;
+  }
+
+  rebuildScopeGrants();
+
+  function scopeWritable(scopeId, agentId = null, at = Date.now()) {
+    const scope = String(scopeId ?? config.scope);
+    if (!readOnlyScopes.has(scope)) return true;
+    if (!agentId) return false;
+    const key = `${scope}:${agentId}`;
+    if (!scopeWriteGrants.has(key)) return false;
+    const until = scopeWriteGrants.get(key);
+    return until == null || until > at;
+  }
+
+  function scopeWritableById(kind, id, agentId = null) {
+    const record = kind === 'working'
+      ? workingStore.get(id)
+      : kind === 'goal'
+        ? goalStore.get(id)
+        : kind === 'playbook'
+          ? playbookRepo.get(id)
+          : kind === 'trace'
+            ? traces.get(id)
+            : null;
+    // Missing ids are left to the store's normal null/no-op behavior.
+    if (!record) return true;
+    return scopeWritable(record.scopeId, agentId);
+  }
 
   function writeInternal(input = {}) {
-    const result = encode.encode({ ...input, scopeId: input.scopeId ?? config.scope });
+    const scopeId = input.scopeId ?? config.scope;
+    if (!scopeWritable(scopeId)) return { skipped: true, reason: 'scope-read-only', scopeId };
+    const attachments = normalizeAttachments(input.attachments);
+    const metadata = {
+      ...(input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata) ? input.metadata : {}),
+      ...(attachments.length ? { attachments } : {}),
+    };
+    const result = encode.encode({ ...input, scopeId, metadata });
     if (!result.skipped && config.features?.autoFacts === true && !Array.isArray(input.facts)) {
       try {
         result.autoFacts = extractor.extract({
@@ -186,6 +246,31 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
           eventId: result.event?.id ?? null,
           recordedAt: result.trace?.recordedAt ?? null,
         });
+        if (config.features?.graphCandidateAutoFacts === true) {
+          const queued = [];
+          for (const resolution of result.autoFacts.resolved ?? []) {
+            const fact = resolution?.fact;
+            if (!fact?.subjectId || !fact?.objectId || fact.status !== 'active') continue;
+            try {
+              const edge = edges.addCandidate({
+                scopeId: input.scopeId ?? config.scope,
+                fromId: fact.subjectId,
+                toId: fact.objectId,
+                rel: fact.predicate,
+                weight: fact.confidence ?? 0.5,
+                confidence: fact.confidence ?? 0.5,
+                sourceEventId: result.event?.id ?? null,
+                sourceTraceId: result.trace?.id ?? null,
+                evidence: { autoFact: true, factId: fact.id ?? null },
+              });
+              queued.push(edge);
+              audit.record?.({ actor: 'system', action: 'edge.candidate.auto', targetType: 'edge', targetId: edge.id, detail: { fromId: edge.fromId, toId: edge.toId, rel: edge.rel } });
+            } catch {
+              /* fail open per candidate */
+            }
+          }
+          if (queued.length) result.edgeCandidates = [...(result.edgeCandidates ?? []), ...queued];
+        }
       } catch {
         result.autoFacts = { candidates: [], resolved: [] };
       }
@@ -366,6 +451,9 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     evolution,
     write,
     writeMany,
+    scopeWritable,
+    scopeWritableById,
+    scopeReadable: () => true,
     metrics: () => metrics.snapshot(),
     models: {
       get: () => redactedModelConfig(effectiveModelConfig(config.dataRoot)),
@@ -373,6 +461,43 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
         const result = saveModelConfig(config.dataRoot, input, { confirm: input.confirm === true });
         audit.record?.({ actor: 'user', action: 'model.config.update', targetType: 'model', targetId: result.path, detail: result.config });
         return { ...result, restartRequired: true };
+      },
+    },
+    attachments: {
+      inspect: ({ uri } = {}) => {
+        if (config.features?.attachmentReader !== true) throw new Error('attachment reader is disabled');
+        const result = inspectLocalAttachment(uri);
+        audit.record?.({ actor: 'user', action: 'attachment.inspect', targetType: 'attachment', targetId: result.uri, detail: { bytes: result.bytes, sha256: result.sha256 } });
+        return result;
+      },
+      attach: ({ traceId, attachments } = {}) => {
+        const trace = traces.get(traceId);
+        if (!trace) throw new Error('trace not found');
+        if (!scopeWritableById('trace', traceId)) throw new Error('scope-read-only');
+        const next = normalizeAttachments(attachments);
+        const merged = [...(Array.isArray(trace.metadata?.attachments) ? trace.metadata.attachments : []), ...next];
+        if (merged.length > 8) throw new Error('at most 8 attachments');
+        const updated = traces.update(traceId, { metadata: { ...(trace.metadata ?? {}), attachments: merged } });
+        audit.record?.({ actor: 'user', action: 'attachment.attach', targetType: 'trace', targetId: traceId, detail: { added: next.length, total: merged.length } });
+        return { trace: updated, added: next.length };
+      },
+    },
+    security: {
+      grants: () => ({
+        grants: [...scopeWriteGrants.entries()].map(([grant, until]) => ({ grant, until: until == null ? null : new Date(until).toISOString() })),
+        revoked: scopeGrantStore.all().revoked,
+      }),
+      addGrant: ({ grant, until = null } = {}) => {
+        const entry = scopeGrantStore.add({ grant, until });
+        rebuildScopeGrants();
+        audit.record?.({ actor: 'user', action: 'scope.grant.add', targetType: 'scope-grant', targetId: entry.grant, detail: { until: entry.until } });
+        return entry;
+      },
+      revokeGrant: ({ grant } = {}) => {
+        const value = scopeGrantStore.revoke(grant);
+        rebuildScopeGrants();
+        audit.record?.({ actor: 'user', action: 'scope.grant.revoke', targetType: 'scope-grant', targetId: value, detail: {} });
+        return { grant: value, revoked: true };
       },
     },
     permissions: {
@@ -397,6 +522,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       contextBudget: config.contextBudget,
       promptBudget: config.promptBudget,
       features: config.features ?? {},
+      readOnlyScopes: [...readOnlyScopes],
       overrides: readOverrides(config.dataRoot).current,
       model: redactedModelConfig(modelConfig),
       permissions: {
@@ -519,8 +645,66 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
         summary: summarizeGraph(edgeRows),
       };
     },
+    graphCandidates: ({ scopeId = config.scope, limit = 200 } = {}) => edges.listCandidates({ scopeId, limit }),
+    graphCandidateAction: ({ action, id, scopeId = config.scope, fromId, toId, rel, weight, confidence, sourceEventId, sourceTraceId, evidence, metadata } = {}) => {
+      if (!scopeWritable(scopeId)) throw new Error('scope-read-only');
+      let result = null;
+      if (action === 'add') {
+        result = edges.addCandidate({ scopeId, fromId, toId, rel, weight, confidence, sourceEventId, sourceTraceId, evidence, metadata });
+      } else if (action === 'approve') {
+        result = edges.approveCandidate(id);
+      } else if (action === 'reject') {
+        result = edges.rejectCandidate(id);
+      } else {
+        throw new Error('graph candidate action must be add, approve or reject');
+      }
+      if (result) {
+        audit.record?.({
+          actor: 'user',
+          action: `edge.candidate.${action}`,
+          targetType: 'edge',
+          targetId: result.id,
+          detail: {
+            fromId: result.fromId,
+            toId: result.toId,
+            rel: result.rel,
+            confidence: result.metadata?.confidence ?? null,
+            sourceTraceId: result.metadata?.sourceTraceId ?? null,
+          },
+        });
+      }
+      return result;
+    },
     search,
     searchAsync,
+    ingestExtractedText: ({ targetTraceId, text, uri, mode, engine } = {}) => {
+      const target = traces.get(targetTraceId);
+      if (!target) throw new Error('target trace not found');
+      if (!scopeWritableById('trace', targetTraceId)) throw new Error('scope-read-only');
+      const content = String(text ?? '').trim().slice(0, 20000);
+      if (!content) throw new Error('extracted text is empty');
+      const result = writeInternal({
+        text: content,
+        scopeId: target.scopeId,
+        kind: 'observation',
+        explicit: true,
+        source: 'extractor',
+        metadata: {
+          derivedFrom: targetTraceId,
+          extractor: { uri: uri ?? null, mode: mode ?? null, engine: engine ?? null },
+        },
+        tags: ['extractor', mode].filter(Boolean),
+      });
+      const extractedId = result?.trace?.id ?? null;
+      audit.record?.({
+        actor: 'system',
+        action: 'attachment.extract.ingest',
+        targetType: 'trace',
+        targetId: targetTraceId,
+        detail: { extractedTraceId: extractedId, uri: uri ?? null, mode: mode ?? null, chars: content.length },
+      });
+      return { targetTraceId, extractedTraceId: extractedId, chars: content.length };
+    },
     flushLlmFacts,
     recallTiered: ({ query, limit = 20, permBudget = 700, hotBudget = 900, coldBudget = 400, scopeId = config.scope, includeArchived = false } = {}) => {
       const result = search(query, { limit, budget: permBudget + hotBudget + coldBudget, scopeId, includeArchived, noBudget: true });
@@ -536,7 +720,11 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     timeline,
     step: develop.step,
     feedback: (input) => growth.applyFeedback({ ...input, scopeId: input.scopeId ?? config.scope }),
-    forget: (input) => privacy.forget(input),
+    forget: (input) => {
+      const trace = traces.get(input?.traceId);
+      if (trace && !scopeWritable(trace.scopeId)) return { removed: false, reason: 'scope-read-only', traceId: input.traceId };
+      return privacy.forget(input);
+    },
     privacy,
     reflect: (options = {}) => reflect.reflect({ ...options, scopeId: options.scopeId ?? config.scope }),
     evaluateDevelopment: (options = {}) => development.evaluate({ ...options, scopeId: options.scopeId ?? config.scope }),

@@ -9,8 +9,8 @@ import { createQaEngine } from '../../src/engines/qa.js';
 function setup() {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-qa-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
-  cortex.write({ text: '用户最喜欢米食。', title: '米食', explicit: true });
-  cortex.write({ text: '助手会一直等用户。', title: '等待', explicit: true });
+  cortex.write({ text: '主人最喜欢白饭。', title: '白饭', explicit: true });
+  cortex.write({ text: '本鲸会一直等主人。', title: '等待', explicit: true });
   return { dir, cortex };
 }
 
@@ -18,10 +18,10 @@ test('qa engine extracts evidence without an LLM', async () => {
   const { dir, cortex } = setup();
   try {
     const qa = createQaEngine({ cortex });
-    const result = await qa.answer({ question: '用户喜欢什么？' });
+    const result = await qa.answer({ question: '主人喜欢什么？' });
     assert.equal(result.mode, 'extractive');
     assert.ok(result.sources.length >= 1);
-    assert.match(result.answer, /米食|抽取式/);
+    assert.match(result.answer, /白饭|抽取式/);
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });
@@ -63,12 +63,12 @@ test('host prefetch recall is not charged to the search budget', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-prefetch-budget-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), maxCallsPerHour: 1 } });
   try {
-    cortex.write({ text: '用户最喜欢米食。', explicit: true });
-    assert.equal(cortex.search('米食', { noBudget: true }).items.length, 1);
-    assert.equal(cortex.search('米食', { noBudget: true }).items.length, 1);
+    cortex.write({ text: '主人最喜欢白饭。', explicit: true });
+    assert.equal(cortex.search('白饭', { noBudget: true }).items.length, 1);
+    assert.equal(cortex.search('白饭', { noBudget: true }).items.length, 1);
     assert.equal(cortex.budget.snapshot().calls, 0);
-    assert.equal(cortex.search('米食').items.length, 1);
-    assert.equal(cortex.search('米食').trace.blocked, 'budget');
+    assert.equal(cortex.search('白饭').items.length, 1);
+    assert.equal(cortex.search('白饭').trace.blocked, 'budget');
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });
@@ -78,10 +78,10 @@ test('host prefetch recall is not charged to the search budget', () => {
 test('qa engine uses an injected LLM and abstains when nothing is recalled', async () => {
   const { dir, cortex } = setup();
   try {
-    const qa = createQaEngine({ cortex, llm: { complete: async () => '米食 [1]' } });
-    const result = await qa.answer({ question: '用户喜欢什么？' });
+    const qa = createQaEngine({ cortex, llm: { complete: async () => '白饭 [1]' } });
+    const result = await qa.answer({ question: '主人喜欢什么？' });
     assert.equal(result.mode, 'llm');
-    assert.match(result.answer, /米食/);
+    assert.match(result.answer, /白饭/);
     const emptyDir = mkdtempSync(path.join(os.tmpdir(), 'cortex-qa-empty-'));
     const empty = createCortex({ config: { dataRoot: emptyDir, dbFile: path.join(emptyDir, 'cortex.sqlite') } });
     try {

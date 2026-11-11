@@ -1,11 +1,12 @@
 import { hashText, traceId } from '../../core/ids.js';
-import { asJsonArray, stableStringify } from '../../core/json.js';
+import { asJsonArray, asJsonObject, stableStringify } from '../../core/json.js';
 import { nowIso } from '../../core/time.js';
 import { ftsText, buildMatchQuery } from '../../memory/tokenizer.js';
 import { CortexError, ERROR_CODES } from '../../core/errors.js';
+import { FTS_INDEX_VERSION } from '../database.js';
 
 const COLUMNS = [
-  'title', 'content', 'summary', 'keywords_json', 'tags_json', 'event_id',
+  'title', 'content', 'summary', 'keywords_json', 'tags_json', 'metadata_json', 'event_id',
   'session_id', 'turn_id', 'actor', 'source', 'valid_at', 'recorded_at',
   'last_access_at', 'access_count', 'importance', 'confidence', 'salience',
   'valence', 'arousal', 'sensitivity', 'state', 'compression', 'stability',
@@ -20,6 +21,7 @@ const FIELD_MAP = Object.freeze({
   kind: 'kind',
   keywords: 'keywords_json',
   tags: 'tags_json',
+  metadata: 'metadata_json',
   eventId: 'event_id',
   sessionId: 'session_id',
   turnId: 'turn_id',
@@ -57,6 +59,7 @@ function rowToTrace(row) {
     summary: row.summary,
     keywords: asJsonArray(row.keywords_json),
     tags: asJsonArray(row.tags_json),
+    metadata: asJsonObject(row.metadata_json),
     eventId: row.event_id,
     sessionId: row.session_id,
     turnId: row.turn_id,
@@ -87,9 +90,11 @@ function rowToTrace(row) {
 }
 
 export function createTraceRepository(db) {
-  function syncFts(trace) {
-    db.prepare('DELETE FROM traces_fts_index WHERE trace_id = ?').run(trace.id);
-    const text = ftsText(`${trace.title ?? ''} ${trace.content ?? ''} ${trace.summary ?? ''}`);
+  function syncFts(trace, { replace = true } = {}) {
+    // trace_id is UNINDEXED in FTS5. Deleting by it on a brand-new insert scans
+    // the whole index and makes bulk writes quadratic; only updates need delete.
+    if (replace) db.prepare('DELETE FROM traces_fts_index WHERE trace_id = ?').run(trace.id);
+    const text = ftsText(`${trace.title ?? ''} ${trace.content ?? ''} ${trace.summary ?? ''}`, { soft: true });
     if (text) {
       db.prepare('INSERT INTO traces_fts_index(trace_id, text) VALUES (?, ?)').run(trace.id, text);
     }
@@ -110,6 +115,7 @@ export function createTraceRepository(db) {
       summary: input.summary ?? null,
       keywords: asJsonArray(input.keywords),
       tags: asJsonArray(input.tags),
+      metadata: asJsonObject(input.metadata),
       eventId: input.eventId,
       sessionId: input.sessionId ?? null,
       turnId: input.turnId ?? null,
@@ -140,15 +146,15 @@ export function createTraceRepository(db) {
     db.prepare(`
       INSERT INTO traces(
         id, scope_id, kind, title, content, summary, keywords_json, tags_json,
-        event_id, session_id, turn_id, actor, source, valid_at, recorded_at,
+        metadata_json, event_id, session_id, turn_id, actor, source, valid_at, recorded_at,
         last_access_at, access_count, importance, confidence, salience, valence,
         arousal, sensitivity, state, compression, stability, difficulty,
         retrievability, review_count, lapse_count, last_review_at, hash,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       trace.id, trace.scopeId, trace.kind, trace.title, trace.content, trace.summary,
-      stableStringify(trace.keywords), stableStringify(trace.tags), trace.eventId,
+      stableStringify(trace.keywords), stableStringify(trace.tags), stableStringify(trace.metadata), trace.eventId,
       trace.sessionId, trace.turnId, trace.actor, trace.source, trace.validAt,
       trace.recordedAt, trace.lastAccessAt, trace.accessCount, trace.importance,
       trace.confidence, trace.salience, trace.valence, trace.arousal,
@@ -156,7 +162,7 @@ export function createTraceRepository(db) {
       trace.difficulty, trace.retrievability, trace.reviewCount, trace.lapseCount,
       trace.lastReviewAt, trace.hash, trace.createdAt, trace.updatedAt,
     );
-    syncFts(trace);
+    syncFts(trace, { replace: false });
     return trace;
   }
 
@@ -198,6 +204,7 @@ export function createTraceRepository(db) {
       if (!(key in patch)) continue;
       let value = patch[key];
       if (key === 'keywords' || key === 'tags') value = stableStringify(asJsonArray(value));
+      if (key === 'metadata') value = stableStringify(asJsonObject(value));
       sets.push(`${column} = ?`);
       values.push(value);
     }
@@ -222,8 +229,8 @@ export function createTraceRepository(db) {
     return result.changes > 0;
   }
 
-  function searchFts(query, { scopeId = 'global', limit = 30, includeArchived = false } = {}) {
-    const match = buildMatchQuery(query);
+  function searchFts(query, { scopeId = 'global', limit = 30, includeArchived = false, soft = false } = {}) {
+    const match = buildMatchQuery(query, { soft });
     if (!match) return [];
     const count = Math.max(1, Math.min(200, Number(limit) || 30));
     const stateClause = includeArchived ? "t.state IN ('active','archived')" : "t.state = 'active'";
@@ -253,7 +260,11 @@ export function createTraceRepository(db) {
   function reindexFts() {
     db.exec('DELETE FROM traces_fts_index');
     const rows = db.prepare('SELECT id, title, content, summary FROM traces').all();
-    for (const row of rows) syncFts({ id: row.id, title: row.title, content: row.content, summary: row.summary });
+    for (const row of rows) syncFts({ id: row.id, title: row.title, content: row.content, summary: row.summary }, { replace: false });
+    db.prepare(`
+      INSERT INTO meta(key, value, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run('fts_index_version', String(FTS_INDEX_VERSION), nowIso());
     return rows.length;
   }
 

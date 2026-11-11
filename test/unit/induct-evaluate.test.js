@@ -26,11 +26,11 @@ test('repeated tagged traces induce candidate skills, not active ones', () => {
 
 test('policy replay compares current and candidate retrieval', async () => {
   const queries = [
-    { query: '米食', relevant: ['a'] },
+    { query: '白饭', relevant: ['a'] },
     { query: '插件', relevant: ['b'] },
   ];
-  const current = async (query) => ({ items: query === '米食' ? [{ id: 'x' }] : [{ id: 'b' }] });
-  const candidate = async (query) => ({ items: query === '米食' ? [{ id: 'a' }] : [{ id: 'b' }] });
+  const current = async (query) => ({ items: query === '白饭' ? [{ id: 'x' }] : [{ id: 'b' }] });
+  const candidate = async (query) => ({ items: query === '白饭' ? [{ id: 'a' }] : [{ id: 'b' }] });
   const before = await evaluatePolicy({ queries, run: current });
   const after = await evaluatePolicy({ queries, run: candidate });
   assert.equal(before.recallAtK, 0.5);

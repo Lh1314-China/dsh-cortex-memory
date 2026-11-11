@@ -21,12 +21,12 @@ export function classifyIntent(query) {
 }
 
 export const INTENT_WEIGHTS = Object.freeze({
-  fact: { fusion: 0.55, importance: 0.15, recency: 0.1, confidence: 0.15, access: 0.05 },
-  temporal: { fusion: 0.4, importance: 0.1, recency: 0.35, confidence: 0.1, access: 0.05 },
-  relational: { fusion: 0.5, importance: 0.15, recency: 0.1, confidence: 0.2, access: 0.05 },
-  procedural: { fusion: 0.45, importance: 0.25, recency: 0.1, confidence: 0.15, access: 0.05 },
-  narrative: { fusion: 0.4, importance: 0.15, recency: 0.3, confidence: 0.1, access: 0.05 },
-  identity: { fusion: 0.35, importance: 0.3, recency: 0.05, confidence: 0.25, access: 0.05 },
+  fact: { fusion: 0.55, importance: 0.15, recency: 0.1, confidence: 0.15, access: 0.05, match: 0.25, exact: 0.2 },
+  temporal: { fusion: 0.4, importance: 0.1, recency: 0.35, confidence: 0.1, access: 0.05, match: 0.25, exact: 0.2 },
+  relational: { fusion: 0.5, importance: 0.15, recency: 0.1, confidence: 0.2, access: 0.05, match: 0.25, exact: 0.2 },
+  procedural: { fusion: 0.45, importance: 0.25, recency: 0.1, confidence: 0.15, access: 0.05, match: 0.25, exact: 0.2 },
+  narrative: { fusion: 0.4, importance: 0.15, recency: 0.3, confidence: 0.1, access: 0.05, match: 0.25, exact: 0.2 },
+  identity: { fusion: 0.35, importance: 0.3, recency: 0.05, confidence: 0.25, access: 0.05, match: 0.25, exact: 0.2 },
 });
 
 export function weightedRrf(lists, { k = 60 } = {}) {
@@ -58,31 +58,46 @@ function snippet(trace, max = 220) {
   return value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
 }
 
-function candidateFromTrace(trace, fusion, intent, now, decay, weights = null) {
+function queryCoverage(wanted, present) {
+  if (!wanted || !present || wanted.size === 0 || present.size === 0) return 0;
+  let shared = 0;
+  for (const token of wanted) if (present.has(token)) shared += 1;
+  return shared / wanted.size;
+}
+
+function candidateFromTrace(trace, fusion, intent, now, decay, weights = null, queryTokens = null) {
   const recency = retrievability(trace.stability, daysBetween(trace.lastAccessAt || trace.recordedAt, now), decay);
   const access = Math.log1p(Number(trace.accessCount) || 0) / Math.log1p(50);
   const w = { ...(INTENT_WEIGHTS[intent] || INTENT_WEIGHTS.fact), ...(weights ?? {}) };
   const fusionScore = typeof fusion === 'number' ? fusion : Number(fusion?.score) || 0;
+  const text = `${trace.title ?? ''} ${trace.content ?? ''} ${trace.summary ?? ''}`;
+  const textTokens = tokens(text);
+  const match = queryCoverage(queryTokens, textTokens);
   const utility = w.fusion * fusionScore
     + w.importance * Number(trace.importance || 0)
     + w.recency * recency
     + w.confidence * Number(trace.confidence || 0)
-    + w.access * access;
+    + w.access * access
+    + w.match * match
+    + w.exact * (match >= 0.999 ? 1 : 0);
   return {
     id: trace.id,
     type: 'trace',
     layer: trace.kind === 'reflection' ? 'L5' : 'L2',
     title: trace.title || trace.kind,
     snippet: snippet(trace),
-    text: `${trace.title ?? ''} ${trace.content ?? ''} ${trace.summary ?? ''}`,
+    text,
+    tokenSet: textTokens,
     utility,
     recency,
+    match,
     importance: Number(trace.importance || 0),
     confidence: Number(trace.confidence || 0),
     validAt: trace.validAt,
     recordedAt: trace.recordedAt,
     cost: Math.max(16, estimateTokens(snippet(trace))),
     sources: fusion.sources,
+    attachments: Array.isArray(trace.metadata?.attachments) ? trace.metadata.attachments.length : 0,
     trace,
   };
 }
@@ -114,7 +129,9 @@ export function selectPortfolio(candidates, {
     }
     let redundancy = 0;
     for (const chosen of selected) {
-      redundancy = Math.max(redundancy, jaccard(candidate.text, chosen.text), overlapScore(candidate.text, chosen.text) * 0.8);
+      const candidateTokens = candidate.tokenSet ?? candidate.text;
+      const chosenTokens = chosen.tokenSet ?? chosen.text;
+      redundancy = Math.max(redundancy, jaccard(candidateTokens, chosenTokens), overlapScore(candidateTokens, chosenTokens) * 0.8);
     }
     const gain = candidate.utility - lambda * redundancy - mu * (cost / Math.max(1, budget));
     if (selected.length > 0 && gain <= 0) {
@@ -139,14 +156,27 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
   };
 
   function searchSources(query, { scopeId = 'global', limit = 12, now = Date.now(), includeArchived = false, weights = null, filters = null, vectorHits = null } = {}, intent = 'fact') {
+    const queryTokens = tokens(query);
     const sourceTrace = [];
     const lists = [];
     let ftsCount = 0;
     let recentCount = 0;
     try {
-      const hits = traces.searchFts(query, { scopeId, limit: Math.max(limit * 3, defaults.ftsLimit), includeArchived });
+      let hits = traces.searchFts(query, { scopeId, limit: Math.max(limit * 3, defaults.ftsLimit), includeArchived });
+      let sourceName = 'fts';
+      if (!hits.length) {
+        // Character fallback: only when the exact bigram query has no hits.
+        // This keeps normal FTS precision and lets 米饭 find 白饭 via 饭.
+        hits = traces.searchFts(query, {
+          scopeId,
+          limit: Math.max(limit * 3, defaults.ftsLimit),
+          includeArchived,
+          soft: true,
+        });
+        sourceName = 'fts-soft';
+      }
       ftsCount = hits.length;
-      if (hits.length) lists.push({ name: 'fts', weight: 1.0, items: hits });
+      if (hits.length) lists.push({ name: sourceName, weight: sourceName === 'fts-soft' ? 0.7 : 1.0, items: hits });
     } catch (error) {
       sourceTrace.push({ source: 'fts', ok: false, error: error instanceof Error ? error.message : String(error) });
     }
@@ -205,7 +235,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       const trace = traces.get(id);
       if (!trace || trace.state === 'archived' && !includeArchived) continue;
       if (filters && !matchesFilters(trace, filters)) continue;
-      candidates.push(candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights));
+      candidates.push(candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights, queryTokens));
     }
     for (const list of lists) {
       sourceTrace.push({ source: list.name, ok: true, count: list.items.length });
@@ -250,6 +280,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       validAt: item.validAt,
       recordedAt: item.recordedAt,
       why: item.sources.map((source) => `${source.name}#${source.rank}`).join(','),
+      attachments: item.attachments ?? 0,
     }));
     return {
       query,

@@ -164,7 +164,7 @@ test('POST write sends JSON, x-cortex and the exact body', async () => {
   const { client, calls, queue } = harness();
   queue.push(ok({ trace: { id: 'tr1' } }));
 
-  const input = { text: '用户说会买米食。', tags: ['米食'], explicit: true };
+  const input = { text: '主人说会买白饭。', tags: ['白饭'], explicit: true };
   const result = await client.write(input);
 
   assert.deepEqual(result, { trace: { id: 'tr1' } });
@@ -188,7 +188,7 @@ test('custom tokenHeader is sent as the x-cortex value', async () => {
 test('scopeId is sent on every request and validated', async () => {
   const { client, calls, queue } = harness({ scopeId: 'session:42' });
   queue.push(ok({ items: [] }));
-  await client.search('米食');
+  await client.search('白饭');
   assert.equal(calls[0].init.headers['x-cortex-scope'], 'session:42');
   assert.throws(() => createApiClient({ fetchImpl: async () => new Response('{}'), scopeId: 'bad scope' }), /scopeId/);
 });
@@ -240,10 +240,10 @@ test('feedback, forget, reflect and compress send only supported fields', async 
   await client.compress();
   assert.deepEqual(parseBody(calls.at(-1)), {});
 
-  queue.push(ok({ answer: '米食 [1]', mode: 'extractive' }));
-  await client.qa({ question: '用户喜欢什么？' });
+  queue.push(ok({ answer: '白饭 [1]', mode: 'extractive' }));
+  await client.qa({ question: '主人喜欢什么？' });
   assert.equal(pathOf(calls.at(-1)), '/api/cortex/qa');
-  assert.deepEqual(parseBody(calls.at(-1)), { question: '用户喜欢什么？' });
+  assert.deepEqual(parseBody(calls.at(-1)), { question: '主人喜欢什么？' });
 });
 
 test('guard maps check, backup and repair to the real routes', async () => {
@@ -271,7 +271,7 @@ test('guard maps check, backup and repair to the real routes', async () => {
   assert.deepEqual(parseBody(calls.at(-1)), { dir: 'C:/tmp/backups', retain: 3, dryRun: true });
 
   queue.push(ok({ facts: [] }));
-  await client.asOf({ subject: '用户', mode: 'historical', asOf: '2026-11-10T00:00:00Z' });
+  await client.asOf({ subject: '主人', mode: 'historical', asOf: '2026-11-10T00:00:00Z' });
   assert.equal(pathOf(calls.at(-1)), '/api/cortex/as-of');
   assert.match(calls.at(-1).url, /subject=/);
   assert.match(calls.at(-1).url, /asOf=/);
@@ -404,9 +404,9 @@ test('emotion and life actions map to their routes', async () => {
   assert.equal(pathOf(calls.at(-1)), '/api/cortex/emotion');
 
   queue.push(ok({ emotions: [] }));
-  await client.emotion('record', { text: '有点心疼', target: '用户', traceId: 't1' });
+  await client.emotion('record', { text: '有点心疼', target: '主人', traceId: 't1' });
   assert.equal(pathOf(calls.at(-1)), '/api/cortex/emotion/record');
-  assert.deepEqual(parseBody(calls.at(-1)), { text: '有点心疼', target: '用户', traceId: 't1' });
+  assert.deepEqual(parseBody(calls.at(-1)), { text: '有点心疼', target: '主人', traceId: 't1' });
 
   queue.push(ok({ diary: [], dreams: [], sleeps: [] }));
   await client.life();

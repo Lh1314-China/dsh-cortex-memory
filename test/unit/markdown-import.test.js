@@ -7,11 +7,13 @@ import { createCortex } from '../../src/service/cortex.js';
 import { parseMemoryMarkdown, importMarkdown } from '../../src/adapters/markdown-import.js';
 
 test('markdown parser reads frontmatter and body', () => {
-  const parsed = parseMemoryMarkdown('---\nid: "t1"\nkind: "fact"\ntitle: "米食"\ntags: ["米食", "承诺"]\nrecorded_at: "2026-11-05T10:00:00+08:00"\n---\n\n用户喜欢米食。\n');
+  const parsed = parseMemoryMarkdown('---\nid: "t1"\nkind: "fact"\ntitle: "白饭"\ntags: ["白饭", "承诺"]\nattachments: [{"kind":"image","uri":"https://example.test/rice.png"}]\nrecorded_at: "2026-11-05T10:00:00+08:00"\n---\n\n主人喜欢白饭。\n');
   assert.equal(parsed.id, 't1');
   assert.equal(parsed.kind, 'fact');
-  assert.deepEqual(parsed.tags, ['米食', '承诺']);
-  assert.match(parsed.content, /用户喜欢米食/);
+  assert.deepEqual(parsed.tags, ['白饭', '承诺']);
+  assert.equal(parsed.attachments.length, 1);
+  assert.equal(parsed.attachments[0].uri, 'https://example.test/rice.png');
+  assert.match(parsed.content, /主人喜欢白饭/);
 });
 
 test('markdown import writes active files idempotently', () => {
@@ -19,7 +21,7 @@ test('markdown import writes active files idempotently', () => {
   const vault = mkdtempSync(path.join(os.tmpdir(), 'cortex-vault-'));
   const cortex = createCortex({ config: { dataRoot: dataDir, dbFile: path.join(dataDir, 'cortex.sqlite') } });
   try {
-    writeFileSync(path.join(vault, 'a.md'), '---\nid: a\nkind: utterance\ntitle: 米食\ntags: [米食]\n---\n\n用户喜欢米食。\n', 'utf8');
+    writeFileSync(path.join(vault, 'a.md'), '---\nid: a\nkind: utterance\ntitle: 白饭\ntags: [白饭]\nattachments: [{"kind":"image","uri":"https://example.test/rice.png"}]\n---\n\n主人喜欢白饭。\n', 'utf8');
     writeFileSync(path.join(vault, 'b.md'), '---\nid: b\nstate: archived\n---\n\n不该导入。\n', 'utf8');
     const dry = importMarkdown(cortex, vault, { dryRun: true });
     assert.equal(dry.files, 2);
@@ -28,8 +30,11 @@ test('markdown import writes active files idempotently', () => {
     assert.equal(result.imported, 1);
     assert.equal(result.skipped, 1);
     assert.equal(cortex.repos.traces.count(), 1);
+    const importedTrace = cortex.repos.traces.list({ scopeId: 'global', limit: 10 })[0];
+    assert.equal(importedTrace.metadata.attachments.length, 1);
+    assert.equal(importedTrace.metadata.attachments[0].uri, 'https://example.test/rice.png');
     const again = importMarkdown(cortex, vault);
-    assert.equal(again.items.find((item) => item.title === '米食').skipped, true);
+    assert.equal(again.items.find((item) => item.title === '白饭').skipped, true);
     assert.equal(cortex.repos.traces.count(), 1);
   } finally {
     cortex.close();

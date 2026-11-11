@@ -52,17 +52,17 @@ test('relationships update trust, care, familiarity and history', () => {
   const { dir, db } = setup();
   try {
     const store = createRelationshipStore(db);
-    const initial = store.ensure('global', '用户');
+    const initial = store.ensure('global', '主人');
     assert.equal(initial.trust, 0.5);
     assert.equal(initial.care, 0.5);
-    const after = store.applyDelta('global', '用户', { trustDelta: 0.2, careDelta: 0.1 }, { event: '一起修插件' });
+    const after = store.applyDelta('global', '主人', { trustDelta: 0.2, careDelta: 0.1 }, { event: '一起修插件' });
     assert.ok(after.trust > initial.trust);
     assert.ok(after.care > initial.care);
     assert.ok(after.familiarity > initial.familiarity);
     assert.ok(after.recent.some((item) => item.event.includes('修插件')));
-    const clamped = store.applyDelta('global', '用户', { trustDelta: 5 });
+    const clamped = store.applyDelta('global', '主人', { trustDelta: 5 });
     assert.equal(clamped.trust, 1);
-    assert.match(store.render('global', '用户'), /信任 100%/);
+    assert.match(store.render('global', '主人'), /信任 100%/);
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });
@@ -70,8 +70,8 @@ test('relationships update trust, care, familiarity and history', () => {
 });
 
 test('relationship normalization clamps and keeps boundaries', () => {
-  const value = normalizeRelationship({ target: '伙伴', trust: 2, care: -1, boundaries: ['别抢用户'] });
+  const value = normalizeRelationship({ target: '月神', trust: 2, care: -1, boundaries: ['别抢主人'] });
   assert.equal(value.trust, 1);
   assert.equal(value.care, 0);
-  assert.deepEqual(value.boundaries, ['别抢用户']);
+  assert.deepEqual(value.boundaries, ['别抢主人']);
 });

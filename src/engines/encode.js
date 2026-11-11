@@ -59,6 +59,7 @@ export function createEncodeEngine({
   traces,
   entities = null,
   facts = null,
+  edges = null,
   audit = null,
   vector = null,
   config = {},
@@ -66,6 +67,60 @@ export function createEncodeEngine({
   if (!events || !traces) throw new CortexError(ERROR_CODES.INVALID_INPUT, 'encode engine needs events and traces');
   const minChars = config.minContentChars ?? 2;
   const minCompression = config.minCompressionValue ?? 0.08;
+
+  function applyFacts(rawFacts, { scopeId, recordedAt, sourceEventId }) {
+    const resolved = [];
+    if (!Array.isArray(rawFacts) || !entities || !facts) return resolved;
+    for (const raw of rawFacts) {
+      if (!raw || !raw.subject || !raw.predicate) continue;
+      const subject = entities.upsert({ scopeId, name: raw.subject, type: raw.subjectType || 'concept' });
+      let objectId = null;
+      const objectLiteral = raw.objectLiteral ?? null;
+      if (raw.object && !raw.objectLiteral) {
+        const object = entities.upsert({ scopeId, name: raw.object, type: raw.objectType || 'concept' });
+        objectId = object.id;
+      }
+      const resolution = facts.resolve({
+        scopeId,
+        subjectId: subject.id,
+        predicate: raw.predicate,
+        objectId,
+        objectLiteral,
+        validFrom: raw.validFrom || recordedAt,
+        validTo: raw.validTo || null,
+        recordedAt,
+        confidence: raw.confidence ?? 0.7,
+        sourceEventId,
+      });
+      resolved.push(resolution);
+    }
+    return resolved;
+  }
+
+  function queueFactEdges(resolvedFacts, { scopeId, sourceEventId, sourceTraceId }) {
+    if (!edges || !Array.isArray(resolvedFacts) || resolvedFacts.length === 0) return [];
+    const queued = [];
+    for (const resolution of resolvedFacts) {
+      const fact = resolution?.fact;
+      if (!fact?.subjectId || !fact?.objectId || fact.status !== 'active') continue;
+      try {
+        queued.push(edges.addCandidate({
+          scopeId,
+          fromId: fact.subjectId,
+          toId: fact.objectId,
+          rel: fact.predicate,
+          weight: fact.confidence ?? 0.5,
+          confidence: fact.confidence ?? 0.5,
+          sourceEventId,
+          sourceTraceId,
+          evidence: { factId: fact.id ?? null, validFrom: fact.validFrom ?? null },
+        }));
+      } catch {
+        /* a bad candidate should not fail the write */
+      }
+    }
+    return queued;
+  }
 
   function encode(input = {}) {
     const original = String(input.text ?? input.content ?? '').trim();
@@ -101,18 +156,24 @@ export function createEncodeEngine({
     });
 
     const existing = traces.findByEvent(event.id);
-    if (existing) return { skipped: true, reason: 'idempotent', event, trace: existing };
+    if (existing) {
+      const factsApplied = applyFacts(input.facts, { scopeId, recordedAt, sourceEventId: event.id });
+      const edgeCandidates = queueFactEdges(factsApplied, { scopeId, sourceEventId: event.id, sourceTraceId: existing.id });
+      return { skipped: true, reason: 'idempotent', event, trace: existing, facts: factsApplied, edgeCandidates };
+    }
 
     const duplicate = traces.findByHash(scopeId, hashText(text));
     if (duplicate) {
+      const factsApplied = applyFacts(input.facts, { scopeId, recordedAt, sourceEventId: event.id });
+      const edgeCandidates = queueFactEdges(factsApplied, { scopeId, sourceEventId: event.id, sourceTraceId: duplicate.id });
       audit?.record?.({
         actor: input.actor || 'user',
         action: 'trace.duplicate',
         targetType: 'trace',
         targetId: duplicate.id,
-        detail: { eventId: event.id, textHash: hashText(text) },
+        detail: { eventId: event.id, textHash: hashText(text), factsApplied: factsApplied.length, edgeCandidates: edgeCandidates.length },
       });
-      return { skipped: true, reason: 'duplicate', event, trace: duplicate };
+      return { skipped: true, reason: 'duplicate', event, trace: duplicate, facts: factsApplied, edgeCandidates };
     }
 
     const trace = traces.insert({
@@ -123,6 +184,7 @@ export function createEncodeEngine({
       summary: input.summary || null,
       keywords: input.keywords || [],
       tags: input.tags || [],
+      metadata: input.metadata && typeof input.metadata === 'object' ? input.metadata : {},
       eventId: event.id,
       sessionId: input.sessionId || null,
       turnId: input.turnId || null,
@@ -138,32 +200,8 @@ export function createEncodeEngine({
       sensitivity: sensitivity,
     });
 
-    const resolvedFacts = [];
-    if (Array.isArray(input.facts) && entities && facts) {
-      for (const raw of input.facts) {
-        if (!raw || !raw.subject || !raw.predicate) continue;
-        const subject = entities.upsert({ scopeId, name: raw.subject, type: raw.subjectType || 'concept' });
-        let objectId = null;
-        let objectLiteral = raw.objectLiteral ?? null;
-        if (raw.object && !raw.objectLiteral) {
-          const object = entities.upsert({ scopeId, name: raw.object, type: raw.objectType || 'concept' });
-          objectId = object.id;
-        }
-        const resolution = facts.resolve({
-          scopeId,
-          subjectId: subject.id,
-          predicate: raw.predicate,
-          objectId,
-          objectLiteral,
-          validFrom: raw.validFrom || recordedAt,
-          validTo: raw.validTo || null,
-          recordedAt,
-          confidence: raw.confidence ?? 0.7,
-          sourceEventId: event.id,
-        });
-        resolvedFacts.push(resolution);
-      }
-    }
+    const resolvedFacts = applyFacts(input.facts, { scopeId, recordedAt, sourceEventId: event.id });
+    const edgeCandidates = queueFactEdges(resolvedFacts, { scopeId, sourceEventId: event.id, sourceTraceId: trace.id });
 
     audit?.record?.({
       actor: input.actor || 'user',
@@ -192,7 +230,7 @@ export function createEncodeEngine({
       }
     }
 
-    return { skipped: false, event, trace, facts: resolvedFacts, compression, score: scored };
+    return { skipped: false, event, trace, facts: resolvedFacts, edgeCandidates, compression, score: scored };
   }
 
   return { encode, scoreTraceText, compressionValue };

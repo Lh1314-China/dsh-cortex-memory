@@ -13,7 +13,7 @@ const sample = {
     speaker_b: 'B',
     session_1_date_time: '2026-11-01T10:00:00+08:00',
     session_1: [
-      { speaker: 'A', text: '我喜欢米食。' },
+      { speaker: 'A', text: '我喜欢白饭。' },
       { speaker: 'B', text: '那很好。' },
     ],
     session_2_date_time: '2026-11-02T10:00:00+08:00',
@@ -22,7 +22,7 @@ const sample = {
     ],
   },
   qa: [
-    { question: 'A 喜欢什么？', answer: '米食', evidence: ['D1:1'], category: 1 },
+    { question: 'A 喜欢什么？', answer: '白饭', evidence: ['D1:1'], category: 1 },
     { question: '不存在的事是什么？', answer: '没有', evidence: [], category: 5 },
   ],
 };

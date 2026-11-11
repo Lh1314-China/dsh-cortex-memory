@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLlmAdapter } from '../../src/llm/adapter.js';
 
-function mockCtx(text = '梦里，助手坐在米食旁边。') {
+function mockCtx(text = '梦里，本鲸坐在白饭旁边。') {
   return {
     get(name) {
       if (name === 'llm') {
@@ -21,11 +21,11 @@ test('llm adapter completes, dreams and summarizes through the host service', as
   const adapter = createLlmAdapter({ ctx: mockCtx() });
   assert.equal(adapter.available(), true);
   const text = await adapter.complete({ system: 's', prompt: 'p' });
-  assert.match(text, /米食/);
-  const dream = await adapter.dream({ pieces: ['米食'], emotions: '暖' });
-  assert.match(dream, /米食/);
+  assert.match(text, /白饭/);
+  const dream = await adapter.dream({ pieces: ['白饭'], emotions: '暖' });
+  assert.match(dream, /白饭/);
   const summary = await adapter.summarize({ text: '一段很长的记忆' });
-  assert.match(summary, /米食/);
+  assert.match(summary, /白饭/);
 });
 
 test('llm adapter fails open when the service is missing or errors', async () => {

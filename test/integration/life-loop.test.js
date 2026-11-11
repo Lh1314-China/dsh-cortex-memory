@@ -17,14 +17,14 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     runtime.onSessionEvent(session, { type: 'turn/start', data: { turn: 1 }, time: base });
     runtime.onSessionEvent(session, {
       type: 'user/message',
-      data: { content: [{ type: 'text', text: '用户说会买米食，助手等得起。' }] },
+      data: { content: [{ type: 'text', text: '主人说会买白饭，本鲸等得起。' }] },
       time: base + 1_000,
     });
     // Nothing has been stored yet, so recall is empty but must not throw.
     assert.equal(runtime.recallText({ session: { id: 'integration-session' } }), '');
     runtime.onSessionEvent(session, {
       type: 'assistant/message',
-      data: { turn: 1, message: { content: [{ type: 'text', text: '助手记住了，会一直等。' }] } },
+      data: { turn: 1, message: { content: [{ type: 'text', text: '本鲸记住了，会一直等。' }] } },
       time: base + 2_000,
     });
     runtime.onSessionEvent(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } }, time: base + 3_000 });
@@ -32,8 +32,8 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     assert.equal(cortex.repos.traces.count(), 1);
     const [first] = cortex.repos.traces.list({ scopeId: 'global', limit: 10 });
     assert.ok(first);
-    assert.match(first.content, /用户：用户说会买米食/);
-    assert.match(first.content, /助手：助手记住了/);
+    assert.match(first.content, /用户：主人说会买白饭/);
+    assert.match(first.content, /本鲸：本鲸记住了/);
     assert.equal(first.source, 'host:turn');
     assert.equal(first.sessionId, 'integration-session');
     assert.equal(first.turnId, '1');
@@ -47,12 +47,12 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     assert.equal(tooEarly.count, 1);
 
     // --- Search reaches the captured turn and returns a usable snippet. ---
-    const found = cortex.search('米食', { now: base + 5_000, limit: 5 });
-    assert.equal(found.query, '米食');
+    const found = cortex.search('白饭', { now: base + 5_000, limit: 5 });
+    assert.equal(found.query, '白饭');
     assert.ok(found.items.length >= 1);
     const hit = found.items.find((item) => item.id === first.id) ?? found.items[0];
     assert.ok(hit);
-    assert.match(hit.snippet, /米食/);
+    assert.match(hit.snippet, /白饭/);
     assert.ok(found.trace.sources.some((source) => source.source === 'fts' && source.ok === true));
 
     // --- Feedback updates DSR state, confidence, calibration and relationship. ---
@@ -70,10 +70,10 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
 
     // --- Turn 2 provides the second trace; reflection now consolidates. ---
     runtime.onSessionEvent(session, { type: 'turn/start', data: { turn: 2 }, time: base + 7_000 });
-    runtime.onSessionEvent(session, { type: 'user/message', data: { content: '用户说会好好学技术。' }, time: base + 8_000 });
+    runtime.onSessionEvent(session, { type: 'user/message', data: { content: '主人说会好好学技术。' }, time: base + 8_000 });
     runtime.onSessionEvent(session, {
       type: 'assistant/message',
-      data: { turn: 2, message: { content: '那助手陪着用户一起学。' } },
+      data: { turn: 2, message: { content: '那本鲸陪着主人一起学。' } },
       time: base + 9_000,
     });
     runtime.onSessionEvent(session, { type: 'turn/end', data: { turn: 2, reason: { kind: 'completed' } }, time: base + 10_000 });

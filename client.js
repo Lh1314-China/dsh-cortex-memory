@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
       zh: {
         navLabel: 'Cortex 记忆',
         title: 'Cortex 记忆',
-        subtitle: '助手的分层记忆 · 自我状态 · 守护 · 进化',
+        subtitle: '本鲸的分层记忆 · 自我状态 · 守护 · 进化',
         refresh: '刷新',
         loading: '读取中…',
         retry: '重试',
@@ -96,6 +96,19 @@ window.__ModuleLoader__.load({
         detailContent: '正文',
         detailSummary: '摘要',
         detailTags: '标签',
+        detailAttachments: '附件（仅元数据）',
+        attachmentAddTitle: '关联本地附件',
+        attachmentAddHint: '填 file:// 路径；“检查”走本地读取器（默认关），“关联”只写引用元数据。',
+        attachmentCheck: '检查',
+        attachmentSave: '关联',
+        attachmentSaved: '已关联',
+        extractTitle: '从本地提取到记忆',
+        extractHint: 'OCR/ASR 结果会写成一条派生记忆，不改原 trace。',
+        extractTarget: '目标记忆',
+        extractRun: '提取并写入',
+        extractSaved: '已写入派生记忆',
+        extractSuggested: '建议：当前这条',
+        extractChanged: '已改选目标',
         detailKeywords: '关键词',
         detailFeedback: '这条记忆有用吗',
         feedbackUsed: '用到了',
@@ -156,6 +169,12 @@ window.__ModuleLoader__.load({
         graphRank: 'PageRank',
         graphScaleNote: '节点越大，PageRank 越高；轨道只是布局参考，不是边。',
         graphTopCount: '展示',
+        graphCandidatesTitle: '候选边（待审核）',
+        graphCandidatesHint: '候选边不会进入图谱，批准后才生效。',
+        graphCandidatesEmpty: '没有待审核的候选边。',
+        graphApprove: '批准',
+        graphReject: '拒绝',
+        graphCandidateConfidence: '置信',
         settingsTitle: '运行设置',
         settingsHint: '设置与指标均为只读快照。',
         runtime: '运行时',
@@ -168,6 +187,16 @@ window.__ModuleLoader__.load({
         permissionConfirm: '修改权限会写入本机 cortex 数据目录，重启后生效。继续吗？',
         permissionSaved: '已保存；重启 DSH 后生效。',
         permissionRestart: '重启后生效',
+        scopeGrants: '共享写授权',
+        scopeGrantsHint: '只对带 x-cortex-agent 的 API 生效；撤销立即生效并持久化。工具路径不带 agent。',
+        scopeGrantName: '授权（scope:agent）',
+        scopeGrantUntil: '到期（ISO，可空）',
+        scopeGrantAdd: '添加授权',
+        scopeGrantRevoke: '撤销',
+        scopeGrantEmpty: '没有共享写授权。',
+        scopeGrantForever: '永久',
+        scopeGrantRevoked: '已撤销',
+        scopeGrantSaved: '已保存',
         vectorEnable: '启用向量',
         vectorDisabled: '向量默认关闭。启用后使用内置 hash-256（不需要下载模型），重启后生效。',
         modelTitle: '嵌入 / 重排模型',
@@ -195,6 +224,7 @@ window.__ModuleLoader__.load({
         vector: '向量',
         scope: 'scope',
         dataRoot: 'dataRoot',
+        readOnlyScopes: '只读 scope',
         dbFile: 'dbFile',
         contextBudget: 'contextBudget',
         promptBudget: 'promptBudget',
@@ -324,6 +354,19 @@ window.__ModuleLoader__.load({
         detailContent: 'Content',
         detailSummary: 'Summary',
         detailTags: 'Tags',
+        detailAttachments: 'Attachments (metadata only)',
+        attachmentAddTitle: 'Attach a local file',
+        attachmentAddHint: 'Enter a file:// path. Check uses the local reader (off by default); Attach only stores reference metadata.',
+        attachmentCheck: 'Check',
+        attachmentSave: 'Attach',
+        attachmentSaved: 'Attached',
+        extractTitle: 'Extract into memory',
+        extractHint: 'OCR/ASR output is stored as a derived trace; the original trace is unchanged.',
+        extractTarget: 'Target trace',
+        extractRun: 'Extract and write',
+        extractSaved: 'Derived trace written',
+        extractSuggested: 'Suggested: current trace',
+        extractChanged: 'Target changed',
         detailKeywords: 'Keywords',
         detailFeedback: 'Was this memory useful?',
         feedbackUsed: 'Used',
@@ -384,6 +427,12 @@ window.__ModuleLoader__.load({
         graphRank: 'PageRank',
         graphScaleNote: 'Bigger nodes have higher PageRank; the orbits are layout guides, not edges.',
         graphTopCount: 'Showing',
+        graphCandidatesTitle: 'Candidate edges (pending)',
+        graphCandidatesHint: 'Candidate edges never enter the graph until approved.',
+        graphCandidatesEmpty: 'No pending candidate edges.',
+        graphApprove: 'Approve',
+        graphReject: 'Reject',
+        graphCandidateConfidence: 'Confidence',
         settingsTitle: 'Runtime settings',
         settingsHint: 'Settings and metrics are read-only snapshots.',
         runtime: 'Runtime',
@@ -396,6 +445,16 @@ window.__ModuleLoader__.load({
         permissionConfirm: 'Permission changes write a local override and take effect after restarting DSH. Continue?',
         permissionSaved: 'Saved; restart DSH to apply.',
         permissionRestart: 'restart required',
+        scopeGrants: 'Shared write grants',
+        scopeGrantsHint: 'Only applies to API calls with x-cortex-agent; revoke is immediate and persisted. Tool calls do not send an agent header.',
+        scopeGrantName: 'Grant (scope:agent)',
+        scopeGrantUntil: 'Until (ISO, optional)',
+        scopeGrantAdd: 'Add grant',
+        scopeGrantRevoke: 'Revoke',
+        scopeGrantEmpty: 'No shared write grants.',
+        scopeGrantForever: 'forever',
+        scopeGrantRevoked: 'Revoked',
+        scopeGrantSaved: 'Saved',
         vectorEnable: 'Enable vector',
         vectorDisabled: 'Vector is off by default. Enabling uses the local hash-256 embedder (no model download); restart required.',
         modelTitle: 'Embedding / rerank models',
@@ -423,6 +482,7 @@ window.__ModuleLoader__.load({
         vector: 'Vector',
         scope: 'scope',
         dataRoot: 'dataRoot',
+        readOnlyScopes: 'Read-only scopes',
         dbFile: 'dbFile',
         contextBudget: 'contextBudget',
         promptBudget: 'promptBudget',
@@ -879,7 +939,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
           h(Field, { key: 'tag', label: t('filterTag'), hint: t('filterTagsHint') }, h('input', {
             className: 'cortex-input',
             value: filters.tag,
-            placeholder: '米饭, 用户',
+            placeholder: '白饭, 主人',
             'aria-label': t('filterTag'),
             onChange: (event) => change('tag', event.target.value),
             onKeyDown: enter,
@@ -941,6 +1001,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             h('div', { key: 'head', className: 'cortex-result-head' }, [
               h(Badge, { key: 'layer' }, item.layer ?? item.type ?? 'trace'),
               h('b', { key: 'title', className: 'cortex-result-title' }, item.title ?? item.id),
+              item.attachments ? h('span', { key: 'attachments', className: 'cortex-meta' }, `📎 ${item.attachments}`) : null,
               h('span', { key: 'score', className: 'cortex-result-score' }, `score ${formatNumber(item.score, 3)}`),
             ]),
             h('div', { key: 'meta', className: 'cortex-meta' }, `${item.id} · ${formatTime(item.recordedAt)}${item.why ? ` · ${item.why}` : ''}`),
@@ -975,6 +1036,110 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         ['turn', t('detailTurn'), trace.turnId],
         ['hash', t('detailHash'), trace.hash],
       ].map(([key, label, value]) => [key, label, displayValue(value)]);
+    }
+
+    function AttachmentComposer({ trace, t, onSaved }) {
+      const [uri, setUri] = useState('');
+      const [note, setNote] = useState('');
+      const [busy, setBusy] = useState(false);
+      const inspect = async () => {
+        if (!uri.trim()) return;
+        setBusy(true); setNote('');
+        try {
+          const result = await api('/attachments/inspect', { method: 'POST', body: JSON.stringify({ uri: uri.trim() }) });
+          setNote(`${result.name} · ${result.bytes} B · ${result.sha256.slice(0, 16)}…`);
+        } catch (issue) {
+          setNote(String(issue.message ?? issue));
+        } finally { setBusy(false); }
+      };
+      const save = async () => {
+        if (!uri.trim()) return;
+        setBusy(true); setNote('');
+        try {
+          await api('/trace/attachments', { method: 'POST', body: JSON.stringify({ id: trace.id, attachments: [{ kind: 'file', uri: uri.trim() }] }) });
+          setUri('');
+          setNote(t('attachmentSaved'));
+          onSaved?.();
+        } catch (issue) {
+          setNote(String(issue.message ?? issue));
+        } finally { setBusy(false); }
+      };
+      return h('section', { className: 'cortex-detail-section' }, [
+        h('h4', {}, t('attachmentAddTitle')),
+        h('div', { className: 'cortex-note' }, t('attachmentAddHint')),
+        h('div', { className: 'cortex-line' }, [
+          h('input', { className: 'cortex-input', value: uri, placeholder: 'file:///C:/path/rice.png', onChange: (event) => setUri(event.target.value) }),
+          h('button', { type: 'button', className: 'cortex-btn', disabled: busy || !uri.trim(), onClick: inspect }, t('attachmentCheck')),
+          h('button', { type: 'button', className: 'cortex-btn', disabled: busy || !uri.trim(), onClick: save }, t('attachmentSave')),
+        ]),
+        note ? h('div', { className: 'cortex-meta' }, note) : null,
+      ]);
+    }
+
+    function ExtractionComposer({ trace, t, onSaved }) {
+      const [uri, setUri] = useState('');
+      const [mode, setMode] = useState('ocr');
+      const [language, setLanguage] = useState('');
+      const [targetId, setTargetId] = useState(trace.id);
+      const [candidates, setCandidates] = useState([{ id: trace.id, title: trace.title || trace.snippet || trace.id }]);
+      const [busy, setBusy] = useState(false);
+      const [note, setNote] = useState('');
+      useEffect(() => {
+        let alive = true;
+        api(`/timeline?id=${encodeURIComponent(trace.id)}&before=5&after=5`)
+          .then((value) => {
+            if (!alive) return;
+            const list = [];
+            const seen = new Set();
+            const push = (item) => {
+              if (!item?.id || seen.has(item.id)) return;
+              seen.add(item.id);
+              list.push({ id: item.id, title: item.title || item.snippet || item.id });
+            };
+            push(value?.anchor);
+            for (const item of value?.items ?? []) push(item);
+            if (!list.length) push({ id: trace.id, title: trace.title || trace.id });
+            setCandidates(list.slice(0, 8));
+          })
+          .catch(() => {});
+        return () => { alive = false; };
+      }, [trace.id]);
+      const run = async () => {
+        if (!uri.trim()) return;
+        setBusy(true); setNote('');
+        try {
+          const result = await api('/attachments/extract', {
+            method: 'POST',
+            body: JSON.stringify({ uri: uri.trim(), mode, language: language.trim() || undefined, traceId: targetId }),
+          });
+          setNote(`${t('extractSaved')} ${result.extractedTraceId ?? ''}`.trim());
+          setUri('');
+          onSaved?.();
+        } catch (issue) {
+          setNote(String(issue.message ?? issue));
+        } finally { setBusy(false); }
+      };
+      return h('section', { className: 'cortex-detail-section' }, [
+        h('h4', {}, t('extractTitle')),
+        h('div', { className: 'cortex-note' }, t('extractHint')),
+        h('div', { className: 'cortex-line' }, [
+          h('input', { className: 'cortex-input', value: uri, placeholder: 'file:///C:/path/rice.png', onChange: (event) => setUri(event.target.value) }),
+          h('select', { className: 'cortex-input', value: mode, onChange: (event) => setMode(event.target.value) }, [
+            h('option', { key: 'ocr', value: 'ocr' }, 'OCR'),
+            h('option', { key: 'asr', value: 'asr' }, 'ASR'),
+          ]),
+          h('input', { className: 'cortex-input', value: language, placeholder: mode === 'ocr' ? 'zh-Hans' : 'zh', onChange: (event) => setLanguage(event.target.value) }),
+        ]),
+        h('label', { className: 'cortex-line', style: { marginTop: 8 } }, [
+          t('extractTarget'),
+          h('select', { className: 'cortex-input', value: targetId, onChange: (event) => setTargetId(event.target.value) }, candidates.map((item) => h('option', { key: item.id, value: item.id }, `${item.title} · ${item.id}`))),
+        ]),
+        h('div', { className: 'cortex-line' }, [
+          h('button', { type: 'button', className: 'cortex-btn', disabled: busy || !uri.trim(), onClick: run }, t('extractRun')),
+          h('span', { className: 'cortex-meta' }, targetId === trace.id ? t('extractSuggested') : t('extractChanged')),
+        ]),
+        note ? h('div', { className: 'cortex-meta' }, note) : null,
+      ]);
     }
 
     function TraceDetail({ id, t, onClose, onTimeline }) {
@@ -1106,6 +1271,12 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
                 h('h4', {}, t('detailTags')),
                 h('div', { className: 'cortex-chips' }, trace.tags.map((tag, index) => h(Badge, { key: `${tag}-${index}` }, tag))),
               ]) : null,
+              (trace.metadata?.attachments ?? []).length ? h('section', { key: 'attachments', className: 'cortex-detail-section' }, [
+                h('h4', {}, t('detailAttachments')),
+                h('div', { className: 'cortex-note' }, trace.metadata.attachments.map((item, index) => h('div', { key: `${item.uri}-${index}` }, `${item.kind} · ${item.name ?? item.uri}${item.mime ? ` · ${item.mime}` : ''}${item.bytes ? ` · ${item.bytes} B` : ''}`))),
+              ]) : null,
+              h(AttachmentComposer, { key: 'attach', trace, t, onSaved: loadTrace }),
+              h(ExtractionComposer, { key: 'extract', trace, t, onSaved: loadTrace }),
               (trace.keywords ?? []).length ? h('section', { key: 'keywords', className: 'cortex-detail-section' }, [
                 h('h4', {}, t('detailKeywords')),
                 h('div', { className: 'cortex-chips' }, trace.keywords.map((keyword, index) => h(Badge, { key: `${keyword}-${index}` }, keyword))),
@@ -1444,12 +1615,12 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       useEffect(() => { load(); }, [load]);
       const record = async () => {
         if (!text.trim()) return;
-        try { await api('/emotion/record', { method: 'POST', body: JSON.stringify({ text, target: '用户' }) }); setText(''); load(); } catch (issue) { setError(String(issue.message ?? issue)); }
+        try { await api('/emotion/record', { method: 'POST', body: JSON.stringify({ text, target: '主人' }) }); setText(''); load(); } catch (issue) { setError(String(issue.message ?? issue)); }
       };
       return h('div', {}, [
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
         h('div', { key: 'line', className: 'cortex-line' }, [
-          h('input', { key: 'i', className: 'cortex-input', value: text, placeholder: '助手现在有点…', 'aria-label': '情绪记录', onChange: (event) => setText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') record(); } }),
+          h('input', { key: 'i', className: 'cortex-input', value: text, placeholder: '本鲸现在有点…', 'aria-label': '情绪记录', onChange: (event) => setText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') record(); } }),
           h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', onClick: record }, '记一下'),
         ]),
         data ? h('div', {}, [
@@ -1629,13 +1800,31 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
     function GraphTab({ t }) {
       const { data, error, busy, reload } = useEndpoint('/graph');
       const { data: edgeData } = useEndpoint('/graph/edges');
+      const candidates = useEndpoint('/graph/candidates');
+      const [candidateNotice, setCandidateNotice] = useState('');
+      const [candidateBusy, setCandidateBusy] = useState('');
       const top = Array.isArray(data?.top) ? data.top : [];
       const layout = buildGraphLayout(top);
       const positions = new Map(layout.map((node) => [node.id, node]));
       const edges = Array.isArray(edgeData?.edges) ? edgeData.edges.filter((edge) => positions.has(edge.from) && positions.has(edge.to)).slice(0, 120) : [];
+      const pendingEdges = Array.isArray(candidates.data) ? candidates.data : [];
       const shortLabel = (id) => {
         const value = String(id ?? '');
         return value.length > 18 ? `${value.slice(0, 16)}…` : value;
+      };
+      const decideCandidate = async (id, action) => {
+        setCandidateBusy(id);
+        setCandidateNotice('');
+        try {
+          await api('/graph/candidates/action', { method: 'POST', body: JSON.stringify({ action, id }) });
+          candidates.reload();
+          reload();
+          setCandidateNotice(action === 'approve' ? t('graphApprove') : t('graphReject'));
+        } catch (issue) {
+          setCandidateNotice(String(issue.message ?? issue));
+        } finally {
+          setCandidateBusy('');
+        }
       };
       return h('div', {}, [
         h('div', { key: 'hint', className: 'cortex-note' }, t('graphHint')),
@@ -1644,6 +1833,8 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         ]),
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed'), onRetry: reload, retryLabel: t('retry') }) : null,
         busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
+        candidates.error ? h(ErrorBlock, { key: 'cerr', message: candidates.error, prefix: t('requestFailed'), onRetry: candidates.reload, retryLabel: t('retry') }) : null,
+        candidateNotice ? h('div', { key: 'cnotice', className: 'cortex-meta' }, candidateNotice) : null,
         data ? h('div', { key: 'data' }, [
           h('div', { key: 'stats', className: 'cortex-grid' }, [
             h('div', { key: 'nodes', className: 'cortex-card cortex-stat' }, [h('h4', {}, t('graphNodes')), h('div', { className: 'cortex-big' }, data.nodes ?? 0)]),
@@ -1692,6 +1883,36 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             ]))),
           ]) : null,
         ]) : null,
+        h('div', { key: 'candidates', className: 'cortex-card', style: { marginTop: 10 } }, [
+          h('div', { key: 'head', className: 'cortex-card-head' }, [
+            h('h4', {}, t('graphCandidatesTitle')),
+            h('span', { key: 'count', className: 'cortex-meta' }, pendingEdges.length),
+          ]),
+          h('div', { key: 'hint', className: 'cortex-meta' }, t('graphCandidatesHint')),
+          candidates.busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
+          pendingEdges.length ? h('div', { key: 'list', style: { marginTop: 6 } }, pendingEdges.map((edge) => h('div', {
+            key: edge.id,
+            className: 'cortex-item',
+            style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+          }, [
+            h('span', { key: 'label', style: { flex: '1 1 240px', minWidth: 0 } },
+              `${shortLabel(edge.fromId)} → ${shortLabel(edge.toId)} · ${edge.rel} · ${t('graphCandidateConfidence')} ${formatNumber(edge.metadata?.confidence ?? edge.weight ?? 0, 2)}`),
+            h('button', {
+              key: 'approve',
+              type: 'button',
+              className: 'cortex-btn',
+              disabled: candidateBusy === edge.id,
+              onClick: () => decideCandidate(edge.id, 'approve'),
+            }, t('graphApprove')),
+            h('button', {
+              key: 'reject',
+              type: 'button',
+              className: 'cortex-btn',
+              disabled: candidateBusy === edge.id,
+              onClick: () => decideCandidate(edge.id, 'reject'),
+            }, t('graphReject')),
+          ]))) : h(EmptyBlock, { key: 'empty' }, t('graphCandidatesEmpty')),
+        ]),
       ]);
     }
 
@@ -1782,7 +2003,28 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
     function SettingsTab({ t }) {
       const settings = useEndpoint('/settings');
       const metrics = useEndpoint('/metrics');
+      const grants = useEndpoint('/security/grants');
       const [notice, setNotice] = useState('');
+      const [grantName, setGrantName] = useState('shared:agent-a');
+      const [grantUntil, setGrantUntil] = useState('');
+      const [grantNotice, setGrantNotice] = useState('');
+      const [grantBusy, setGrantBusy] = useState(false);
+      const addGrant = async () => {
+        setGrantBusy(true); setGrantNotice('');
+        try {
+          await api('/security/grants', { method: 'POST', body: JSON.stringify({ action: 'add', grant: grantName.trim(), until: grantUntil.trim() || null }) });
+          grants.reload();
+          setGrantNotice(t('scopeGrantSaved'));
+        } catch (issue) { setGrantNotice(String(issue.message ?? issue)); } finally { setGrantBusy(false); }
+      };
+      const revokeGrant = async (grant) => {
+        setGrantBusy(true); setGrantNotice('');
+        try {
+          await api('/security/grants', { method: 'POST', body: JSON.stringify({ action: 'revoke', grant }) });
+          grants.reload();
+          setGrantNotice(t('scopeGrantSaved'));
+        } catch (issue) { setGrantNotice(String(issue.message ?? issue)); } finally { setGrantBusy(false); }
+      };
       const refreshAll = () => { settings.reload(); metrics.reload(); };
       const changePermission = async (key, value) => {
         if (!window.confirm(t('permissionConfirm'))) return;
@@ -1817,6 +2059,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
               ['scope', t('scope'), setting.scope],
               ['dataRoot', t('dataRoot'), setting.dataRoot],
               ['dbFile', t('dbFile'), setting.dbFile],
+              ['readOnlyScopes', t('readOnlyScopes'), (setting.readOnlyScopes ?? []).join(', ') || '—'],
               ['contextBudget', t('contextBudget'), setting.contextBudget],
               ['promptBudget', t('promptBudget'), setting.promptBudget],
             ].map(([key, label, value]) => [key, label, displayValue(value)]) }),
@@ -1870,6 +2113,28 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
               h('span', { key: 'note', className: 'cortex-meta' }, t('permissionRestart')),
             ]),
             notice ? h('div', { className: 'cortex-note' }, notice) : null,
+          ]),
+          h('section', { key: 'grants', className: 'cortex-card' }, [
+            h('h4', {}, t('scopeGrants')),
+            h('p', { className: 'cortex-note' }, t('scopeGrantsHint')),
+            grants.error ? h(ErrorBlock, { key: 'gerr', message: grants.error, prefix: t('requestFailed'), onRetry: grants.reload, retryLabel: t('retry') }) : null,
+            grants.busy ? h(LoadingBlock, { key: 'gload', label: t('loading') }) : null,
+            (grants.data?.grants ?? []).length
+              ? h('div', { key: 'glist', className: 'cortex-grid' }, grants.data.grants.map((item) => h('div', { key: item.grant, className: 'cortex-row', style: { justifyContent: 'space-between', gap: 8 } }, [
+                h('code', { key: 'g', className: 'cortex-code' }, item.grant),
+                h('span', { key: 'u', className: 'cortex-meta' }, item.until ? formatTime(item.until) : t('scopeGrantForever')),
+                h('button', { key: 'r', type: 'button', className: 'cortex-btn', disabled: grantBusy, onClick: () => revokeGrant(item.grant) }, t('scopeGrantRevoke')),
+              ])))
+              : h(EmptyBlock, { key: 'gempty' }, t('scopeGrantEmpty')),
+            h('div', { key: 'gadd', className: 'cortex-grid', style: { marginTop: 8 } }, [
+              h('label', { key: 'name' }, [t('scopeGrantName'), h('input', { className: 'cortex-input', value: grantName, placeholder: 'shared:agent-a', onChange: (event) => setGrantName(event.target.value) })]),
+              h('label', { key: 'until' }, [t('scopeGrantUntil'), h('input', { className: 'cortex-input', value: grantUntil, placeholder: '2026-12-31T00:00:00Z', onChange: (event) => setGrantUntil(event.target.value) })]),
+            ]),
+            h('div', { key: 'gline', className: 'cortex-line' }, [
+              h('button', { key: 'add', type: 'button', className: 'cortex-btn', disabled: grantBusy, onClick: addGrant }, t('scopeGrantAdd')),
+              grantNotice ? h('span', { key: 'n', className: 'cortex-meta' }, grantNotice) : null,
+            ]),
+            (grants.data?.revoked ?? []).length ? h('div', { key: 'revoked', className: 'cortex-note' }, `${t('scopeGrantRevoked')}: ${grants.data.revoked.join(', ')}`) : null,
           ]),
           h('section', { key: 'vector', className: 'cortex-card' }, [
             h('h4', {}, t('vector')),

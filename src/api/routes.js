@@ -10,6 +10,13 @@ function header(request, name) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function agentOf(request) {
+  const value = header(request, 'x-cortex-agent');
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return /^[A-Za-z0-9._:-]{1,120}$/.test(trimmed) ? trimmed : null;
+}
+
 function isLoopback(value) {
   const address = String(value ?? '').toLowerCase().replace(/^\[|\]$/g, '');
   if (address === 'localhost' || address === 'localhost.') return true;
@@ -69,6 +76,8 @@ function sendJson(response, status, value) {
 }
 
 function toInt(value, fallback, min, max) {
+  // Number(null) is 0, which would silently turn an omitted ?limit into min.
+  if (value == null || value === '') return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.trunc(n))) : fallback;
 }
@@ -79,7 +88,7 @@ function scopeOf(request, url, body = null) {
   return value && value.length <= 120 && /^[A-Za-z0-9._:-]+$/.test(value) ? value : 'global';
 }
 
-export function createApiHandler({ cortex, logger = null } = {}) {
+export function createApiHandler({ cortex, logger = null, getExtractor = null } = {}) {
   if (!cortex) throw new Error('api handler needs cortex');
 
   async function handler(request, response) {
@@ -108,6 +117,7 @@ export function createApiHandler({ cortex, logger = null } = {}) {
         if (route === '/skills') return sendJson(response, 200, { ok: true, data: cortex.engines.skills.list({ scopeId: scopeOf(request, url), limit: 100 }) });
         if (route === '/models') return sendJson(response, 200, { ok: true, data: cortex.models.get() });
         if (route === '/permissions') return sendJson(response, 200, { ok: true, data: cortex.permissions.status() });
+        if (route === '/security/grants') return sendJson(response, 200, { ok: true, data: cortex.security.grants() });
         if (route === '/settings') return sendJson(response, 200, { ok: true, data: cortex.settings() });
         if (route === '/report') return sendJson(response, 200, { ok: true, data: cortex.report(scopeOf(request, url)) });
         if (route === '/metrics') return sendJson(response, 200, { ok: true, data: cortex.metrics() });
@@ -115,6 +125,7 @@ export function createApiHandler({ cortex, logger = null } = {}) {
         if (route === '/digest') return sendJson(response, 200, { ok: true, data: cortex.digest.daily({ date: url.searchParams.get('date') ?? undefined }) });        if (route === '/audit') return sendJson(response, 200, { ok: true, data: cortex.repos.audit.list({ limit: toInt(url.searchParams.get('limit'), 50, 1, 200) }) });
         if (route === '/graph') return sendJson(response, 200, { ok: true, data: cortex.graphSummary({ scopeId: scopeOf(request, url) }) });
         if (route === '/graph/edges') return sendJson(response, 200, { ok: true, data: cortex.graphData({ scopeId: scopeOf(request, url) }) });
+        if (route === '/graph/candidates') return sendJson(response, 200, { ok: true, data: cortex.graphCandidates({ scopeId: scopeOf(request, url), limit: toInt(url.searchParams.get('limit'), 200, 1, 2000) }) });
         if (route === '/search') {
           const query = url.searchParams.get('q') ?? '';
           const tiered = url.searchParams.get('tiered') === 'true';
@@ -206,6 +217,40 @@ export function createApiHandler({ cortex, logger = null } = {}) {
       return;
     }
     try {
+      const scopedWriteRoutes = new Set([
+        '/write',
+        '/working/add',
+        '/working/purge',
+        '/goals/add',
+        '/graph/candidates/action',
+        '/retention/apply',
+        '/consolidate',
+        '/vector/rebuild',
+        '/emotion/record',
+        '/compress',
+        '/life/diary',
+        '/life/dream',
+        '/life/sleep',
+      ]);
+      if (scopedWriteRoutes.has(route)) {
+        const writeScope = scopeOf(request, url, body);
+        if (!cortex.scopeWritable(writeScope, agentOf(request))) {
+          return sendJson(response, 403, { ok: false, error: 'scope-read-only', scopeId: writeScope });
+        }
+      }
+      const byIdWriteRoutes = {
+        '/working/update': 'working',
+        '/working/remove': 'working',
+        '/goals/update': 'goal',
+        '/goals/complete': 'goal',
+      };
+      if (byIdWriteRoutes[route]) {
+        const kind = byIdWriteRoutes[route];
+        const id = requireString(body.id, 'id', { max: 200 });
+        if (!cortex.scopeWritableById(kind, id, agentOf(request))) {
+          return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
+        }
+      }
       if (route === '/search') {
         const input = validateSearch(body);
         const useAsync = body.async === true || body.tiered === true && cortex.vector?.status?.().async === true || cortex.vector?.status?.().async === true;
@@ -218,7 +263,30 @@ export function createApiHandler({ cortex, logger = null } = {}) {
         if (useAsync) return sendJson(response, 200, { ok: true, data: await cortex.searchAsync(input.query, { limit: input.limit ?? 10, budget: input.budget ?? 2200, scopeId: scopeOf(request, url, body) }) });
         return sendJson(response, 200, { ok: true, data: cortex.search(input.query, { limit: input.limit ?? 10, budget: input.budget ?? 2200, scopeId: scopeOf(request, url, body) }) });
       }
+      if (route === '/graph/candidates/action') {
+        const action = requireString(body.action, 'action', { max: 20 });
+        const result = cortex.graphCandidateAction({
+          action,
+          id: body.id ? requireString(body.id, 'id', { max: 200 }) : undefined,
+          scopeId: scopeOf(request, url, body),
+          fromId: body.fromId ? requireString(body.fromId, 'fromId', { max: 200 }) : undefined,
+          toId: body.toId ? requireString(body.toId, 'toId', { max: 200 }) : undefined,
+          rel: body.rel ? requireString(body.rel, 'rel', { max: 100 }) : undefined,
+          weight: body.weight,
+          confidence: body.confidence,
+          sourceEventId: body.sourceEventId ? requireString(body.sourceEventId, 'sourceEventId', { max: 200 }) : null,
+          sourceTraceId: body.sourceTraceId ? requireString(body.sourceTraceId, 'sourceTraceId', { max: 200 }) : null,
+          evidence: body.evidence ?? null,
+          metadata: body.metadata && typeof body.metadata === 'object' ? body.metadata : {},
+        });
+        if (!result) return sendJson(response, 404, { ok: false, error: 'candidate not found or not pending' });
+        return sendJson(response, 200, { ok: true, data: result });
+      }
       if (route === '/write') {
+        const writeScope = scopeOf(request, url, body);
+        if (!cortex.scopeWritable(writeScope, agentOf(request))) {
+          return sendJson(response, 403, { ok: false, error: 'scope-read-only', scopeId: writeScope });
+        }
         if (Array.isArray(body.items)) {
           return sendJson(response, 200, { ok: true, data: cortex.writeMany(body.items.map((item) => ({ ...validateWrite(item), scopeId: scopeOf(request, url, item) }))) });
         }
@@ -231,6 +299,9 @@ export function createApiHandler({ cortex, logger = null } = {}) {
       }
       if (route === '/forget') {
         const input = validateForget(body);
+        if (!cortex.scopeWritableById('trace', input.id, agentOf(request))) {
+          return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
+        }
         return sendJson(response, 200, { ok: true, data: cortex.forget({ traceId: input.id, mode: input.mode }) });
       }
       if (route === '/reflect') {
@@ -256,7 +327,12 @@ export function createApiHandler({ cortex, logger = null } = {}) {
         return sendJson(response, 200, { ok: true, data: cortex.exportMarkdown(requireString(body.dir, 'dir', { max: 4000 })) });
       }
       if (route === '/guard/sync') {
-        return sendJson(response, 200, { ok: true, data: cortex.syncMarkdown(requireString(body.dir, 'dir', { max: 4000 }), { dryRun: body.dryRun === true, scopeId: scopeOf(request, url, body) }) });
+        const dir = requireString(body.dir, 'dir', { max: 4000 });
+        const dryRun = body.dryRun === true;
+        if (!dryRun && !cortex.scopeWritable(scopeOf(request, url, body), agentOf(request))) {
+          return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
+        }
+        return sendJson(response, 200, { ok: true, data: cortex.syncMarkdown(dir, { dryRun, scopeId: scopeOf(request, url, body) }) });
       }
       if (route === '/qa') {
         const question = requireString(body.question, 'question', { max: 2000 });
@@ -264,6 +340,15 @@ export function createApiHandler({ cortex, logger = null } = {}) {
       }
       if (route === '/playbook') {
         const action = String(body.action ?? 'add');
+        if (['vote', 'retire', 'approve'].includes(action)) {
+          const id = requireString(body.id, 'id', { max: 200 });
+          if (!cortex.scopeWritableById('playbook', id, agentOf(request))) {
+            return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
+          }
+        }
+        if (['add', 'suggest'].includes(action) && !cortex.scopeWritable(scopeOf(request, url, body), agentOf(request))) {
+          return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
+        }
         if (action === 'add') {
           return sendJson(response, 200, { ok: true, data: cortex.playbook.add({ title: requireString(body.title, 'title', { max: 200 }), body: requireString(body.body, 'body', { max: 4000 }), tags: Array.isArray(body.tags) ? body.tags.map(String).slice(0, 20) : [], validTo: body.validTo ? requireString(body.validTo, 'validTo', { max: 40 }) : null, scopeId: scopeOf(request, url, body) }) });
         }
@@ -274,11 +359,66 @@ export function createApiHandler({ cortex, logger = null } = {}) {
         if (action === 'render') return sendJson(response, 200, { ok: true, data: cortex.playbook.render({ scopeId: scopeOf(request, url, body) }) });
         throw new Error('playbook action must be add, vote, retire, suggest, approve or render');
       }
+      if (route === '/attachments/extract') {
+        const extractor = typeof getExtractor === 'function' ? getExtractor() : null;
+        if (!extractor || typeof extractor.extract !== 'function') {
+          return sendJson(response, 503, { ok: false, error: 'extractor-unavailable' });
+        }
+        try {
+          const extracted = await extractor.extract({
+            uri: requireString(body.uri, 'uri', { max: 2000 }),
+            mode: requireString(body.mode, 'mode', { max: 16 }),
+            language: body.language ? requireString(body.language, 'language', { max: 32 }) : undefined,
+          });
+          const ingested = cortex.ingestExtractedText({
+            targetTraceId: requireString(body.traceId, 'traceId', { max: 200 }),
+            text: extracted.text,
+            uri: extracted.uri,
+            mode: extracted.mode,
+            engine: extracted.engine ?? null,
+          });
+          return sendJson(response, 200, { ok: true, data: { ...extracted, ...ingested } });
+        } catch (error) {
+          return sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      if (route === '/trace/attachments') {
+        try {
+          const result = cortex.attachments.attach({
+            traceId: requireString(body.id, 'id', { max: 200 }),
+            attachments: body.attachments,
+          });
+          return sendJson(response, 200, { ok: true, data: result });
+        } catch (error) {
+          return sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      if (route === '/attachments/inspect') {
+        if (cortex.settings().features?.attachmentReader !== true) {
+          return sendJson(response, 403, { ok: false, error: 'attachment-reader-disabled' });
+        }
+        try {
+          const result = cortex.attachments.inspect({ uri: requireString(body.uri, 'uri', { max: 2000 }) });
+          return sendJson(response, 200, { ok: true, data: result });
+        } catch (error) {
+          return sendJson(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
       if (route === '/models') {
         return sendJson(response, 200, { ok: true, data: cortex.models.save({ embedding: body.embedding ?? {}, rerank: body.rerank ?? {}, confirm: body.confirm === true }) });
       }
       if (route === '/permissions') {
         return sendJson(response, 200, { ok: true, data: cortex.permissions.update({ key: requireString(body.key, 'key', { max: 80 }), value: body.value === true, confirm: body.confirm === true }) });
+      }
+      if (route === '/security/grants') {
+        const action = requireString(body.action, 'action', { max: 20 });
+        if (action === 'add') {
+          return sendJson(response, 200, { ok: true, data: cortex.security.addGrant({ grant: requireString(body.grant, 'grant', { max: 200 }), until: body.until ?? null }) });
+        }
+        if (action === 'revoke') {
+          return sendJson(response, 200, { ok: true, data: cortex.security.revokeGrant({ grant: requireString(body.grant, 'grant', { max: 200 }) }) });
+        }
+        return sendJson(response, 400, { ok: false, error: 'grant action must be add or revoke' });
       }
       if (route === '/permissions/rollback') {
         return sendJson(response, 200, { ok: true, data: cortex.permissions.rollback() });
@@ -361,8 +501,8 @@ export function createApiHandler({ cortex, logger = null } = {}) {
   return handler;
 }
 
-export function mountApi(ctx, { cortex, logger = null } = {}) {
-  const handler = createApiHandler({ cortex, logger });
+export function mountApi(ctx, { cortex, logger = null, getExtractor = null } = {}) {
+  const handler = createApiHandler({ cortex, logger, getExtractor });
   const mount = (server) => {
     if (!server || typeof server.register !== 'function') return () => {};
     try {

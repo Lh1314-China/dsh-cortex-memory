@@ -40,7 +40,7 @@ export function createDevelopEngine({
     goals = [],
     identity = '',
     relationship = null,
-    relationshipTarget = '用户',
+    relationshipTarget = '主人',
     recentTexts = [],
     explicit = false,
     facts: factInput = [],

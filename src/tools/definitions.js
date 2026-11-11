@@ -118,15 +118,23 @@ export function createToolDefinitions(service) {
       isConcurrencySafe: () => false,
       async execute(args = {}) {
         if (args.action === 'add') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const item = service.working.add({ text: args.text, kind: args.kind, priority: args.priority, pinned: args.pinned === true, ttlMs: args.ttlMs });
           return { text: `已加入工作记忆 ${item.id}：${item.text}` };
         }
         if (args.action === 'pin') {
+          if (args.id && !service.scopeWritableById('working', args.id)) return { text: '未执行：该工作项属于只读共享 scope。' };
           const item = service.working.update(args.id, { pinned: args.pinned !== false });
           return { text: item ? `已${item.pinned ? '置顶' : '取消置顶'} ${item.id}` : `没有 ${args.id}` };
         }
-        if (args.action === 'remove') return { text: service.working.remove(args.id) ? `已删除 ${args.id}` : `没有 ${args.id}` };
-        if (args.action === 'purge') return { text: `已清理 ${service.working.purgeExpired()} 条过期工作记忆` };
+        if (args.action === 'remove') {
+          if (args.id && !service.scopeWritableById('working', args.id)) return { text: '未执行：该工作项属于只读共享 scope。' };
+          return { text: service.working.remove(args.id) ? `已删除 ${args.id}` : `没有 ${args.id}` };
+        }
+        if (args.action === 'purge') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
+          return { text: `已清理 ${service.working.purgeExpired()} 条过期工作记忆` };
+        }
         const items = service.working.list();
         return { text: items.length ? items.map((item) => `- ${item.pinned ? '[pin] ' : ''}${item.id} (${item.priority}) ${item.text}`).join('\n') : '（工作记忆为空）' };
       },
@@ -153,14 +161,17 @@ export function createToolDefinitions(service) {
       isConcurrencySafe: () => false,
       async execute(args = {}) {
         if (args.action === 'add') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const goal = service.goals.add({ title: args.title, description: args.description, priority: args.priority });
           return { text: `目标已建 ${goal.id}：${goal.title}` };
         }
         if (args.action === 'complete') {
+          if (args.id && !service.scopeWritableById('goal', args.id)) return { text: '未执行：该目标属于只读共享 scope。' };
           const done = service.goals.complete(args.id);
           return { text: done ? `目标已完成：${done.title}` : `没有这个目标：${args.id}` };
         }
         if (args.action === 'update') {
+          if (args.id && !service.scopeWritableById('goal', args.id)) return { text: '未执行：该目标属于只读共享 scope。' };
           const goal = service.goals.update(args.id, { title: args.title, description: args.description, priority: args.priority, progress: args.progress, status: args.status });
           return { text: goal ? `已更新 ${goal.id}：${goal.status} ${Math.round(goal.progress * 100)}%` : `没有 ${args.id}` };
         }
@@ -190,6 +201,7 @@ export function createToolDefinitions(service) {
           return { text: result.revived ? `已复活 ${args.id}（下一次检索可命中）` : `没有这条记忆：${args.id}` };
         }
         if (args.action === 'compress') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const result = service.compression.compress({ limit: args.limit });
           return { text: `压缩归档 ${result.archived} 条。${result.items.map((item) => `\n- ${item.id} coverage ${item.coverage.toFixed(2)}`).join('')}` };
         }
@@ -219,6 +231,7 @@ export function createToolDefinitions(service) {
       isConcurrencySafe: () => false,
       async execute(args = {}) {
         if (args.action === 'diary-write') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const item = service.life.diaryWrite({ text: args.text, mood: args.mood });
           return { text: `日记已写：${item.id}\n${item.text}` };
         }
@@ -230,6 +243,7 @@ export function createToolDefinitions(service) {
           return { text: service.life.diaryForget(args.id) ? `已删日记 ${args.id}` : `没有这条日记：${args.id}` };
         }
         if (args.action === 'dream') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const dream = await service.life.dreamGenerate();
           return { text: `梦 ${dream.id}（来源 ${dream.sourceCount} 条，${dream.model}）：\n${dream.text}` };
         }
@@ -237,6 +251,7 @@ export function createToolDefinitions(service) {
           const list = service.life.sleepRuns({ limit: args.limit });
           return { text: list.length ? list.map((item) => `- ${item.id} · ${item.at}：${JSON.stringify(item.report)}`).join('\n') : '（还没有睡眠记录）' };
         }
+        if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
         const report = await service.life.sleep({ windowDays: args.windowDays ?? 1 });
         return { text: `睡眠整理完成：清理工作记忆 ${report.purgedWorking} 条 · 反思 ${report.reflected} · 阶段 ${report.stage ?? '—'} · 情感对象 ${report.affectTargets}` };
       },
@@ -265,6 +280,7 @@ export function createToolDefinitions(service) {
           return { text: result.emotions.length ? result.emotions.map((item) => `${item.name}:${item.score}`).join(' / ') : '没有命中情绪词。' };
         }
         if (args.action === 'record') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const result = service.emotion.record({ text: args.text, target: args.target, traceId: args.traceId });
           return { text: result.event ? `已记情绪事件 ${result.event.id}：${result.emotions.map((item) => item.name).join('、')} → ${result.event.target}（${result.target.attitude}）` : '没有命中情绪词。' };
         }
@@ -352,6 +368,7 @@ export function createToolDefinitions(service) {
         if (args.action === 'sync') {
           const dir = args.dir;
           if (!dir) return { text: '同步 Markdown 需要 dir。' };
+          if (args.dryRun !== true && !service.scopeWritable(args.scope ?? service.settings().scope)) return { text: '未执行：该 scope 只读共享。' };
           const result = service.syncMarkdown(dir, { dryRun: args.dryRun === true, scopeId: args.scope });
           return { text: `Markdown 同步${result.dryRun ? '（dry-run）' : ''}：更新 ${result.updated}，新建 ${result.created}，文件 ${result.files}` };
         }
@@ -497,6 +514,7 @@ export function createToolDefinitions(service) {
         if (args.action === 'add') {
           if (!args.title) return { text: '准则需要 title。' };
           if (!args.body) return { text: '准则需要 body。' };
+          if (!service.scopeWritable(args.scope ?? service.settings().scope)) return { text: '未执行：该 scope 只读共享。' };
           const rule = service.playbook.add({ title: args.title, body: args.body, tags: args.tags, validTo: args.validTo ?? null, scopeId: args.scope });
           return { text: `已加准则 ${rule.id}：${rule.title}${rule.validTo ? `（到期 ${rule.validTo}）` : ''}` };
         }
@@ -506,20 +524,24 @@ export function createToolDefinitions(service) {
         }
         if (args.action === 'vote') {
           if (!args.id) return { text: '投票需要 id。' };
+          if (!service.scopeWritableById('playbook', args.id)) return { text: '未执行：该准则属于只读共享 scope。' };
           const rule = service.playbook.vote({ id: args.id, signal: args.signal ?? 'helpful' });
           return { text: rule ? `已记 ${rule.id}：helpful=${rule.helpful} harmful=${rule.harmful}` : `没有准则 ${args.id}` };
         }
         if (args.action === 'retire') {
           if (!args.id) return { text: '停用需要 id。' };
+          if (!service.scopeWritableById('playbook', args.id)) return { text: '未执行：该准则属于只读共享 scope。' };
           const rule = service.playbook.retire(args.id);
           return { text: rule ? `已停用 ${rule.id}` : `没有准则 ${args.id}` };
         }
         if (args.action === 'suggest') {
+          if (!service.scopeWritable(args.scope ?? service.settings().scope)) return { text: '未执行：该 scope 只读共享。' };
           const result = service.playbook.suggest({ scopeId: args.scope, limit: args.limit ?? 5 });
           return { text: result.count ? result.candidates.map((rule) => `- [candidate] ${rule.id} · ${rule.title}：${rule.body}`).join('\n') : '（没有新的准则候选）' };
         }
         if (args.action === 'approve') {
           if (!args.id) return { text: '确认需要 id。' };
+          if (!service.scopeWritableById('playbook', args.id)) return { text: '未执行：该准则属于只读共享 scope。' };
           const rule = service.playbook.approve(args.id);
           return { text: rule ? `已确认 ${rule.id}，下一轮生效` : `没有准则 ${args.id}` };
         }
@@ -614,6 +636,23 @@ export function createToolDefinitions(service) {
               required: ['subject', 'predicate'],
             },
           },
+          attachments: {
+            type: 'array',
+            description: 'Reference-only attachment metadata; no bytes are fetched or stored.',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                kind: { type: 'string', enum: ['image', 'audio', 'video', 'file'] },
+                uri: { type: 'string' },
+                name: { type: 'string' },
+                mime: { type: 'string' },
+                bytes: { type: 'number' },
+                sha256: { type: 'string' },
+              },
+              required: ['kind', 'uri'],
+            },
+          },
         },
       },
       output: TEXT_OUTPUT,
@@ -629,10 +668,25 @@ export function createToolDefinitions(service) {
           operationId: args.operationId,
           scopeId: args.scope,
           facts: args.facts,
+          attachments: args.attachments,
         });
-        if (result.skipped) return { text: `未写入：${result.reason}${result.trace ? `（已有 ${result.trace.id}）` : ''}` };
+        if (result.skipped) {
+          const hint = {
+            'low-compression': '内容信息密度太低。若确实是用户要求记住的，请传 explicit: true，或提高 importance 后再试。',
+            'too-short': '内容太短。请写成一条完整、可检索的记忆。',
+            'stop-phrase': '这是停用短语。若确实要记，请换一条有具体内容的表达。',
+            duplicate: '已有相同内容。可以继续使用已有 trace，不必重复写。',
+            idempotent: '同一个 operationId 已处理过。可以继续使用已有 trace。',
+            'scope-read-only': '这个 scope 是只读共享的；请换到可写 scope，或让宿主解除只读。',
+          }[result.reason];
+          const factsNote = result.facts?.length ? `\n已应用 ${result.facts.length} 条事实。` : '';
+          const edgeNote = result.edgeCandidates?.length ? `\n候选边：${result.edgeCandidates.length} 条（待审核）。` : '';
+          return {
+            text: `未写入：${result.reason}${result.trace ? `（已有 ${result.trace.id}）` : ''}${factsNote}${edgeNote}${hint ? `\n提示：${hint}` : ''}`,
+          };
+        }
         return {
-          text: `已写入 ${result.trace.id}（${result.trace.kind}）\n事件：${result.event.id}\n压缩值：${result.compression.toFixed(3)}${result.facts?.length ? `\n事实：${result.facts.length} 条` : ''}`,
+          text: `已写入 ${result.trace.id}（${result.trace.kind}）\n事件：${result.event.id}\n压缩值：${result.compression.toFixed(3)}${result.facts?.length ? `\n事实：${result.facts.length} 条` : ''}${result.edgeCandidates?.length ? `\n候选边：${result.edgeCandidates.length} 条（待审核）` : ''}${result.trace.metadata?.attachments?.length ? `\n附件：${result.trace.metadata.attachments.length} 个（仅元数据）` : ''}`,
         };
       },
       presentCall: () => ({ card: 'generic', title: '写入记忆', kind: 'other' }),
@@ -676,8 +730,11 @@ export function createToolDefinitions(service) {
       output: TEXT_OUTPUT,
       isConcurrencySafe: () => false,
       async execute(args = {}) {
+        if (!service.scopeWritableById('trace', args.id)) return { text: '未执行：该记忆属于只读共享 scope。' };
         const result = service.forget({ traceId: args.id, mode: args.mode });
-        if (!result.removed) return { text: `没有这条记忆：${args.id}` };
+        if (!result.removed) {
+          return { text: result.reason === 'scope-read-only' ? '未执行：该记忆属于只读共享 scope。' : `没有这条记忆：${args.id}` };
+        }
         return { text: args.mode === 'delete' ? `已删除 ${args.id}，并级联清理派生数据。` : `已归档 ${args.id}，可用关键词唤醒。` };
       },
       presentCall: () => ({ card: 'generic', title: '遗忘/删除记忆', kind: 'other' }),

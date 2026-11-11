@@ -21,13 +21,13 @@ test('entities merge aliases and facts revise over time', () => {
     const events = createEventRepository(db);
     const entities = createEntityRepository(db);
     const facts = createFactRepository(db);
-    const owner = entities.upsert({ name: '用户', type: 'person', aliases: ['contributors'] });
-    const merged = entities.upsert({ name: '用户', type: 'person', aliases: ['用户大人'] });
+    const owner = entities.upsert({ name: '主人', type: 'person', aliases: ['凌寒'] });
+    const merged = entities.upsert({ name: '主人', type: 'person', aliases: ['主人大人'] });
     assert.equal(merged.id, owner.id);
-    assert.deepEqual(merged.aliases.sort(), ['contributors', '用户大人'].sort());
-    const rice = entities.upsert({ name: '米食', type: 'food' });
+    assert.deepEqual(merged.aliases.sort(), ['凌寒', '主人大人'].sort());
+    const rice = entities.upsert({ name: '白饭', type: 'food' });
     const meal = entities.upsert({ name: '米饭', type: 'food' });
-    const event = events.append({ kind: 'utterance', payload: { text: '用户喜欢米食' } });
+    const event = events.append({ kind: 'utterance', payload: { text: '主人喜欢白饭' } });
 
     const first = facts.resolve({
       subjectId: owner.id,
@@ -81,8 +81,8 @@ test('same-start contradiction becomes a dispute and backfill gets a bounded int
   try {
     const entities = createEntityRepository(db);
     const facts = createFactRepository(db);
-    const owner = entities.upsert({ name: '用户' });
-    const a = entities.upsert({ name: '米食' });
+    const owner = entities.upsert({ name: '主人' });
+    const a = entities.upsert({ name: '白饭' });
     const b = entities.upsert({ name: '米饭' });
     facts.resolve({ subjectId: owner.id, predicate: 'likes', objectId: a.id, validFrom: '2026-11-10T00:00:00.000Z' });
     const dispute = facts.resolve({ subjectId: owner.id, predicate: 'likes', objectId: b.id, validFrom: '2026-11-10T00:00:00.000Z' });

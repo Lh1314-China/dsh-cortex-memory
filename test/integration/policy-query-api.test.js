@@ -228,7 +228,7 @@ test('API security: loopback same-origin allowed, cross-origin and unsafe POSTs 
     const write = await invokeApi(handler, {
       method: 'POST',
       route: '/write',
-      body: { text: '用户说会买米食。', title: '米食', explicit: true },
+      body: { text: '主人说会买白饭。', title: '白饭', explicit: true },
       headers: { 'x-cortex': '1' },
     });
     assert.equal(write.status, 200);
@@ -240,10 +240,10 @@ test('API security: loopback same-origin allowed, cross-origin and unsafe POSTs 
     const trace = await invokeApi(handler, { route: `/trace?id=${traceId}` });
     assert.equal(trace.status, 200);
     assert.equal(trace.json.data.id, traceId);
-    assert.equal(trace.json.data.content, '用户说会买米食。');
-    assert.equal(trace.json.data.title, '米食');
+    assert.equal(trace.json.data.content, '主人说会买白饭。');
+    assert.equal(trace.json.data.title, '白饭');
 
-    const search = await invokeApi(handler, { route: '/search?q=米食' });
+    const search = await invokeApi(handler, { route: '/search?q=白饭' });
     assert.equal(search.status, 200);
     assert.ok(search.json.data.items.some((item) => item.id === traceId));
 

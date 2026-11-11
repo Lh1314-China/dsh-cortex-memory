@@ -28,7 +28,7 @@ test('writeMany commits a batch and is idempotent per operationId', () => {
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
   try {
     const inputs = Array.from({ length: 25 }, (_, i) => ({
-      text: `批量记忆 ${i}：用户和助手在写模块。`,
+      text: `批量记忆 ${i}：主人和本鲸在写模块。`,
       explicit: true,
       operationId: `batch:${i}`,
     }));

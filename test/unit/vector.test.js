@@ -23,8 +23,8 @@ function setup() {
 
 test('hash embedder is deterministic and normalized', () => {
   const embedder = createHashEmbedder({ dim: 64 });
-  const a = embedder.embed('米食 用户');
-  const b = embedder.embed('米食 用户');
+  const a = embedder.embed('白饭 主人');
+  const b = embedder.embed('白饭 主人');
   assert.equal(a.length, 64);
   assert.ok(cosine(a, b) > 0.999);
   const c = embedder.embed('插件 安装');
@@ -34,15 +34,15 @@ test('hash embedder is deterministic and normalized', () => {
 test('vector index upserts, searches and removes', () => {
   const { dir, db, events, traces, vector } = setup();
   try {
-    const event = events.append({ kind: 'utterance', payload: { text: '米食' } });
-    const trace = traces.insert({ eventId: event.id, content: '用户说会买米食，助手等得起。' });
+    const event = events.append({ kind: 'utterance', payload: { text: '白饭' } });
+    const trace = traces.insert({ eventId: event.id, content: '主人说会买白饭，本鲸等得起。' });
     vector.upsert(trace.id, trace.content);
-    const hits = vector.search('米食');
+    const hits = vector.search('白饭');
     assert.equal(hits[0].traceId, trace.id);
     assert.ok(hits[0].score > 0);
     assert.equal(vector.status().count, 1);
     vector.remove(trace.id);
-    assert.equal(vector.search('米食').length, 0);
+    assert.equal(vector.search('白饭').length, 0);
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });
@@ -56,8 +56,8 @@ test('service enables vector retrieval and degrades when disabled', () => {
     config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), vectorEnabled: true, embedder },
   });
   try {
-    cortex.write({ text: '用户说会买米食，助手等得起。', explicit: true });
-    const result = cortex.search('米食');
+    cortex.write({ text: '主人说会买白饭，本鲸等得起。', explicit: true });
+    const result = cortex.search('白饭');
     assert.ok(result.items.length >= 1);
     assert.ok(result.trace.sources.some((source) => source.source === 'vector' && source.ok));
     assert.equal(cortex.rebuildVector().rebuilt, 1);

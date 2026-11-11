@@ -6,7 +6,7 @@ test('FTS failure degrades cortex.search to recency instead of throwing', () => 
   const context = makeCortex();
   const { cortex } = context;
   try {
-    const first = cortex.write({ text: '米食的承诺：用户会买米食。', title: '米食', explicit: true, now: BASE_MS });
+    const first = cortex.write({ text: '白饭的承诺：主人会买白饭。', title: '白饭', explicit: true, now: BASE_MS });
     cortex.write({ text: '另一条普通记忆。', title: '普通', explicit: true, now: BASE_MS + 1_000 });
     assert.equal(first.skipped, false);
 
@@ -15,7 +15,7 @@ test('FTS failure degrades cortex.search to recency instead of throwing', () => 
       cortex.repos.traces.searchFts = () => {
         throw new Error('fts unavailable');
       };
-      const degraded = cortex.search('米食', { now: BASE_MS + 2_000, limit: 5 });
+      const degraded = cortex.search('白饭', { now: BASE_MS + 2_000, limit: 5 });
       assert.ok(degraded.items.length >= 1); // recency source still produced candidates
       const ftsSource = degraded.trace.sources.find((source) => source.source === 'fts');
       assert.ok(ftsSource);
@@ -27,7 +27,7 @@ test('FTS failure degrades cortex.search to recency instead of throwing', () => 
     }
 
     // Once the repository method is restored, FTS contributes again.
-    const healthy = cortex.search('米食', { now: BASE_MS + 3_000, limit: 5 });
+    const healthy = cortex.search('白饭', { now: BASE_MS + 3_000, limit: 5 });
     const healthyFts = healthy.trace.sources.find((source) => source.source === 'fts');
     assert.equal(healthyFts.ok, true);
     assert.ok(healthyFts.count >= 1);
@@ -46,7 +46,7 @@ test('vector index failures never fail writes or searches, and recovery restores
     assert.equal(cortex.vector.dim, 256);
     assert.equal(cortex.vector.status().count, 0);
 
-    const first = cortex.write({ text: '向量测试：用户喜欢米食。', title: '向量一', explicit: true, now: BASE_MS });
+    const first = cortex.write({ text: '向量测试：主人喜欢白饭。', title: '向量一', explicit: true, now: BASE_MS });
     assert.equal(first.skipped, false);
     assert.equal(cortex.vector.status().count, 1);
 
@@ -70,7 +70,7 @@ test('vector index failures never fail writes or searches, and recovery restores
       cortex.vector.search = () => {
         throw new Error('vector search failed');
       };
-      const degraded = cortex.search('米食', { now: BASE_MS + 2_000, limit: 5 });
+      const degraded = cortex.search('白饭', { now: BASE_MS + 2_000, limit: 5 });
       assert.ok(degraded.items.length >= 1);
       const vectorSource = degraded.trace.sources.find((source) => source.source === 'vector');
       assert.ok(vectorSource);
@@ -80,10 +80,10 @@ test('vector index failures never fail writes or searches, and recovery restores
       cortex.vector.search = originalSearch;
     }
 
-    const healthy = cortex.search('米食', { now: BASE_MS + 3_000, limit: 5 });
+    const healthy = cortex.search('白饭', { now: BASE_MS + 3_000, limit: 5 });
     const vectorSource = healthy.trace.sources.find((source) => source.source === 'vector');
     assert.equal(vectorSource.ok, true);
-    assert.ok(cortex.vector.search('米食', { limit: 5 }).length >= 1);
+    assert.ok(cortex.vector.search('白饭', { limit: 5 }).length >= 1);
     assert.equal(cortex.settings().vector.model, 'hash-256');
 
     // A rebuild re-embeds every active trace after the earlier failed upsert.

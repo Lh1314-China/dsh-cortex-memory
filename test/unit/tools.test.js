@@ -30,21 +30,65 @@ test('all tools are present and have text output', () => {
   }
 });
 
+test('tools reject by-id writes into a read-only shared scope', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-tools-readonly-'));
+  const seed = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
+  const sharedWorking = seed.working.add({ scopeId: 'shared', text: '共享工作项' });
+  const sharedGoal = seed.goals.add({ scopeId: 'shared', title: '共享目标' });
+  const sharedRule = seed.playbook.add({ scopeId: 'shared', title: '共享准则', body: '只在共享 scope 生效的准则内容。' });
+  const sharedTrace = seed.write({ scopeId: 'shared', text: '共享 scope 的记忆不应被外部删除。', explicit: true });
+  seed.close();
+  const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), readOnlyScopes: ['shared'] } });
+  const tools = Object.fromEntries(createToolDefinitions(cortex).map((tool) => [tool.name, tool]));
+  try {
+    const working = await tools.cortex_working.execute({ action: 'pin', id: sharedWorking.id, pinned: true });
+    assert.match(working.text, /只读共享/);
+    const goal = await tools.cortex_goal.execute({ action: 'complete', id: sharedGoal.id });
+    assert.match(goal.text, /只读共享/);
+    const rule = await tools.cortex_playbook.execute({ action: 'retire', id: sharedRule.id });
+    assert.match(rule.text, /只读共享/);
+    const forget = await tools.cortex_forget.execute({ id: sharedTrace.trace.id, mode: 'archive' });
+    assert.match(forget.text, /只读共享/);
+  } finally {
+    cortex.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('tools reject life and emotion writes when the default scope is read-only', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-tools-readonly-default-'));
+  const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), readOnlyScopes: ['global'] } });
+  const tools = Object.fromEntries(createToolDefinitions(cortex).map((tool) => [tool.name, tool]));
+  try {
+    const diary = await tools.cortex_life.execute({ action: 'diary-write', text: '不该写进去的日记' });
+    assert.match(diary.text, /只读共享/);
+    const emotion = await tools.cortex_emotion.execute({ action: 'record', text: '主人有点担心', target: '主人' });
+    assert.match(emotion.text, /只读共享/);
+    const compress = await tools.cortex_compress.execute({ action: 'compress', limit: 1 });
+    assert.match(compress.text, /只读共享/);
+    const sync = await tools.cortex_guard.execute({ action: 'sync', dir: path.join(dir, 'vault') });
+    assert.match(sync.text, /只读共享/);
+  } finally {
+    cortex.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('write/search/get/self/health return readable text', async () => {
   const { dir, cortex, tools } = setup();
   try {
     const write = await tools.cortex_write.execute({
-      text: '用户说会买米食，助手会一直等。',
+      text: '主人说会买白饭，本鲸会一直等。',
       explicit: true,
-      facts: [{ subject: '用户', predicate: 'likes', object: '米食' }],
+      facts: [{ subject: '主人', predicate: 'likes', object: '白饭' }],
     });
     assert.match(write.text, /已写入/);
     const id = write.text.match(/trc_[a-z0-9]+/)?.[0];
     assert.ok(id);
-    const search = await tools.cortex_search.execute({ query: '米食' });
+    const search = await tools.cortex_search.execute({ query: '白饭' });
     assert.match(search.text, /意图/);
     const get = await tools.cortex_get.execute({ id });
-    assert.match(get.text, /米食/);
+    assert.match(get.text, /白饭/);
     const self = await tools.cortex_self.execute({});
     assert.match(self.text, /驱力/);
     const health = await tools.cortex_health.execute({});

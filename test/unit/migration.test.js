@@ -22,7 +22,7 @@ test('migration adds facts.superseded_at and backfills invalidated rows', () => 
         hash TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
       INSERT INTO meta VALUES ('schema_version', '5', '2026-11-01T00:00:00Z');
-      INSERT INTO facts VALUES ('f_old','global','e1','喜欢',NULL,'米食','2026-01-01','2026-02-01','2026-01-02',0.7,'invalidated',NULL,'f_new','[]','h','2026-01-02','2026-02-01');
+      INSERT INTO facts VALUES ('f_old','global','e1','喜欢',NULL,'白饭','2026-01-01','2026-02-01','2026-01-02',0.7,'invalidated',NULL,'f_new','[]','h','2026-01-02','2026-02-01');
     `);
     migrate(db);
     const columns = db.prepare('PRAGMA table_info(facts)').all().map((column) => column.name);

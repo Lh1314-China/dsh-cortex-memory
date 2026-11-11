@@ -1,6 +1,6 @@
 # dsh-cortex bundle patch.
 # Host row + client panel. The engine owns its own data root (~/.dsh/cortex),
-# never a legacy profile's data.
+# never shiori's data.
 - insert:
     - id: cortex
       name: 'dsh-cortex-memory'

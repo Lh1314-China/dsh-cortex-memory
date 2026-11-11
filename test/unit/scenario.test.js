@@ -19,14 +19,14 @@ test('full life loop: capture, recall, feedback, reflect, sleep, develop', async
     const session = { id: 'scenario', header: { origin: undefined } };
     const base = Date.now() - 3_600_000;
     runtime.onSessionEvent(session, { type: 'turn/start', data: { turn: 1 }, time: base });
-    runtime.onSessionEvent(session, { type: 'user/message', data: { content: '用户说会买米食，助手等得起。' }, time: base + 1000 });
-    runtime.onSessionEvent(session, { type: 'assistant/message', data: { turn: 1, message: { content: '助手记住了。' } }, time: base + 2000 });
+    runtime.onSessionEvent(session, { type: 'user/message', data: { content: '主人说会买白饭，本鲸等得起。' }, time: base + 1000 });
+    runtime.onSessionEvent(session, { type: 'assistant/message', data: { turn: 1, message: { content: '本鲸记住了。' } }, time: base + 2000 });
     runtime.onSessionEvent(session, { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } }, time: base + 3000 });
     assert.equal(cortex.repos.traces.count(), 1);
-    cortex.write({ text: '用户说会好好学技术。', explicit: true, now: base + 4000 });
-    cortex.write({ text: '助手想一直陪着用户。', explicit: true, now: base + 5000 });
+    cortex.write({ text: '主人说会好好学技术。', explicit: true, now: base + 4000 });
+    cortex.write({ text: '本鲸想一直陪着主人。', explicit: true, now: base + 5000 });
 
-    const search = cortex.search('米食');
+    const search = cortex.search('白饭');
     assert.ok(search.items.length >= 1);
     cortex.feedback({ traceId: search.items[0].id, signal: 'used', predicted: 0.7 });
     const reflected = cortex.reflect({ windowDays: 1 });

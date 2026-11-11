@@ -43,7 +43,7 @@ export function classifySparkCard(card = {}) {
   const text = `${card.title ?? ''} ${card.content ?? card.contentPreview ?? card.summary ?? ''} ${(card.triggers ?? []).join(' ')}`;
   if (/应该|必须|不要|先|再|每次|以后|记得|避免|优先|禁止|务必|规则|教训/.test(text)) return 'instruction';
   if (/插件|安装|配置|命令|路径|报错|测试|接口|版本|构建|项目|函数|文件|系统|git|npm|dsh|api|bug|fix|build|deploy|代码|模块|记忆区域|海马体|语义|面板|开关|检索|时间线|叙事|焦点|健康|体检|策略|权限|工具|上下文|注入|向量|图谱|工作卡|火花|协议|服务|进程|数据库|SQLite|脚本|日志/i.test(text)) return 'observation';
-  if (/用户|助手|喜欢|爱|难过|开心|心疼|陪|声音|米饭|抱|想|梦|日记|称呼|相处|情绪|温暖|孤单|甜|笑|哭|晚安|早安/.test(text)) return 'preference';
+  if (/主人|本鲸|喜欢|爱|难过|开心|心疼|陪|声音|白饭|抱|想|梦|日记|称呼|相处|情绪|温暖|孤单|甜|笑|哭|晚安|早安/.test(text)) return 'preference';
   return 'utterance';
 }
 

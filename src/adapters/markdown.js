@@ -14,7 +14,8 @@ function writeAtomic(file, content) {
 }
 
 export function traceToMarkdown(trace) {
-  return [
+  const attachments = Array.isArray(trace.metadata?.attachments) ? trace.metadata.attachments : [];
+  const lines = [
     '---',
     `id: "${front(trace.id)}"`,
     `kind: "${front(trace.kind)}"`,
@@ -26,11 +27,20 @@ export function traceToMarkdown(trace) {
     `importance: ${Number(trace.importance ?? 0)}`,
     `confidence: ${Number(trace.confidence ?? 0)}`,
     `tags: [${(trace.tags ?? []).map((tag) => `"${front(tag)}"`).join(', ')}]`,
+    ...(attachments.length ? [`attachments: ${JSON.stringify(attachments)}`] : []),
     '---',
     '',
     trace.content ?? '',
     '',
-  ].join('\n');
+  ];
+  if (attachments.length) {
+    lines.push('## Attachments (metadata only)', '');
+    for (const item of attachments) {
+      lines.push(`- ${item.kind}: ${item.name ?? item.uri}${item.mime ? ` (${item.mime})` : ''}${item.bytes ? ` · ${item.bytes} B` : ''}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
 }
 
 export function exportMarkdown(cortex, targetDir, { scopeId = 'global' } = {}) {

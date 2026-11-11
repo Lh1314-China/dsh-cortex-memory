@@ -31,6 +31,9 @@ export function createEdgeRepository(db) {
       ORDER BY valid_from DESC LIMIT 1
     `).get(scopeId, fromId, toId, rel, validFrom);
     if (existing) {
+      const current = rowToEdge(existing);
+      // A candidate must never downgrade an already-active edge.
+      if (metadata?.status === 'candidate' && current.metadata?.status !== 'candidate') return current;
       db.prepare('UPDATE edges SET weight = ?, metadata_json = ?, updated_at = ? WHERE id = ?')
         .run(Number(weight), stableStringify(metadata), nowIso(), existing.id);
       return get(existing.id);
@@ -68,13 +71,54 @@ export function createEdgeRepository(db) {
     return rows.map(rowToEdge).filter((edge) => {
       if (seen.has(edge.id)) return false;
       seen.add(edge.id);
-      return true;
+      return edge.metadata?.status !== 'candidate' && edge.metadata?.status !== 'rejected';
     });
   }
 
-  function list({ scopeId = 'global', limit = 200 } = {}) {
+  function list({ scopeId = 'global', limit = 200, includeCandidates = false } = {}) {
     const count = Math.max(1, Math.min(10000, Number(limit) || 200));
-    return db.prepare('SELECT * FROM edges WHERE scope_id = ? ORDER BY updated_at DESC LIMIT ?').all(scopeId, count).map(rowToEdge);
+    return db.prepare('SELECT * FROM edges WHERE scope_id = ? ORDER BY updated_at DESC LIMIT ?').all(scopeId, count)
+      .map(rowToEdge)
+      .filter((edge) => includeCandidates || (edge.metadata?.status !== 'candidate' && edge.metadata?.status !== 'rejected'));
+  }
+
+  function addCandidate({ scopeId = 'global', fromId, toId, rel = 'related', weight = 0.5, confidence = 0.5, sourceEventId = null, sourceTraceId = null, evidence = null, metadata = {} } = {}) {
+    return upsert({
+      scopeId,
+      fromId,
+      toId,
+      rel,
+      weight,
+      metadata: {
+        ...metadata,
+        status: 'candidate',
+        confidence,
+        sourceEventId,
+        sourceTraceId,
+        evidence,
+        proposedAt: nowIso(),
+      },
+    });
+  }
+
+  function listCandidates({ scopeId = 'global', limit = 200 } = {}) {
+    return list({ scopeId, limit, includeCandidates: true }).filter((edge) => edge.metadata?.status === 'candidate');
+  }
+
+  function approveCandidate(id, { at = nowIso() } = {}) {
+    const edge = get(id);
+    if (!edge || edge.metadata?.status !== 'candidate') return null;
+    db.prepare('UPDATE edges SET metadata_json = ?, updated_at = ? WHERE id = ?')
+      .run(stableStringify({ ...edge.metadata, status: 'active', approvedAt: at }), at, id);
+    return get(id);
+  }
+
+  function rejectCandidate(id, { at = nowIso() } = {}) {
+    const edge = get(id);
+    if (!edge || edge.metadata?.status !== 'candidate') return null;
+    db.prepare('UPDATE edges SET valid_to = ?, metadata_json = ?, updated_at = ? WHERE id = ?')
+      .run(at, stableStringify({ ...edge.metadata, status: 'rejected', rejectedAt: at }), at, id);
+    return get(id);
   }
 
   function invalidate(id, { at = nowIso() } = {}) {
@@ -82,5 +126,5 @@ export function createEdgeRepository(db) {
     return get(id);
   }
 
-  return { get, upsert, neighbors, list, invalidate };
+  return { get, upsert, neighbors, list, addCandidate, listCandidates, approveCandidate, rejectCandidate, invalidate };
 }

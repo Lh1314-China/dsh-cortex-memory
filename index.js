@@ -22,12 +22,18 @@ export const Config = Schema ? Schema.object({
   dataRoot: Schema.string().description('Cortex 数据目录（默认 DSH_HOME/cortex）'),
   dbFile: Schema.string().description('SQLite 文件；默认 dataRoot/cortex.sqlite'),
   scope: Schema.string().default('global').description('默认 scope'),
+  readOnlyScopes: Schema.array(Schema.string()).default([]).description('只读共享 scope 列表'),
+  scopeWriteGrants: Schema.array(Schema.any()).default([]).description('显式写授权：scope:agent 或 {grant, until}'),
   contextBudget: Schema.natural().default(2200).description('检索注入的 token 预算'),
   promptBudget: Schema.natural().default(1600).description('常驻自我/工作记忆提示词预算'),
   recallTimeoutMs: Schema.natural().default(1200).description('前台召回硬截止'),
   asyncJobs: Schema.boolean().default(true).description('允许后台任务'),
   captureSubagents: Schema.boolean().default(false).description('是否把子代理会话也写入记忆'),
   vectorEnabled: Schema.boolean().default(false).description('启用向量检索（默认用离线 hash embedder 兜底）'),
+  vectorAnnMin: Schema.natural().default(20000).description('向量 ANN 生效的最小条数'),
+  vectorAnnEngine: Schema.string().default('hnsw').description('ANN 引擎：hnsw（默认）或 nsw（旧实现）'),
+  vectorAnnEndpoint: Schema.string().default('').description('外置 ANN HTTP endpoint；空则不用外置'),
+  vectorAnnTimeoutMs: Schema.natural().default(800).description('外置 ANN 超时毫秒'),
   scheduler: Schema.boolean().default(true).description('启用宿主心跳（安全自主 tick/作业/保留计划）'),
   schedulerIntervalMs: Schema.natural().default(60000).description('心跳间隔毫秒'),
   maxCallsPerHour: Schema.natural().default(120).description('检索调用预算（宿主 prefetch 不计入）'),
@@ -48,6 +54,9 @@ export const Config = Schema ? Schema.object({
     reflect: Schema.boolean().default(true),
     growth: Schema.boolean().default(true),
     vector: Schema.boolean().default(false),
+    vectorAnn: Schema.boolean().default(false),
+    vectorAnnExternal: Schema.boolean().default(false),
+    attachmentReader: Schema.boolean().default(false),
     graph: Schema.boolean().default(true),
     llm: Schema.boolean().default(false),
     api: Schema.boolean().default(true),
@@ -109,7 +118,11 @@ export async function apply(ctx, config = {}) {
       for (const tool of createToolDefinitions(cortex)) disposers.push(ctx.tools.register(tool));
       if (runtime) disposers.push(runtime.attach(ctx));
       if (scheduler) scheduler.start();
-      if (config.features?.api !== false) disposers.push(mountApi(ctx, { cortex, logger: ctx.logger }));
+      if (config.features?.api !== false) disposers.push(mountApi(ctx, {
+        cortex,
+        logger: ctx.logger,
+        getExtractor: () => ctx.get?.('cortexExtractor') ?? null,
+      }));
       if (typeof ctx.systemPrompt?.section === 'function') {
         disposers.push(ctx.systemPrompt.section({
           name: 'cortex-self',
@@ -125,6 +138,7 @@ export async function apply(ctx, config = {}) {
           search: cortex.search,
           get: cortex.get,
           write: cortex.write,
+          ingestExtractedText: cortex.ingestExtractedText,
           self: cortex.self,
           health: cortex.health,
         });

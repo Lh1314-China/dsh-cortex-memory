@@ -102,7 +102,7 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
     if (!user && !assistant) return { skipped: true, reason: 'empty' };
     const text = [
       user ? `用户：${user}` : '',
-      assistant ? `助手：${assistant}` : '',
+      assistant ? `本鲸：${assistant}` : '',
     ].filter(Boolean).join('\n');
     try {
       const written = cortex.write({

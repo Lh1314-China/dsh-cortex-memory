@@ -51,7 +51,7 @@ export function createReflectEngine({ traces, summaries, encode, config = {} } =
       selected.push(item);
     }
     const lines = selected.map(({ trace }) => `- ${sentence(trace.title || trace.content, 140)}`);
-    const content = `这段时间里，助手记住了：\n${lines.join('\n')}`;
+    const content = `这段时间里，本鲸记住了：\n${lines.join('\n')}`;
     const coverage = selected.length / all.length;
     const summary = summaries.insert({
       scopeId,

@@ -25,6 +25,19 @@ test('model config applies local preset and redacts keys', () => {
   }
 });
 
+test('model config tolerates a UTF-8 BOM from Windows PowerShell', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-model-config-bom-'));
+  try {
+    writeFileSync(path.join(dir, 'model-config.json'), '\uFEFF{"embedding":{"mode":"local","baseUrl":"http://127.0.0.1:11434/v1","model":"bge-m3","dim":1024}}', 'utf8');
+    const config = readModelConfig(dir);
+    assert.equal(config.embedding.mode, 'local');
+    assert.equal(config.embedding.model, 'bge-m3');
+    assert.equal(config.embedding.dim, 1024);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('model config rejects missing remote fields and no confirmation', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-model-config-bad-'));
   try {

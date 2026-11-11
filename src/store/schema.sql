@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS traces (
   summary TEXT,
   keywords_json TEXT NOT NULL DEFAULT '[]',
   tags_json TEXT NOT NULL DEFAULT '[]',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
   event_id TEXT NOT NULL REFERENCES events(id),
   session_id TEXT,
   turn_id TEXT,
