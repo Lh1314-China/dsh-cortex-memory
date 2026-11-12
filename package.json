@@ -1,6 +1,6 @@
 {
-  "name": "dsh-cortex",
-  "version": "0.2.0",
+  "name": "dsh-cortex-memory",
+  "version": "0.2.1",
   "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness: working, episodic, semantic, procedural and reflective memory with hybrid retrieval, DSR forgetting, reflection, consolidation, gated self-evolution and guardian.",
   "type": "module",
   "main": "./index.js",

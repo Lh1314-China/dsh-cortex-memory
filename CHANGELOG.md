@@ -17,3 +17,8 @@
 - Windows OCR and Tesseract layout-aware column ordering.
 - Stable npm install no longer requires `@next`.
 - Permission toggles show a confirmation, persist locally, and require a restart; settings copies now state that clearly.
+
+## 0.2.1 — 2026-11-12
+
+- Rewrote the public README: install, stable status, UI extraction, permissions, privacy, compatibility and extractor usage.
+- No memory-engine behavior change.
