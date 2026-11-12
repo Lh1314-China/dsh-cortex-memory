@@ -9,3 +9,11 @@
 
 - Layout selection is passed from the Trace UI through `/attachments/extract`.
 - Node 24 CI compatible; id validation before SQLite.
+
+## 0.2.0 — 2026-11-12
+
+- First stable release of the rc line.
+- Trace UI: target trace + layout selector (auto/single/two-column/handwriting); extracts into a derived memory.
+- Windows OCR and Tesseract layout-aware column ordering.
+- Stable npm install no longer requires `@next`.
+- Permission toggles show a confirmation, persist locally, and require a restart; settings copies now state that clearly.

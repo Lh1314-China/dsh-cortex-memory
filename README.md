@@ -91,3 +91,9 @@ auto-linked into them.
 MIT. External ideas are cited in the research notes; no third-party source
 code is copied into this package.
 
+
+## Security and privacy
+
+- [Permissions and scopes](./docs/permissions.md)
+- [Privacy notes](./docs/privacy.md)
+
