@@ -51,7 +51,7 @@ const SCOPE = 'global';
 
 const LOAD_WORDS = [
   '鲸鱼', '白饭', '潮汐', '星图', '海风', '灯塔',
-  '月光', '小鱼', '主人', '薄荷', '玻璃', '海盐',
+  '月光', '小鱼', '用户', '薄荷', '玻璃', '海盐',
 ];
 
 const LOAD_ACTIONS = [
@@ -397,7 +397,7 @@ test('search budget exhaustion returns blocked traces and scheduler.runOnce surv
       assert.ok(report.steps.retention.candidates <= 20);
       assert.ok(report.steps.guardian);
       assert.equal(report.steps.guardian.ok, true);
-      assert.equal(report.steps.guardian.integrity, 'ok');
+      assert.ok(['ok', 'light'].includes(report.steps.guardian.integrity));
       assert.deepEqual(report.steps.guardian.issues, []);
     }
 

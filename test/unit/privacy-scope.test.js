@@ -9,7 +9,7 @@ test('privacy deleteScope removes derived memory while keeping the event ledger'
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-privacy-scope-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
   try {
-    cortex.write({ text: '主人喜欢白饭。', explicit: true, facts: [{ subject: '主人', predicate: 'likes', object: '白饭' }] });
+    cortex.write({ text: '用户喜欢白饭。', explicit: true, facts: [{ subject: '用户', predicate: 'likes', object: '白饭' }] });
     cortex.working.add({ text: '一个焦点' });
     cortex.goals.add({ title: '一个目标' });
     cortex.engines.skills.create({ name: '一个技能', steps: ['a'], state: 'active' });

@@ -12,7 +12,7 @@ test('snapshot export validates and imports idempotently', () => {
   const source = createCortex({ config: { dataRoot: sourceDir, dbFile: path.join(sourceDir, 'cortex.sqlite') } });
   const target = createCortex({ config: { dataRoot: targetDir, dbFile: path.join(targetDir, 'cortex.sqlite') } });
   try {
-    source.write({ text: '主人说会买白饭。', explicit: true, tags: ['白饭'] });
+    source.write({ text: '用户说会买白饭。', explicit: true, tags: ['白饭'] });
     const snapshot = exportSnapshot(source);
     assert.equal(validateSnapshot(snapshot).ok, true);
     const dry = importSnapshot(target, snapshot, { dryRun: true });

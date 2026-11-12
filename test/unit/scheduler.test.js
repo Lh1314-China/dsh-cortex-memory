@@ -79,7 +79,7 @@ test('scheduler writes an automatic feeling when idle', async () => {
       life: {
         feelingGenerate: async (args) => {
           calls.push(args);
-          return { text: '本鲸现在很安静。', emotions: [{ name: '安', score: 1 }], target: '主人', model: 'llm', sourceCount: 1 };
+          return { text: '助手现在很安静。', emotions: [{ name: '安', score: 1 }], target: '用户', model: 'llm', sourceCount: 1 };
         },
       },
     },
@@ -90,7 +90,7 @@ test('scheduler writes an automatic feeling when idle', async () => {
   const report = await scheduler.runOnce();
   assert.equal(calls.length, 1);
   assert.equal(calls[0].source, 'cortex:auto:feeling');
-  assert.equal(report.steps.autoFeeling.text, '本鲸现在很安静。');
+  assert.equal(report.steps.autoFeeling.text, '助手现在很安静。');
 });
 
 test('scheduler asks the LLM to review candidate edges', async () => {

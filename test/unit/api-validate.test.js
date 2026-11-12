@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { validateWrite, validateFeedback, validateForget, validateSearch } from '../../src/api/validate.js';
 
 test('write validation accepts and normalizes a body', () => {
-  const value = validateWrite({ text: ' 主人喜欢白饭。 ', tags: [' 白饭 ', ''], importance: 0.8, explicit: false });
-  assert.equal(value.text, '主人喜欢白饭。');
+  const value = validateWrite({ text: ' 用户喜欢白饭。 ', tags: [' 白饭 ', ''], importance: 0.8, explicit: false });
+  assert.equal(value.text, '用户喜欢白饭。');
   assert.deepEqual(value.tags, ['白饭']);
   assert.equal(value.importance, 0.8);
   assert.equal(value.explicit, false);

@@ -22,6 +22,10 @@ export const Config = Schema ? Schema.object({
   dataRoot: Schema.string().description('Cortex 数据目录（默认 DSH_HOME/cortex）'),
   dbFile: Schema.string().description('SQLite 文件；默认 dataRoot/cortex.sqlite'),
   scope: Schema.string().default('global').description('默认 scope'),
+  persona: Schema.object({
+    selfName: Schema.string().default('助手').description('助手自称；默认中性'),
+    userAddress: Schema.string().default('你').description('用户称呼；默认中性'),
+  }).description('人格称呼配置'),
   readOnlyScopes: Schema.array(Schema.string()).default([]).description('只读共享 scope 列表'),
   scopeWriteGrants: Schema.array(Schema.any()).default([]).description('显式写授权：scope:agent 或 {grant, until}'),
   contextBudget: Schema.natural().default(2200).description('检索注入的 token 预算'),
@@ -36,6 +40,9 @@ export const Config = Schema ? Schema.object({
   vectorAnnTimeoutMs: Schema.natural().default(800).description('外置 ANN 超时毫秒'),
   scheduler: Schema.boolean().default(true).description('启用宿主心跳（安全自主 tick/作业/保留计划）'),
   schedulerIntervalMs: Schema.natural().default(60000).description('心跳间隔毫秒'),
+  injectionGate: Schema.boolean().default(true).description('只过滤注入 prompt 的弱相关候选；cortex_search 仍返回全量'),
+  recentMinMatch: Schema.number().default(0.12).description('注入层近期候选最低匹配度'),
+  allowRestoreOutsideRoot: Schema.boolean().default(false).description('允许 guard 恢复到 dataRoot 外；默认禁止'),
   maxCallsPerHour: Schema.natural().default(120).description('检索调用预算（宿主 prefetch 不计入）'),
   rerankEnabled: Schema.boolean().default(false).description('QA 可选 HTTP rerank（默认关）'),
   rerankBaseUrl: Schema.string().default('').description('rerank 服务根地址，例如 http://127.0.0.1:9000/v1'),
@@ -103,7 +110,7 @@ export async function apply(ctx, config = {}) {
   try {
     const effective = effectiveFeatures(config);
     config = { ...config, features: effective.features };
-    const llm = config.features?.llm === true ? createLlmAdapter({ ctx, logger: ctx.logger }) : null;
+    const llm = config.features?.llm === true ? createLlmAdapter({ ctx, logger: ctx.logger, persona: config.persona }) : null;
     let webSearch = null;
     try {
       const web = ctx.get?.('web') ?? null;

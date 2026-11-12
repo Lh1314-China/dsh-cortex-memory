@@ -47,14 +47,14 @@ test('self store persists drives, mood and attention', () => {
     const updated = store.update('global', {
       drives: { care: 0.95 },
       mood: { valence: 0.5 },
-      attention: { focus: '主人' },
+      attention: { focus: '用户' },
     });
     assert.equal(updated.drives.care, 0.95);
     assert.equal(updated.mood.valence, 0.5);
-    assert.equal(updated.attention.focus, '主人');
+    assert.equal(updated.attention.focus, '用户');
     const reloaded = store.get('global');
     assert.equal(reloaded.drives.care, 0.95);
-    assert.equal(reloaded.attention.focus, '主人');
+    assert.equal(reloaded.attention.focus, '用户');
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });

@@ -10,7 +10,7 @@ test('markdown mirror exports readable files and skips secrets', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-md-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
   try {
-    cortex.write({ text: '主人说会买白饭。', title: '白饭', explicit: true, facts: [{ subject: '主人', predicate: 'likes', object: '白饭' }], attachments: [{ kind: 'image', uri: 'https://example.test/rice.png', mime: 'image/png' }] });
+    cortex.write({ text: '用户说会买白饭。', title: '白饭', explicit: true, facts: [{ subject: '用户', predicate: 'likes', object: '白饭' }], attachments: [{ kind: 'image', uri: 'https://example.test/rice.png', mime: 'image/png' }] });
     cortex.write({ text: '这是一个 secret：sk-abcdefghijklmnopqrstuvwxyz123456', explicit: true });
     cortex.engines.skills.create({ name: '修插件', steps: ['看日志', '改一处', '跑测试'], state: 'active' });
     const result = exportMarkdown(cortex, path.join(dir, 'mirror'));

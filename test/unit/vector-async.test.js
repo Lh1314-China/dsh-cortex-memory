@@ -20,12 +20,12 @@ test('async vector indexing does not block and can be awaited explicitly', async
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-async-vector-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
   try {
-    const written = cortex.write({ text: '主人喜欢白饭。', explicit: true });
+    const written = cortex.write({ text: '用户喜欢白饭。', explicit: true });
     const index = createVectorIndex({ db: cortex.db, embedder: asyncEmbedder() });
-    const pending = index.upsert(written.trace.id, '主人喜欢白饭。');
+    const pending = index.upsert(written.trace.id, '用户喜欢白饭。');
     assert.equal(pending.pending, true);
     assert.equal(index.status().count, 0);
-    await index.upsertAsync(written.trace.id, '主人喜欢白饭。');
+    await index.upsertAsync(written.trace.id, '用户喜欢白饭。');
     assert.equal(index.status().count, 1);
     const hits = await index.searchAsync('白饭', { scopeId: 'global', limit: 3 });
     assert.equal(hits[0].traceId, written.trace.id);
@@ -41,7 +41,7 @@ test('service async search uses the async vector path', async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-async-hybrid-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), vectorEnabled: true, features: { vector: true }, embedder: asyncEmbedder() } });
   try {
-    const written = cortex.write({ text: '主人喜欢白饭。', explicit: true });
+    const written = cortex.write({ text: '用户喜欢白饭。', explicit: true });
     await cortex.indexVectorAsync(written.trace.id);
     const result = await cortex.searchAsync('白饭');
     assert.ok(result.items.some((item) => item.id === written.trace.id));
@@ -56,7 +56,7 @@ test('service exposes async index and rebuild without changing sync search', asy
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-async-service-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), vectorEnabled: true, features: { vector: true }, embedder: asyncEmbedder() } });
   try {
-    const written = cortex.write({ text: '主人喜欢面。', explicit: true });
+    const written = cortex.write({ text: '用户喜欢面。', explicit: true });
     const indexed = await cortex.indexVectorAsync(written.trace.id);
     assert.equal(indexed.traceId, written.trace.id);
     const rebuilt = await cortex.rebuildVectorAsync({ scopeId: 'global' });

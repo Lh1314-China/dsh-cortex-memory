@@ -10,11 +10,11 @@ test('guardian backup validates, restores to an offline path and refuses the liv
   const { cortex, dir } = context;
   try {
     const written = cortex.write({
-      text: '备份前的白饭承诺：主人会买白饭。',
+      text: '备份前的白饭承诺：用户会买白饭。',
       title: '白饭承诺',
       explicit: true,
       now: BASE_MS,
-      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     assert.equal(written.skipped, false);
     assert.equal(cortex.repos.traces.count(), 1);
@@ -54,7 +54,7 @@ test('guardian backup validates, restores to an offline path and refuses the liv
       assert.equal(restoredDb.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
       assert.equal(Number(restoredDb.prepare('SELECT COUNT(*) AS c FROM traces').get().c), 1);
       assert.equal(Number(restoredDb.prepare('SELECT COUNT(*) AS c FROM facts').get().c), 1);
-      assert.equal(restoredDb.prepare('SELECT content FROM traces LIMIT 1').get().content, '备份前的白饭承诺：主人会买白饭。');
+      assert.equal(restoredDb.prepare('SELECT content FROM traces LIMIT 1').get().content, '备份前的白饭承诺：用户会买白饭。');
       assert.equal(restoredDb.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '6');
     } finally {
       restoredDb.close();
@@ -130,18 +130,18 @@ test('privacy deleteScope removes traces/facts/working/goals but keeps the event
   const { cortex } = context;
   try {
     const first = cortex.write({
-      text: '主人答应买白饭。',
+      text: '用户答应买白饭。',
       title: '白饭',
       explicit: true,
       now: BASE_MS,
-      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     const second = cortex.write({
-      text: '主人想给本鲸一个实体。',
+      text: '用户想给助手一个实体。',
       title: '实体',
       explicit: true,
       now: BASE_MS + 1_000,
-      facts: [{ subject: '主人', predicate: '想给', object: '本鲸', confidence: 0.8 }],
+      facts: [{ subject: '用户', predicate: '想给', object: '助手', confidence: 0.8 }],
     });
     assert.equal(first.skipped, false);
     assert.equal(second.skipped, false);

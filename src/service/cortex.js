@@ -180,7 +180,40 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     identityStore, selfStore, config,
   });
   const privacy = createPrivacyEngine({ db, traces, events, audit });
-  const evolution = createEvolutionEngine({ policies, identityStore, skills: skillsRepo, health, growth, audit });
+
+  function retrievalQuality({ scopeId = config.scope, phase = 'after', baseline = null } = {}) {
+    const rows = db.prepare(`
+      SELECT id, title, content FROM traces
+      WHERE scope_id = ? AND state = 'active'
+      ORDER BY importance DESC, recorded_at DESC LIMIT 8
+    `).all(scopeId);
+    const probes = rows.map((row) => {
+      const title = String(row.title ?? '').trim();
+      const content = String(row.content ?? '').replace(/^\s*(用户|user)\s*[：:]\s*/i, '').trim();
+      const query = title && !/^会话\s*\d+\s*的对话$/.test(title) ? title.slice(0, 100) : content.slice(0, 100);
+      return { id: row.id, query };
+    }).filter((probe) => probe.query.length >= 4).slice(0, 6);
+    if (probes.length < 5) return { ok: true, skipped: 'insufficient-samples', n: probes.length };
+    let hits = 0;
+    for (const probe of probes) {
+      try {
+        const result = retrieve.search(probe.query, { scopeId, limit: 5 });
+        if (result.items.some((item) => item.id === probe.id)) hits += 1;
+      } catch { /* one probe must not abort the guard */ }
+    }
+    const recall = hits / probes.length;
+    const after = { n: probes.length, hits, recall: Math.round(recall * 1000) / 1000 };
+    if (phase === 'before') return { ok: true, ...after };
+    if (baseline?.recall == null) return { ok: true, ...after, skipped: 'no-baseline' };
+    return {
+      ok: recall >= Math.max(0.4, baseline.recall - 0.25),
+      ...after,
+      baselineRecall: baseline.recall,
+      threshold: Math.round(Math.max(0.4, baseline.recall - 0.25) * 1000) / 1000,
+    };
+  }
+
+  const evolution = createEvolutionEngine({ policies, identityStore, skills: skillsRepo, health, growth, audit, guard: config.evolution ?? null, qualityGuard: retrievalQuality });
   const guardian = createGuardian({ db, config, events, traces, selfStore, identityStore, logger });
   const circuit = createCircuitBreaker({ threshold: config.circuitThreshold ?? 5, cooldownMs: config.circuitCooldownMs ?? 60_000 });
   const budget = createBudgetGuard({ maxCallsPerHour: config.maxCallsPerHour ?? 120, maxTokensPerHour: config.maxTokensPerHour ?? 120_000 });
@@ -192,6 +225,8 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   const life = createLifeEngine({
     db, traces, reflect, development, working: workingStore, emotion, scopeId: config.scope,
     consolidation, features: config.features ?? {},
+    selfName: config.persona?.selfName ?? '助手',
+    userAddress: config.persona?.userAddress ?? '你',
     llm: llmAdapter ? (args) => llmAdapter.dream(args) : null,
     diaryLlm: llmAdapter ? (args) => llmAdapter.diary(args) : null,
     feelingLlm: llmAdapter ? (args) => llmAdapter.feeling(args) : null,
@@ -305,7 +340,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
           eventId: result.event?.id ?? null,
           recordedAt: result.trace?.recordedAt ?? null,
         });
-        if (config.features?.graphCandidateAutoFacts === true) {
+        if (config.features?.autoGraphCandidates === true || config.features?.graphCandidateAutoFacts === true) {
           const queued = [];
           for (const resolution of result.autoFacts.resolved ?? []) {
             const fact = resolution?.fact;
@@ -470,6 +505,26 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
 
   function timeline(options = {}) {
     return retrieve.timeline({ ...options, scopeId: options.scopeId ?? config.scope });
+  }
+
+  function recentTimeline({ scopeId = config.scope, limit = 20 } = {}) {
+    const rows = db.prepare(`
+      SELECT id, title, kind, content, importance, recorded_at
+      FROM traces WHERE scope_id = ? AND state = 'active'
+      ORDER BY recorded_at DESC LIMIT ?
+    `).all(scopeId, Math.max(1, Math.min(100, Number(limit) || 20)));
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        title: row.title || String(row.content ?? '').slice(0, 50) || row.kind,
+        snippet: String(row.content ?? '').replace(/\s+/g, ' ').slice(0, 180),
+        recordedAt: row.recorded_at,
+        kind: row.kind,
+        layer: row.kind === 'reflection' ? 'L5' : 'L2',
+        importance: Number(row.importance ?? 0),
+        isAnchor: false,
+      })),
+    };
   }
 
   function self(scopeId = config.scope) {
@@ -737,15 +792,30 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     return { cards: cards.length, volumes };
   }
 
-  function rebuildSummonBook({ scopeId = config.scope } = {}) {
-    const emotions = db.prepare('SELECT * FROM emotion_events WHERE scope_id = ? ORDER BY at DESC LIMIT 1000').all(scopeId);
+  const summonSourceAt = new Map();
+
+  function rebuildSummonBook({ scopeId = config.scope, incremental = false } = {}) {
+    const latest = {
+      emotion: db.prepare('SELECT MAX(at) AS at FROM emotion_events WHERE scope_id = ?').get(scopeId)?.at ?? null,
+      fact: db.prepare('SELECT MAX(recorded_at) AS at FROM facts WHERE scope_id = ?').get(scopeId)?.at ?? null,
+      trace: db.prepare('SELECT MAX(recorded_at) AS at FROM traces WHERE scope_id = ?').get(scopeId)?.at ?? null,
+    };
+    const since = summonSourceAt.get(scopeId) ?? null;
+    if (incremental && since) {
+      const unchanged = Object.entries(latest).every(([kind, at]) => !at || String(at) <= String(since[kind] ?? ''));
+      if (unchanged) return { skipped: true, emotions: 0, facts: 0, traces: 0, merged: null };
+    }
+    const emotionSince = incremental && since?.emotion ? since.emotion : null;
+    const factSince = incremental && since?.fact ? since.fact : null;
+    const traceSince = incremental && since?.trace ? since.trace : null;
+    const emotions = db.prepare(`SELECT * FROM emotion_events WHERE scope_id = ?${emotionSince ? ' AND at > ?' : ''} ORDER BY at DESC LIMIT 1000`).all(scopeId, ...(emotionSince ? [emotionSince] : []));
     for (const row of emotions) {
       const parsed = (() => { try { return JSON.parse(row.emotions_json); } catch { return []; } })();
       const labels = parsed.map((item) => item.name).filter(Boolean);
       summons.upsertCard({
         scopeId,
         side: 'left',
-        title: `${labels.slice(0, 2).join(' / ') || '情感'} · ${row.target ?? '主人'}`,
+        title: `${labels.slice(0, 2).join(' / ') || '情感'} · ${row.target ?? '用户'}`,
         content: row.text,
         triggers: summonTriggers(row.text, labels),
         category: labels[0] ?? '情感',
@@ -761,9 +831,9 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       FROM facts f
       LEFT JOIN entities s ON s.id = f.subject_id
       LEFT JOIN entities o ON o.id = f.object_id
-      WHERE f.scope_id = ? AND f.status = 'active' AND f.confidence >= 0.65
+      WHERE f.scope_id = ? AND f.status = 'active' AND f.confidence >= 0.65${factSince ? ' AND f.recorded_at > ?' : ''}
       ORDER BY f.recorded_at DESC LIMIT 500
-    `).all(scopeId);
+    `).all(scopeId, ...(factSince ? [factSince] : []));
     for (const fact of facts) {
       const title = `${fact.subject_name || fact.subject_id} ${fact.predicate} ${fact.object_literal || fact.object_name || fact.object_id || ''}`.trim();
       summons.upsertCard({
@@ -781,13 +851,13 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     }
     const traces = db.prepare(`
       SELECT * FROM traces WHERE scope_id = ?
-        AND (kind IN ('decision', 'reflection', 'identity') OR importance >= 0.6)
+        AND (kind IN ('decision', 'reflection', 'identity') OR importance >= 0.6)${traceSince ? ' AND recorded_at > ?' : ''}
       ORDER BY recorded_at DESC LIMIT 800
-    `).all(scopeId);
+    `).all(scopeId, ...(traceSince ? [traceSince] : []));
     for (const row of traces) {
       const tags = (() => { try { return JSON.parse(row.tags_json); } catch { return []; } })();
       const content = String(row.content ?? '');
-      const fallbackTitle = content.split(/\n/).map((line) => line.replace(/^\s*(用户|本鲸|assistant|user)[：:]\s*/i, '').trim()).find(Boolean) ?? '';
+      const fallbackTitle = content.split(/\n/).map((line) => line.replace(/^\s*(用户|助手|assistant|user)[：:]\s*/i, '').trim()).find(Boolean) ?? '';
       const title = /^会话\s*\d+\s*的对话/.test(String(row.title ?? ''))
         ? fallbackTitle.slice(0, 60)
         : (row.title || fallbackTitle.slice(0, 60) || '工作记忆');
@@ -805,8 +875,9 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       });
     }
     const merged = mergeSummonVolumes({ scopeId });
-    audit.record?.({ actor: 'self:summon', action: 'summon.rebuild', targetType: 'summon', targetId: scopeId, detail: { emotions: emotions.length, facts: facts.length, traces: traces.length, ...merged } });
-    return { emotions: emotions.length, facts: facts.length, traces: traces.length, ...merged };
+    summonSourceAt.set(scopeId, latest);
+    audit.record?.({ actor: 'self:summon', action: 'summon.rebuild', targetType: 'summon', targetId: scopeId, detail: { incremental, emotions: emotions.length, facts: facts.length, traces: traces.length, ...merged } });
+    return { incremental, emotions: emotions.length, facts: facts.length, traces: traces.length, ...merged };
   }
 
   function summonBook({ date = null, scopeId = config.scope } = {}) {
@@ -1311,7 +1382,16 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     memoryDay,
     updateMemoryTrace,
     updateMemoryEmotion,
-    graphCandidates: ({ scopeId = config.scope, limit = 200 } = {}) => edges.listCandidates({ scopeId, limit }),
+    graphCandidates: ({ scopeId = config.scope, limit = 200 } = {}) => {
+      const rows = edges.listCandidates({ scopeId, limit });
+      const labels = { at: '在', is: '是', will: '会', likes: '喜欢', dislikes: '不喜欢', related: '相关' };
+      return rows.map((edge) => ({
+        ...edge,
+        fromName: entities.get(edge.fromId)?.name ?? edge.fromId,
+        toName: entities.get(edge.toId)?.name ?? edge.toId,
+        relLabel: labels[edge.rel] ?? edge.rel,
+      }));
+    },
     reviewGraphCandidate,
     graphCandidateAction: ({ action, id, scopeId = config.scope, fromId, toId, rel, weight, confidence, sourceEventId, sourceTraceId, evidence, metadata, review = null } = {}) => {
       if (!scopeWritable(scopeId)) throw new Error('scope-read-only');
@@ -1386,6 +1466,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     },
     get,
     timeline,
+    recentTimeline,
     step: develop.step,
     feedback: (input) => growth.applyFeedback({ ...input, scopeId: input.scopeId ?? config.scope }),
     forget: (input) => {

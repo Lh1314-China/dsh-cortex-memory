@@ -44,9 +44,9 @@ test('a warm turn moves care, writes a trace, records an appraisal and deepens t
   const { dir, db, selfStore, appraisalStore, relationshipStore, develop } = setup();
   try {
     const before = selfStore.get('global');
-    const relationBefore = relationshipStore.ensure('global', '主人');
+    const relationBefore = relationshipStore.ensure('global', '用户');
     const result = develop.step({
-      text: '主人说会一直陪着本鲸，本鲸很开心。',
+      text: '用户说会一直陪着助手，助手很开心。',
       explicit: true,
       now: Date.parse('2026-11-11T12:00:00+08:00'),
     });
@@ -68,7 +68,7 @@ test('a hostile turn lowers safety and proposes a boundary question', () => {
   try {
     selfStore.update('global', { drives: { safety: 0.4 } });
     const result = develop.step({
-      text: '本鲸讨厌你，滚，别烦我。',
+      text: '助手讨厌你，滚，别烦我。',
       explicit: true,
       now: Date.parse('2026-11-11T12:00:00+08:00'),
     });
@@ -100,7 +100,7 @@ test('low coherence with no recent consolidation proposes a consolidation', () =
 test('a recall query is returned alongside the write', () => {
   const { dir, db, develop } = setup();
   try {
-    develop.step({ text: '主人说会买白饭。', explicit: true, now: Date.parse('2026-11-11T11:00:00+08:00') });
+    develop.step({ text: '用户说会买白饭。', explicit: true, now: Date.parse('2026-11-11T11:00:00+08:00') });
     const result = develop.step({
       text: '今天又想到白饭了。',
       explicit: true,

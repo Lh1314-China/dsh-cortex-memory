@@ -69,6 +69,13 @@ export function createPolicyRepository(db) {
     return activate(target.id);
   }
 
+  function deactivate(kind) {
+    const current = active(kind);
+    if (!current) return null;
+    db.prepare("UPDATE policies SET status = 'candidate', activated_at = NULL WHERE id = ?").run(current.id);
+    return get(current.id);
+  }
+
   function updateMetrics(id, metrics) {
     const policy = get(id);
     if (!policy) throw new Error(`policy not found: ${id}`);
@@ -76,5 +83,5 @@ export function createPolicyRepository(db) {
     return get(id);
   }
 
-  return { get, list, active, create, activate, rollback, updateMetrics };
+  return { get, list, active, create, activate, rollback, deactivate, updateMetrics };
 }

@@ -18,12 +18,12 @@ test('migrate rebuilds an old bigram-only FTS index once', () => {
     const event = events.append({ kind: 'utterance', payload: { text: '白饭' } });
     const trace = traces.insert({
       eventId: event.id,
-      content: '主人说会买白饭。',
+      content: '用户说会买白饭。',
       title: '白饭的承诺',
     });
     // Simulate a database written by the old tokenizer: bigram-only FTS.
     db.exec('DELETE FROM traces_fts_index');
-    db.prepare('INSERT INTO traces_fts_index(trace_id, text) VALUES (?, ?)').run(trace.id, ftsText('白饭的承诺 主人说会买白饭。'));
+    db.prepare('INSERT INTO traces_fts_index(trace_id, text) VALUES (?, ?)').run(trace.id, ftsText('白饭的承诺 用户说会买白饭。'));
     db.prepare('DELETE FROM meta WHERE key = ?').run('fts_index_version');
     closeDatabase(db);
 

@@ -72,7 +72,7 @@ test('scope isolation keeps writes, search, working memory and goals inside thei
   const context = makeCortex();
   const { cortex } = context;
   try {
-    const shared = '主人喜欢白饭，这是同一条跨 scope 文本。';
+    const shared = '用户喜欢白饭，这是同一条跨 scope 文本。';
     const globalWrite = cortex.write({ text: shared, title: 'global copy', explicit: true, scopeId: 'global', now: BASE_MS });
     const s2Write = cortex.write({ text: shared, title: 's2 copy', explicit: true, scopeId: 's2', now: BASE_MS + 1_000 });
     const s2Extra = cortex.write({ text: '只有 s2 能看到的技术记录。', title: 's2 tech', explicit: true, scopeId: 's2', now: BASE_MS + 2_000 });
@@ -387,18 +387,18 @@ test('privacy.deleteScope wipes diary, dreams, sleep, emotion, feedback and fact
   const { cortex } = context;
   try {
     const first = cortex.write({
-      text: '主人答应买白饭，这是隐私删除测试。',
+      text: '用户答应买白饭，这是隐私删除测试。',
       title: '白饭承诺',
       explicit: true,
       now: BASE_MS,
-      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     const second = cortex.write({
-      text: '主人想给本鲸一个实体。',
+      text: '用户想给助手一个实体。',
       title: '实体',
       explicit: true,
       now: BASE_MS + 1_000,
-      facts: [{ subject: '主人', predicate: '想给', object: '本鲸', confidence: 0.8 }],
+      facts: [{ subject: '用户', predicate: '想给', object: '助手', confidence: 0.8 }],
     });
     const otherScope = cortex.write({ text: '另一个 scope 必须活下来。', explicit: true, scopeId: 's2', now: BASE_MS + 2_000 });
     cortex.feedback({ traceId: first.trace.id, signal: 'used', predicted: 0.8, now: BASE_MS + 3_000 });
@@ -408,8 +408,8 @@ test('privacy.deleteScope wipes diary, dreams, sleep, emotion, feedback and fact
     cortex.goals.add({ title: '完成隐私测试', priority: 0.8 });
     cortex.goals.add({ title: '另一个目标', priority: 0.4 });
     cortex.goals.add({ title: 's2 目标', scopeId: 's2' });
-    cortex.emotion.record({ text: '本鲸有点心疼主人。', target: '主人', at: new Date(BASE_MS + 4_000).toISOString() });
-    cortex.emotion.record({ text: '主人很开心，本鲸也喜欢。', target: '主人', at: new Date(BASE_MS + 5_000).toISOString() });
+    cortex.emotion.record({ text: '助手有点心疼用户。', target: '用户', at: new Date(BASE_MS + 4_000).toISOString() });
+    cortex.emotion.record({ text: '用户很开心，助手也喜欢。', target: '用户', at: new Date(BASE_MS + 5_000).toISOString() });
     cortex.life.diaryWrite({ text: '今天把隐私删除测了一遍。', mood: '踏实', at: new Date(BASE_MS + 6_000).toISOString() });
     await cortex.life.dreamGenerate({ at: BASE_MS + 3_600_000 });
     const sleep = await cortex.life.sleep({ at: BASE_MS + 7_200_000, windowDays: 1 });
@@ -795,7 +795,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
   const { cortex } = context;
   try {
     const first = cortex.write({
-      text: '重复测试：主人喜欢白饭。',
+      text: '重复测试：用户喜欢白饭。',
       title: '重复',
       explicit: true,
       operationId: 'edge:dup-1',
@@ -803,7 +803,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
     });
     assert.equal(first.skipped, false);
     const replay = cortex.write({
-      text: '重复测试：主人喜欢白饭。',
+      text: '重复测试：用户喜欢白饭。',
       title: '重复',
       explicit: true,
       operationId: 'edge:dup-1',
@@ -816,7 +816,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
     assert.equal(cortex.repos.events.count(), 1);
 
     const duplicate = cortex.write({
-      text: '重复测试：主人喜欢白饭。',
+      text: '重复测试：用户喜欢白饭。',
       explicit: true,
       operationId: 'edge:dup-2',
       now: BASE_MS + 2_000,
@@ -848,7 +848,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
 
     // Dedupe is scoped: identical text in a second scope is a real new trace.
     const scoped = cortex.write({
-      text: '重复测试：主人喜欢白饭。',
+      text: '重复测试：用户喜欢白饭。',
       explicit: true,
       scopeId: 's2',
       now: BASE_MS + 3_000,
@@ -874,7 +874,7 @@ test('vector failures never fail writes or searches and surface in the search so
   const { cortex } = context;
   try {
     assert.ok(cortex.vector);
-    const first = cortex.write({ text: '向量失败测试：主人喜欢白饭。', title: '向量一', explicit: true, now: BASE_MS });
+    const first = cortex.write({ text: '向量失败测试：用户喜欢白饭。', title: '向量一', explicit: true, now: BASE_MS });
     assert.equal(first.skipped, false);
     assert.equal(cortex.vector.status().count, 1);
 

@@ -8,6 +8,10 @@ window.__ModuleLoader__.load({
     const NS = 'cortex';
     const API = '/api/cortex';
 
+    function withoutReferences(text) {
+      return String(text ?? '').replace(/\n\s*参考：[\s\S]*$/u, '').trim();
+    }
+
     const FEATURE_META = {
       recall: { zh: '自动召回', en: 'Auto recall', descZh: '每轮前查找相关记忆', descEn: 'Find relevant memories before each turn' },
       capture: { zh: '自动捕获', en: 'Auto capture', descZh: '对话自动写入记忆', descEn: 'Write turns into memory' },
@@ -40,7 +44,7 @@ window.__ModuleLoader__.load({
       zh: {
         navLabel: 'Cortex 记忆',
         title: 'Cortex 记忆',
-        subtitle: '本鲸的分层记忆 · 自我状态 · 守护 · 进化',
+        subtitle: 'Cortex 的分层记忆 · 自我状态 · 守护 · 进化',
         refresh: '刷新',
         loading: '读取中…',
         retry: '重试',
@@ -91,7 +95,7 @@ window.__ModuleLoader__.load({
         approve: '批准',
         rollback: '回滚',
         noPolicies: '还没有策略。',
-        timelineHint: '输入 trace id 读取前后相邻记忆；从检索结果或详情点「时间线」会自动带入。',
+        timelineHint: '默认展示最近 20 条记忆；点击查看详情，也可输入 trace id 查看前后相邻记忆。',
         empty: '（空）',
         errorPrefix: '请求失败',
         stage: '阶段',
@@ -162,7 +166,7 @@ window.__ModuleLoader__.load({
         timelineAnchor: '锚点',
         timelineBefore: '之前',
         timelineAfter: '之后',
-        timelineEmpty: '输入一条 trace id，读取它前后相邻的记忆。',
+        timelineEmpty: '还没有可展示的最近记忆。',
         timelineMissing: '没有找到锚点：id 可能不存在，或已在归档里。',
         timelineNoItems: '锚点存在，但没有可展示的相邻记忆。',
         timelineCount: '条',
@@ -357,7 +361,7 @@ window.__ModuleLoader__.load({
         approve: 'Approve',
         rollback: 'Roll back',
         noPolicies: 'No policies yet.',
-        timelineHint: 'Enter a trace id to load neighbouring memories; opening Timeline from a search result or detail fills it in.',
+        timelineHint: 'Shows the latest 20 memories by default; click for details, or enter a trace id to see its neighbours.',
         empty: '(empty)',
         errorPrefix: 'Request failed',
         stage: 'Stage',
@@ -428,7 +432,7 @@ window.__ModuleLoader__.load({
         timelineAnchor: 'Anchor',
         timelineBefore: 'Before',
         timelineAfter: 'After',
-        timelineEmpty: 'Enter a trace id to load its neighbouring memories.',
+        timelineEmpty: 'No recent memories to show yet.',
         timelineMissing: 'Anchor not found: the id may not exist or may be archived.',
         timelineNoItems: 'The anchor exists, but there are no neighbours to show.',
         timelineCount: 'items',
@@ -1427,9 +1431,19 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       const [before, setBefore] = useState(4);
       const [after, setAfter] = useState(4);
       const [data, setData] = useState(null);
+      const [recent, setRecent] = useState(null);
       const [busy, setBusy] = useState(Boolean(initialAnchor));
       const [error, setError] = useState('');
       const [tick, setTick] = useState(0);
+
+      useEffect(() => {
+        if (committed) return undefined;
+        let alive = true;
+        api('/timeline/recent?limit=20')
+          .then((value) => { if (alive) setRecent(value); })
+          .catch((issue) => { if (alive) setError(String(issue.message ?? issue)); });
+        return () => { alive = false; };
+      }, [committed, tick]);
 
       useEffect(() => {
         const next = String(anchorId ?? '').trim();
@@ -1466,7 +1480,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         onAnchorChange?.(next);
       };
 
-      const rawItems = data?.items ?? [];
+      const rawItems = committed ? (data?.items ?? []) : (recent?.items ?? []);
       const items = rawItems.length
         ? rawItems
         : (data?.anchor ? [{
@@ -1530,10 +1544,10 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
           ]),
           h('button', { key: 'go', type: 'submit', className: 'cortex-btn primary', disabled: busy }, t('timelineLoad')),
         ]),
-        !committed && !error ? h(EmptyBlock, { key: 'empty' }, t('timelineEmpty')) : null,
+        !committed && !error && !items.length ? h(EmptyBlock, { key: 'empty' }, t('timelineEmpty')) : null,
         error ? h(ErrorBlock, { key: 'err', message: error, onRetry: submit, retryLabel: t('retry') }) : null,
         busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
-        !busy && data && !data.anchor ? h(EmptyBlock, { key: 'missing' }, t('timelineMissing')) : null,
+        !busy && committed && data && !data.anchor ? h(EmptyBlock, { key: 'missing' }, t('timelineMissing')) : null,
         !busy && data?.anchor && !items.length ? h(EmptyBlock, { key: 'noitems' }, t('timelineNoItems')) : null,
         !busy && items.length ? h('div', { key: 'list', className: 'cortex-timeline', 'aria-label': t('tabTimeline') }, items.map((item, index) => h(
           'button',
@@ -1653,7 +1667,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       const optimize = async () => {
         setBusy(true);
         setError('');
-        try { await api('/evolve/optimize', { method: 'POST', body: JSON.stringify({}) }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); setBusy(false); }
+        try { await api('/evolve/optimize', { method: 'POST', body: JSON.stringify({ baseline: true }) }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); setBusy(false); }
       };
       return h('div', {}, [
         h('div', { key: 'line', className: 'cortex-line' }, [h('button', { key: 'o', type: 'button', className: 'cortex-btn', disabled: busy, onClick: optimize }, t('optimize'))]),
@@ -1723,8 +1737,8 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       return h('div', {}, [
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
         h('div', { key: 'line', className: 'cortex-line' }, [
-          h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: generate }, busy ? '本鲸在感受…' : '让本鲸感受一下'),
-          h('span', { key: 'note', className: 'cortex-meta' }, '空闲时每小时自动写一次；感受由本鲸自己判断'),
+          h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: generate }, busy ? '助手在感受…' : '让助手感受一下'),
+          h('span', { key: 'note', className: 'cortex-meta' }, '空闲时每小时自动写一次；感受由助手自己判断'),
         ]),
         data ? h('div', {}, [
           h('div', { key: 't', className: 'cortex-card' }, [h('h4', {}, '情感态度'), h('div', { className: 'cortex-big' }, data.text)]),
@@ -1770,12 +1784,12 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         h('div', { key: 'diary', className: 'cortex-card' }, [
           h('h4', {}, '日记'),
           h('div', { key: 'line', className: 'cortex-line' }, [
-            h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: writeDiary }, busy ? '本鲸在想…' : '让本鲸写日记'),
+            h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: writeDiary }, busy ? '助手在想…' : '让助手写日记'),
             h('button', { key: 'auto', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('autoDiary') }, `AI 接管日记：${autoValue('autoDiary') ? '开' : '关'}`),
             h('button', { key: 'web', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('webSearch') }, `联网：${autoValue('webSearch') ? '开' : '关'}`),
-            h('span', { key: 'note', className: 'cortex-meta' }, '本鲸自己思考后写；不是主人代笔'),
+            h('span', { key: 'note', className: 'cortex-meta' }, '助手自己思考后写；不是用户代笔'),
           ]),
-          ...((data?.diary ?? []).length ? data.diary.map((item) => h('div', { key: item.id, className: 'cortex-row' }, `${item.at.slice(0, 10)} ${item.text}`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
+          ...((data?.diary ?? []).length ? data.diary.map((item) => h('div', { key: item.id, className: 'cortex-row' }, `${formatTime(item.at).slice(0, 10)} ${withoutReferences(item.text)}`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
         ]),
         h('div', { key: 'dreams', className: 'cortex-card', style: { marginTop: 10 } }, [
           h('h4', {}, '梦'),
@@ -1784,7 +1798,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             h('button', { key: 'web', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('webSearch') }, `联网：${autoValue('webSearch') ? '开' : '关'}`),
             h('span', { key: 'note', className: 'cortex-meta' }, '22:05 自动生成；失败不回退模板'),
           ]),
-          ...((data?.dreams ?? []).length ? data.dreams.map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
+          ...((data?.dreams ?? []).length ? data.dreams.map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, withoutReferences(item.text))) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
         ]),
       ]);
     }
@@ -2068,7 +2082,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
           }, [
             h('span', { key: 'label', style: { flex: '1 1 240px', minWidth: 0 } },
-              `${shortLabel(edge.fromName || positions.get(edge.fromId)?.name || edge.fromId)} → ${shortLabel(edge.toName || positions.get(edge.toId)?.name || edge.toId)} · ${edge.rel} · ${t('graphCandidateConfidence')} ${formatNumber(edge.metadata?.confidence ?? edge.weight ?? 0, 2)}`),
+              `${shortLabel(edge.fromName || positions.get(edge.fromId)?.name || edge.fromId)} → ${shortLabel(edge.toName || positions.get(edge.toId)?.name || edge.toId)} · ${edge.relLabel || edge.rel} · ${t('graphCandidateConfidence')} ${formatNumber(edge.metadata?.confidence ?? edge.weight ?? 0, 2)}`),
             h('button', {
               key: 'approve',
               type: 'button',
@@ -2338,8 +2352,8 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
                   h('summary', {}, `事实 ${counts.facts ?? 0} · 摘要 ${counts.summaries ?? 0} · 日记 ${counts.diary ?? 0} · 梦 ${counts.dreams ?? 0}`),
                   ...(work.facts ?? []).map((fact) => h('div', { key: fact.id, className: 'cortex-row' }, `${fact.subjectId ?? '—'} ${fact.predicate} ${fact.objectLiteral ?? fact.objectId ?? '—'}`)),
                   ...(work.summaries ?? []).map((summary) => h('div', { key: summary.id, className: 'cortex-snippet' }, summary.content)),
-                  ...(work.diary ?? []).map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)),
-                  ...(work.dreams ?? []).map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)),
+                  ...(work.diary ?? []).map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, withoutReferences(item.text))),
+                  ...(work.dreams ?? []).map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, withoutReferences(item.text))),
                 ]),
               ]),
             ]),
@@ -2489,7 +2503,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         setBusy(id); setNotice('');
         try {
           if (kind === 'fact') {
-            await api('/facts/resolve', { method: 'POST', body: JSON.stringify({ id, decision, reason: '主人从诊断框处理' }) });
+            await api('/facts/resolve', { method: 'POST', body: JSON.stringify({ id, decision, reason: '用户从诊断框处理' }) });
             setNotice(decision === 'confirm' ? '已确认有效' : '已降级为无效，内容保留');
           } else if (kind === 'suggest') {
             const result = await api('/skills/suggest', { method: 'POST', body: '{}' });

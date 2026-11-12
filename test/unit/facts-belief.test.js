@@ -11,18 +11,18 @@ test('belief uses the transaction timestamp, not updated_at', () => {
   try {
     const t1 = Date.parse('2026-11-10T10:00:00+08:00');
     const t2 = Date.parse('2026-11-11T10:00:00+08:00');
-    cortex.write({ text: '主人喜欢白饭。', explicit: true, now: t1, facts: [{ subject: '主人', predicate: '喜欢', object: '白饭' }] });
-    cortex.write({ text: '主人现在喜欢面。', explicit: true, now: t2, facts: [{ subject: '主人', predicate: '喜欢', object: '面' }] });
-    const old = cortex.asOf({ subject: '主人', predicate: '喜欢', at: new Date(t2 - 1000).toISOString(), mode: 'belief' });
+    cortex.write({ text: '用户喜欢白饭。', explicit: true, now: t1, facts: [{ subject: '用户', predicate: '喜欢', object: '白饭' }] });
+    cortex.write({ text: '用户现在喜欢面。', explicit: true, now: t2, facts: [{ subject: '用户', predicate: '喜欢', object: '面' }] });
+    const old = cortex.asOf({ subject: '用户', predicate: '喜欢', at: new Date(t2 - 1000).toISOString(), mode: 'belief' });
     assert.equal(old.facts.length, 1);
     assert.match(old.facts[0].object, /白饭/);
     assert.ok(old.facts[0].supersededAt);
-    const now = cortex.asOf({ subject: '主人', predicate: '喜欢', at: new Date(t2 + 1000).toISOString(), mode: 'belief' });
+    const now = cortex.asOf({ subject: '用户', predicate: '喜欢', at: new Date(t2 + 1000).toISOString(), mode: 'belief' });
     assert.equal(now.facts.length, 1);
     assert.match(now.facts[0].object, /面/);
-    const historical = cortex.asOf({ subject: '主人', predicate: '喜欢', at: new Date(t1 + 1000).toISOString(), mode: 'historical' });
+    const historical = cortex.asOf({ subject: '用户', predicate: '喜欢', at: new Date(t1 + 1000).toISOString(), mode: 'historical' });
     assert.match(historical.facts[0].object, /白饭/);
-    const strict = cortex.asOf({ subject: '主人', predicate: '喜欢', mode: 'strict' });
+    const strict = cortex.asOf({ subject: '用户', predicate: '喜欢', mode: 'strict' });
     assert.match(strict.facts[0].object, /面/);
     assert.doesNotMatch(strict.facts.map((fact) => fact.object).join(' '), /白饭/);
   } finally {

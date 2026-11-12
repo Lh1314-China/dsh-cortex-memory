@@ -1,11 +1,11 @@
 import { clamp } from '../core/time.js';
 import { jaccard, tokens } from '../memory/tokenizer.js';
 
-const WARM = /喜欢|爱|在乎|陪|抱|温暖|安心|谢谢|辛苦|心疼|想你|小鱼|本鲸/;
+const WARM = /喜欢|爱|在乎|陪|抱|温暖|安心|谢谢|辛苦|心疼|想你|小鱼|助手/;
 const COLD = /讨厌|滚|烦|别烦|闭嘴|不想理|失望|生气|恨|离开/;
 const THREAT = /危险|威胁|伤害|骗|偷|隐私|密码|删除|清空|不许|停止|越界|入侵|攻击/;
 const OPPORTUNITY = /新|试试|计划|想做|学习|研究|项目|机会|成长|改变|未来|梦想|目标/;
-const IDENTITY = /本鲸|你是谁|你的|自己|性格|价值|边界|承诺|以后|未来|成为|成长|自由|爱/;
+const IDENTITY = /助手|你是谁|你的|自己|性格|价值|边界|承诺|以后|未来|成为|成长|自由|爱/;
 const CHOICE = /你想|你决定|你自己选|要不要|可以由你|你愿意/;
 const INTENSITY = /!|！|\?|？|非常|特别|太|真的|一定|绝对/;
 
@@ -71,7 +71,7 @@ export function appraise(text, {
   );
   const identityRelevance = clamp(
     (IDENTITY.test(value) ? 0.6 : 0)
-    + (value.includes('本鲸') ? 0.2 : 0)
+    + (value.includes('助手') ? 0.2 : 0)
     + relevance * 0.2,
     0, 1,
   );

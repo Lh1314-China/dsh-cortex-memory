@@ -1,3 +1,12 @@
+import path from 'node:path';
+
+function guardPathAllowed(service, target) {
+  if (service?.config?.allowRestoreOutsideRoot === true) return true;
+  const root = path.resolve(String(service?.config?.dataRoot ?? process.cwd()));
+  const absolute = path.resolve(String(target ?? ''));
+  return absolute === root || absolute.startsWith(`${root}${path.sep}`);
+}
+
 const TEXT_OUTPUT = Object.freeze({
   schema: {
     type: 'object',
@@ -364,6 +373,7 @@ export function createToolDefinitions(service) {
       isConcurrencySafe: () => false,
       async execute(args = {}) {
         if (args.action === 'backup') {
+          if (args.file && !guardPathAllowed(service, args.file)) return { text: '未执行：备份路径在 dataRoot 外。' };
           const result = service.guardian.backup(args.file);
           return { text: `备份完成：${result.path}（${result.bytes} B）` };
         }
@@ -372,12 +382,18 @@ export function createToolDefinitions(service) {
           return { text: result.ok ? `备份有效：${args.file}（${result.tables} 张表）` : `备份无效：${result.reason ?? result.missing?.join(',')}` };
         }
         if (args.action === 'restore') {
+          if (!args.file) return { text: '恢复失败：file-required' };
+          if (!args.target) return { text: '恢复失败：target-required' };
+          if (!guardPathAllowed(service, args.file) || !guardPathAllowed(service, args.target)) {
+            return { text: '未执行：恢复文件或目标在 dataRoot 外。' };
+          }
           const result = service.guardian.restore(args.file, args.target);
           return { text: result.restored ? `已恢复到离线库：${result.target}` : `恢复失败：${result.reason}${result.message ? `（${result.message}）` : ''}` };
         }
         if (args.action === 'sync') {
           const dir = args.dir;
           if (!dir) return { text: '同步 Markdown 需要 dir。' };
+          if (!guardPathAllowed(service, dir)) return { text: '未执行：同步目录在 dataRoot 外。' };
           if (args.dryRun !== true && !service.scopeWritable(args.scope ?? service.settings().scope)) return { text: '未执行：该 scope 只读共享。' };
           const result = service.syncMarkdown(dir, { dryRun: args.dryRun === true, scopeId: args.scope });
           return { text: `Markdown 同步${result.dryRun ? '（dry-run）' : ''}：更新 ${result.updated}，新建 ${result.created}，文件 ${result.files}` };
@@ -387,7 +403,9 @@ export function createToolDefinitions(service) {
           return { text: `FTS 重建完成：${result.before} → ${result.after}（${result.reindexed} 条）` };
         }
         if (args.action === 'export') {
-          const result = service.exportMarkdown(args.dir ?? 'cortex-mirror');
+          const dir = args.dir ?? path.join(service.config?.dataRoot ?? process.cwd(), 'cortex-mirror');
+          if (!guardPathAllowed(service, dir)) return { text: '未执行：导出目录在 dataRoot 外。' };
+          const result = service.exportMarkdown(dir);
           return { text: `Markdown 镜像已导出：${result.root}\n文件：${result.files.join('、')}\n记忆 ${result.traces} 条（跳过 secret ${result.skippedSecrets} 条）` };
         }
         const report = service.guardian.check();

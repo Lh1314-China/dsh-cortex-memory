@@ -53,9 +53,20 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
       });
       let recallBlock = '';
       if (result?.items?.length) {
-        const lines = result.items.map((item) => `- [${item.layer}] ${item.title}：${item.snippet}`);
+        let items = result.items;
+        if (config.injectionGate !== false) {
+          const strongSources = new Set(['fts', 'vector', 'graph']);
+          const minMatch = Number(config.recentMinMatch ?? 0.12);
+          const gated = items.filter((item) => {
+            const sources = new Set((item.sources ?? []).map((source) => source.name));
+            const strong = [...sources].some((name) => strongSources.has(name));
+            return strong || Number(item.match ?? 0) >= minMatch || Number(item.importance ?? 0) >= 0.8;
+          });
+          items = gated.length ? gated : [items.slice().sort((a, b) => Number(b.importance ?? 0) - Number(a.importance ?? 0))[0]];
+        }
+        const lines = items.map((item) => `- [${item.layer}] ${item.title}：${item.snippet}`);
         const tiered = config.features?.tieredRecall !== false
-          ? renderTiers(selectTiers(result.items, {
+          ? renderTiers(selectTiers(items, {
             budgets: {
               perm: config.permBudget ?? 700,
               hot: config.hotBudget ?? 900,
@@ -84,7 +95,6 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
   function recallText(context) {
     const sessionId = String(context?.session?.id ?? context?.agent?.id ?? context?.sessionId ?? '');
     if (sessionId && recalls.has(sessionId)) return recalls.get(sessionId);
-    if (recalls.size === 1) return [...recalls.values()][0];
     return '';
   }
 
@@ -110,7 +120,7 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
     if (!user && !assistant) return { skipped: true, reason: 'empty' };
     const text = [
       user ? `用户：${user}` : '',
-      assistant ? `本鲸：${assistant}` : '',
+      assistant ? `${config.persona?.selfName ?? '助手'}：${assistant}` : '',
     ].filter(Boolean).join('\n');
     try {
       const written = cortex.write({

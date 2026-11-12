@@ -34,7 +34,7 @@ test('policies are versioned, activated and rolled back', () => {
 test('approved retrieval policy changes the live retrieval budget', () => {
   const { dir, cortex } = setup();
   try {
-    cortex.write({ text: '主人说会买白饭。', explicit: true });
+    cortex.write({ text: '用户说会买白饭。', explicit: true });
     const policy = cortex.evolution.propose({ kind: 'retrieval', config: { budget: 100 }, rationale: 'small budget' });
     cortex.evolution.approve(policy.id);
     const result = cortex.search('白饭', { budget: 5000 });
@@ -121,7 +121,7 @@ test('an approved initiative policy changes the live step output', () => {
   try {
     const policy = cortex.evolution.propose({ kind: 'initiative', config: { maxPerTurn: 0 }, rationale: 'quiet' });
     cortex.evolution.approve(policy.id);
-    const result = cortex.step({ text: '主人是坏蛋，本鲸讨厌你。', explicit: true });
+    const result = cortex.step({ text: '用户是坏蛋，助手讨厌你。', explicit: true });
     assert.equal(result.intentions.length, 0);
   } finally {
     cortex.close();

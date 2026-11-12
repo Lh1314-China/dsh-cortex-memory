@@ -1,7 +1,7 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.3.1",
-  "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness: working, episodic, semantic, procedural and reflective memory with hybrid retrieval, DSR forgetting, reflection, consolidation, gated self-evolution and guardian.",
+  "version": "0.4.11",
+  "description": "Local-first layered memory engine for DeepSeek Harness",
   "type": "module",
   "main": "./index.js",
   "icon": "./icon.svg",
@@ -20,25 +20,15 @@
     "index.js",
     "client.js",
     "src",
-    "bench",
-    "bin",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "docs/install-windows.md",
-    "docs/models.md",
-    "docs/scopes.md",
-    "docs/multimodal.md",
-    "examples",
     "LICENSE",
-    "docs/permissions.md",
-    "docs/privacy.md"
+    "bin"
   ],
   "scripts": {
-    "test": "node --test test/unit/ test/integration/",
     "test:unit": "node --test test/unit/",
-    "test:integration": "node --test test/integration/",
     "bench": "node bench/run.js",
     "check": "node --check index.js && node --check client.js"
   },

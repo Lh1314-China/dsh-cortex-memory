@@ -6,7 +6,7 @@ test('FTS failure degrades cortex.search to recency instead of throwing', () => 
   const context = makeCortex();
   const { cortex } = context;
   try {
-    const first = cortex.write({ text: '白饭的承诺：主人会买白饭。', title: '白饭', explicit: true, now: BASE_MS });
+    const first = cortex.write({ text: '白饭的承诺：用户会买白饭。', title: '白饭', explicit: true, now: BASE_MS });
     cortex.write({ text: '另一条普通记忆。', title: '普通', explicit: true, now: BASE_MS + 1_000 });
     assert.equal(first.skipped, false);
 
@@ -46,7 +46,7 @@ test('vector index failures never fail writes or searches, and recovery restores
     assert.equal(cortex.vector.dim, 256);
     assert.equal(cortex.vector.status().count, 0);
 
-    const first = cortex.write({ text: '向量测试：主人喜欢白饭。', title: '向量一', explicit: true, now: BASE_MS });
+    const first = cortex.write({ text: '向量测试：用户喜欢白饭。', title: '向量一', explicit: true, now: BASE_MS });
     assert.equal(first.skipped, false);
     assert.equal(cortex.vector.status().count, 1);
 

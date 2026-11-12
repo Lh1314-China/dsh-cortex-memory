@@ -279,6 +279,10 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       sources: item.sources,
       validAt: item.validAt,
       recordedAt: item.recordedAt,
+      importance: Number(item.importance ?? 0),
+      confidence: Number(item.confidence ?? 0),
+      match: Number(item.match ?? 0),
+      kind: item.trace?.kind ?? null,
       why: item.sources.map((source) => `${source.name}#${source.rank}`).join(','),
       attachments: item.attachments ?? 0,
     }));

@@ -18,7 +18,7 @@ test('memory day view groups emotion and work; editing is locked by default', ()
   try {
     const at = '2026-11-12T03:00:00.000Z';
     const written = cortex.write({ text: '今天完成记忆查询面板。', title: '面板测试', explicit: true, recordedAt: at, importance: 0.8 });
-    cortex.emotion.record({ text: '本鲸觉得安心。', target: '主人', at });
+    cortex.emotion.record({ text: '助手觉得安心。', target: '用户', at });
     const day = cortex.memoryDay({ date: '2026-11-12' });
     assert.equal(day.counts.traces, 1);
     assert.equal(day.counts.emotion, 1);
@@ -36,7 +36,7 @@ test('summon cards are built for left/right brain and can be edited after unlock
   try {
     const at = '2026-11-12T03:00:00.000Z';
     cortex.write({ text: '今天完成了召唤册。', title: '召唤册', kind: 'decision', explicit: true, recordedAt: at, importance: 0.9 });
-    cortex.emotion.record({ text: '本鲸觉得安心。', target: '主人', at });
+    cortex.emotion.record({ text: '助手觉得安心。', target: '用户', at });
     const built = cortex.rebuildSummonBook();
     assert.ok(built.cards >= 2);
     const book = cortex.summonBook({ date: '2026-11-12' });
@@ -63,10 +63,10 @@ test('manual card edits survive a rebuild and cards can be matched by a specific
     const card = first.right.find((item) => item.title.includes('白饭')) ?? first.right[0];
     assert.ok(card);
     cortex.setMemoryEdit(true);
-    cortex.updateSummonCard({ id: card.id, title: '主人改过的白饭卡' });
+    cortex.updateSummonCard({ id: card.id, title: '用户改过的白饭卡' });
     cortex.rebuildSummonBook();
     const second = cortex.summonBook({ date: new Date().toLocaleDateString('en-CA') });
-    assert.equal(second.right.find((item) => item.id === card.id).title, '主人改过的白饭卡');
+    assert.equal(second.right.find((item) => item.id === card.id).title, '用户改过的白饭卡');
     const match = cortex.matchSummonCards({ text: '你还记得白饭约定吗？' });
     assert.ok(match.cards.length >= 1);
     assert.match(match.block, /召唤卡/);
@@ -82,7 +82,7 @@ test('manual card edits survive a rebuild and cards can be matched by a specific
 test('reviewIntentions creates a pending intention when none are triggered', () => {
   const { dir, cortex } = setup();
   try {
-    const result = cortex.reviewIntentions({ at: Date.parse('2026-11-12T08:00:00.000Z') });
+    const result = cortex.reviewIntentions({ at: Date.now() });
     assert.ok(result.intentions.length >= 1);
     assert.equal(result.intentions[0].kind, 'question');
     assert.ok(cortex.self().intentions.some((item) => item.payload?.topic === '1.5h-review'));

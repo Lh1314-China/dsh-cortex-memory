@@ -55,9 +55,9 @@ test('api serves health/self/search and writes through POST', async () => {
     const health = await invoke(handler, { route: '/health' });
     assert.equal(health.status, 200);
     assert.ok(health.json.data.score > 0);
-    const write = await invoke(handler, { method: 'POST', route: '/write', body: { text: '主人说会买白饭。', explicit: true } });
+    const write = await invoke(handler, { method: 'POST', route: '/write', body: { text: '用户说会买白饭。', explicit: true } });
     assert.equal(write.status, 200);
-    assert.equal(write.json.data.trace.content, '主人说会买白饭。');
+    assert.equal(write.json.data.trace.content, '用户说会买白饭。');
     const search = await invoke(handler, { route: '/search?q=白饭' });
     assert.equal(search.status, 200);
     assert.ok(search.json.data.items.length >= 1);
@@ -216,7 +216,7 @@ test('api read-only scopes reject writes but allow reads', async () => {
     assert.equal(goalComplete.status, 403);
     const ruleRetire = await invoke(handler, { method: 'POST', route: '/playbook', body: { action: 'retire', id: sharedRule.id } });
     assert.equal(ruleRetire.status, 403);
-    const emotionDenied = await invoke(handler, { method: 'POST', route: '/emotion/record', body: { text: '主人有点担心' }, headers: { 'x-cortex-scope': 'shared' } });
+    const emotionDenied = await invoke(handler, { method: 'POST', route: '/emotion/record', body: { text: '用户有点担心' }, headers: { 'x-cortex-scope': 'shared' } });
     assert.equal(emotionDenied.status, 403);
     const lifeDenied = await invoke(handler, { method: 'POST', route: '/life/diary', body: { text: '共享日记' }, headers: { 'x-cortex-scope': 'shared' } });
     assert.equal(lifeDenied.status, 403);
@@ -459,7 +459,7 @@ test('api exposes digest, tick, retention apply, evolve propose and guard valida
     assert.equal(validate.json.data.ok, false);
     const purge = await invoke(handler, { method: 'POST', route: '/working/purge', body: {} });
     assert.equal(purge.status, 200);
-    const qa = await invoke(handler, { method: 'POST', route: '/qa', body: { question: '主人喜欢什么？' } });
+    const qa = await invoke(handler, { method: 'POST', route: '/qa', body: { question: '用户喜欢什么？' } });
     assert.equal(qa.status, 200);
     assert.ok(['extractive', 'abstain'].includes(qa.json.data.mode));
   } finally {
@@ -480,7 +480,7 @@ test('api exposes working, goals, emotion and life actions', async () => {
     assert.equal(goal.status, 200);
     const goals = await invoke(handler, { route: '/goals' });
     assert.equal(goals.json.data.length, 1);
-    const emotion = await invoke(handler, { method: 'POST', route: '/emotion/record', body: { text: '本鲸有点心疼主人。', target: '主人' } });
+    const emotion = await invoke(handler, { method: 'POST', route: '/emotion/record', body: { text: '助手有点心疼用户。', target: '用户' } });
     assert.equal(emotion.status, 200);
     assert.ok(emotion.json.data.event);
     const affect = await invoke(handler, { route: '/emotion' });

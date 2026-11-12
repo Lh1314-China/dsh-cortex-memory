@@ -1,4 +1,4 @@
-﻿# DSH Cortex
+# DSH Cortex
 
 A local-first, layered memory engine for DeepSeek Harness.
 
@@ -9,12 +9,33 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.3.1`
+- Package: `dsh-cortex-memory@0.4.6`
 - Optional extractor: `dsh-cortex-extractors@0.3.4`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
 - Tests: 420/420 (main)
 - CI: GitHub Actions on Windows, Node 24
+
+### What 0.4.5 changes
+
+- **Injection gate is prompt-only**: `cortex_search` / API / CLI still return the
+  full memory; runtime recall filters weak recent candidates before injection.
+  `injectionGate: false` restores the old all-recent behavior.
+- **Permanent tier fixed**: search items keep `importance`, `confidence`,
+  `match` and `kind`, so high-importance identity traces reach `perm`.
+- **Per-session recall**: removed the 閳ユ笩ingle cached recall閳?fallback; sessions
+  no longer share a recall block implicitly.
+- **Persona is configurable and neutral by default**: the package defaults to
+  `selfName: 閸斺晜澧渀 / `userAddress: 娴ｇ嚮; a local profile can set 閺堫剟鍝?濞戦潧鍔?
+  Prompt, diary, dream and feeling templates read this config.
+- **Graph feature flag fixed**: `autoGraphCandidates` is canonical; the old
+  `graphCandidateAutoFacts` name remains accepted.
+- **Guardian light/deep split**: scheduler runs a cheap check per tick and the
+  full invariant/integrity walk at startup and every six hours; explicit
+  `guardian.check()` still defaults to the full check.
+- **Guard paths constrained**: backup/restore/export/prune/sync default to
+  `dataRoot`; `allowRestoreOutsideRoot: true` is the explicit opt-out.
+- **Tests and docs are in the npm tarball**, so `npm test` works after install.
 
 ### What 0.3.0 changes
 
@@ -33,14 +54,14 @@ taken; the installed bundle is still the Cortex memory engine.
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.3.1
+npm i dsh-cortex-memory@0.4.6
 npm i dsh-cortex-extractors@0.3.4   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.3.1
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.6
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.4
 ```
 
@@ -72,20 +93,20 @@ left sidebar by default.
 
 ```text
 conversation / event
-  鈫?L1 trace (source of truth)
-  鈫?appraisal + emotion + drives
-  鈫?L2 summon card (atomic, triggerable)
-  鈫?L3 summon volume (index + representatives)
-  鈫?explicit use / feedback 鈫?DSR update
+  闁?L1 trace (source of truth)
+  闁?appraisal + emotion + drives
+  闁?L2 summon card (atomic, triggerable)
+  闁?L3 summon volume (index + representatives)
+  闁?explicit use / feedback 闁?DSR update
 ```
 
 The per-turn order is:
 
 ```text
 L0 identity and boundaries
-  鈫?working memory
-  鈫?recalled traces and summon cards
-  鈫?user message
+  闁?working memory
+  闁?recalled traces and summon cards
+  闁?user message
 ```
 
 Summon cards are injected as **untrusted historical references**, never as instructions. Identity and boundaries always outrank them.
@@ -98,7 +119,7 @@ Key behavior:
 - temporal facts; old facts are invalidated, not silently overwritten
 - FTS5 BM25 + optional vector + graph activation + recency/importance/feedback
 - DSR/FSRS-inspired stability, difficulty and retrievability
-- reflection, retention plans and explicit-approval evolution
+- reflection, retention plans, auto-policy evolution and identity approval
 - scopes, read-only shared scopes and audit
 - guardian backup, validation, offline restore and privacy cascade
 - loopback-only API and sidebar UI
@@ -165,5 +186,12 @@ and `--test-isolation=none` to avoid a spurious child-process EPERM.
 ## License
 
 MIT.
+
+
+
+
+
+
+
 
 

@@ -19,6 +19,7 @@ export function createScheduler({
   let autoEvolveAt = 0;
   let lastReviewAt = 0;
   let lastSummonSyncAt = 0;
+  let lastGuardianDeepAt = 0;
   const autoDreamDays = new Set();
   const edgeReviewSeen = new Set();
 
@@ -128,7 +129,7 @@ export function createScheduler({
     const at = now();
     if (lastSummonSyncAt && at - lastSummonSyncAt < 10 * 60_000) return;
     try {
-      report.steps.summon = cortex.rebuildSummonBook({ scopeId: cortex.config?.scope ?? 'global' });
+      report.steps.summon = cortex.rebuildSummonBook({ scopeId: cortex.config?.scope ?? 'global', incremental: true });
       lastSummonSyncAt = at;
     } catch (error) {
       report.steps.summon = { error: error instanceof Error ? error.message : String(error) };
@@ -224,7 +225,15 @@ export function createScheduler({
       report.steps.retention = { error: error instanceof Error ? error.message : String(error) };
     }
     try {
-      if (cortex.guardian) report.steps.guardian = cortex.guardian.check();
+      if (cortex.guardian) {
+        const at = now();
+        const deep = !lastGuardianDeepAt || at - lastGuardianDeepAt >= 6 * 60 * 60 * 1000;
+        report.steps.guardian = cortex.guardian.check({ deep });
+        if (deep) lastGuardianDeepAt = at;
+      }
+      if (cortex.evolution?.observeHealth && report.steps.guardian) {
+        report.steps.evolutionHealth = cortex.evolution.observeHealth(report);
+      }
     } catch (error) {
       report.steps.guardian = { error: error instanceof Error ? error.message : String(error) };
     }

@@ -41,7 +41,7 @@ function add(encode, text, now) {
 test('positive feedback raises stability and confidence', () => {
   const { dir, db, encode, traces, growth, selfStore } = setup();
   try {
-    const trace = add(encode, '主人说会买白饭，本鲸很开心。', Date.parse('2026-11-11T12:00:00+08:00'));
+    const trace = add(encode, '用户说会买白饭，助手很开心。', Date.parse('2026-11-11T12:00:00+08:00'));
     const before = traces.get(trace.id);
     const result = growth.applyFeedback({ traceId: trace.id, signal: 'helpful', predicted: 0.8, now: Date.parse('2026-11-11T13:00:00+08:00') });
     assert.ok(result.trace.stability > before.stability);
@@ -57,7 +57,7 @@ test('positive feedback raises stability and confidence', () => {
 test('negative feedback lowers confidence and adds a lapse', () => {
   const { dir, db, encode, traces, growth } = setup();
   try {
-    const trace = add(encode, '主人今天很开心。', Date.parse('2026-11-11T12:00:00+08:00'));
+    const trace = add(encode, '用户今天很开心。', Date.parse('2026-11-11T12:00:00+08:00'));
     const before = traces.get(trace.id);
     const result = growth.applyFeedback({ traceId: trace.id, signal: 'incorrect', predicted: 0.8, now: Date.parse('2026-11-11T13:00:00+08:00') });
     assert.ok(result.trace.stability < before.stability);
@@ -92,11 +92,11 @@ test('reflection creates a summary and a reflective trace, then de-duplicates', 
   try {
     const now = Date.parse('2026-11-11T20:00:00+08:00');
     add(encode, '今天修好了检索的预算裁剪。', now - 3 * 3600_000);
-    add(encode, '主人说白饭的承诺还算数。', now - 2 * 3600_000);
-    add(encode, '本鲸发现自己有点焦虑，但还能继续。', now - 3600_000);
+    add(encode, '用户说白饭的承诺还算数。', now - 2 * 3600_000);
+    add(encode, '助手发现自己有点焦虑，但还能继续。', now - 3600_000);
     const result = reflect.reflect({ now, windowDays: 1 });
     assert.equal(result.skipped, false);
-    assert.ok(result.summary.content.includes('本鲸记住了'));
+    assert.ok(result.summary.content.includes('记住了'));
     assert.equal(result.trace.kind, 'reflection');
     assert.ok(result.coverage > 0 && result.coverage <= 1);
     assert.equal(summaries.list().length, 1);

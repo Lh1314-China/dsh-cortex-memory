@@ -27,7 +27,7 @@ test('JSON snapshot exports, validates, dry-runs, imports and re-imports idempot
       importance: 0.72,
       explicit: true,
       now: BASE_MS - 2_000,
-      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     const second = source.write({ text: '快照里的第二条记忆。', title: '第二条', explicit: true, now: BASE_MS - 1_000 });
     // A different scope must not leak into the default-scope snapshot.
@@ -132,7 +132,7 @@ test('markdown mirror exports one frontmatter block per active public trace', ()
       importance: 0.75,
       explicit: true,
       now: BASE_MS - 2 * DAY_MS,
-      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     cortex.write({
       text: '今天学了新技术。',

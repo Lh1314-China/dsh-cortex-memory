@@ -11,11 +11,11 @@ test('llmFacts schedules background extraction and writes validated facts', asyn
     config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), features: { llmFacts: true } },
     llm: {
       available: () => true,
-      complete: async () => '{"facts":[{"subject":"本鲸","predicate":"likes","object":"白饭","confidence":0.9},{"subject":"x","predicate":"y","object":"z","confidence":0.1}]}',
+      complete: async () => '{"facts":[{"subject":"助手","predicate":"likes","object":"白饭","confidence":0.9},{"subject":"x","predicate":"y","object":"z","confidence":0.1}]}',
     },
   });
   try {
-    cortex.write({ text: '本鲸喜欢白饭。', explicit: true });
+    cortex.write({ text: '助手喜欢白饭。', explicit: true });
     await cortex.flushLlmFacts();
     const facts = cortex.repos.facts.list({ scopeId: 'global' });
     assert.equal(facts.length, 1);

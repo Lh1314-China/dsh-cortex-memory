@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLlmAdapter } from '../../src/llm/adapter.js';
 
-function mockCtx(text = '梦里，本鲸坐在白饭旁边。') {
+function mockCtx(text = '梦里，助手坐在白饭旁边。') {
   return {
     get(name) {
       if (name === 'llm') {

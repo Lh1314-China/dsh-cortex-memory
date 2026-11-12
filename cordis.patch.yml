@@ -3,5 +3,5 @@
 # never shiori's data.
 - insert:
     - id: cortex
-      name: 'dsh-cortex-memory'
+      name: 'dsh-cortex'
       config: {}

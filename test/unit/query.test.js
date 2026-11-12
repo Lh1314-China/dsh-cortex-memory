@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { parseQuery, matchesFilters } from '../../src/memory/query.js';
 
 test('query parser separates filters from free text', () => {
-  const parsed = parseQuery('kind:utterance tag:白饭 after:2026-11-01 importance:>0.5 主人 白饭');
-  assert.equal(parsed.text, '主人 白饭');
+  const parsed = parseQuery('kind:utterance tag:白饭 after:2026-11-01 importance:>0.5 用户 白饭');
+  assert.equal(parsed.text, '用户 白饭');
   assert.equal(parsed.filters.kind, 'utterance');
   assert.deepEqual(parsed.filters.tags, ['白饭']);
   assert.equal(parsed.filters.after, '2026-11-01');
@@ -40,7 +40,7 @@ test('service search applies kind and tag filters before ranking', async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-query-service-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
   try {
-    cortex.write({ text: '主人喜欢白饭。', kind: 'utterance', tags: ['白饭'], explicit: true });
+    cortex.write({ text: '用户喜欢白饭。', kind: 'utterance', tags: ['白饭'], explicit: true });
     cortex.write({ text: '反思：白饭的承诺。', kind: 'reflection', tags: ['白饭'], explicit: true });
     const result = cortex.search('kind:utterance tag:白饭 白饭');
     assert.equal(result.items.length, 1);

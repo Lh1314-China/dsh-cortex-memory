@@ -132,12 +132,12 @@ test('GET contract: every read route returns the documented status and envelope'
   try {
     const handler = createApiHandler({ cortex });
 
-    const firstTrace = writeTrace(cortex, '主人喜欢白饭，本鲸记着。', {
+    const firstTrace = writeTrace(cortex, '用户喜欢白饭，助手记着。', {
       title: '白饭',
       tags: ['约定'],
       importance: 0.8,
     });
-    writeTrace(cortex, '本鲸昨天修了记忆插件。', {
+    writeTrace(cortex, '助手昨天修了记忆插件。', {
       title: '插件',
       tags: ['技术'],
       importance: 0.4,
@@ -146,7 +146,7 @@ test('GET contract: every read route returns the documented status and envelope'
     const activeGoal = cortex.goals.add({ title: '完成 API 契约测试', priority: 0.9 });
     const doneGoal = cortex.goals.add({ title: '旧的完成项', priority: 0.3 });
     cortex.goals.complete(doneGoal.id);
-    cortex.emotion.record({ text: '本鲸很喜欢主人，也很心疼主人。', target: '主人' });
+    cortex.emotion.record({ text: '助手很喜欢用户，也很心疼用户。', target: '用户' });
     cortex.life.diaryWrite({ text: '今天补契约测试。', mood: '踏实' });
     await cortex.life.dreamGenerate();
     await cortex.life.sleep({ windowDays: 1 });
@@ -304,7 +304,7 @@ test('GET contract: every read route returns the documented status and envelope'
         assert.equal(typeof data.text, 'string');
         assert.ok(Array.isArray(data.targets));
         assert.ok(Array.isArray(data.events));
-        assert.ok(data.targets.some((target) => target.target === '主人'));
+        assert.ok(data.targets.some((target) => target.target === '用户'));
         assert.ok(data.events.length >= 1);
         assert.equal(typeof data.events[0].emotions, 'object');
         assert.ok(Array.isArray(data.events[0].emotions));
@@ -373,7 +373,7 @@ test('GET contract: every read route returns the documented status and envelope'
         const data = expectData(result, '/trace');
         assert.equal(data.id, traceId);
         assert.equal(data.scopeId, 'global');
-        assert.equal(data.content, '主人喜欢白饭，本鲸记着。');
+        assert.equal(data.content, '用户喜欢白饭，助手记着。');
         assertIso(data.recordedAt, 'trace.recordedAt');
       }],
       [`/timeline?id=${traceId}`, (result) => {
@@ -426,7 +426,7 @@ test('POST /write accepts one memory, deduplicates, and writes batches atomicall
     expectError(bad, { label: 'write blank', match: /text/ });
 
     const single = await post(handler, '/write', {
-      text: '主人喜欢白饭。',
+      text: '用户喜欢白饭。',
       title: '白饭',
       tags: ['约定', '日常'],
       importance: 0.9,
@@ -435,7 +435,7 @@ test('POST /write accepts one memory, deduplicates, and writes batches atomicall
     });
     const written = expectData(single, 'write single');
     assert.equal(written.skipped, false);
-    assert.equal(written.trace.content, '主人喜欢白饭。');
+    assert.equal(written.trace.content, '用户喜欢白饭。');
     assert.equal(written.trace.title, '白饭');
     assert.equal(written.trace.scopeId, 'global');
     assert.deepEqual(written.trace.tags, ['约定', '日常']);
@@ -444,7 +444,7 @@ test('POST /write accepts one memory, deduplicates, and writes batches atomicall
     assert.equal(typeof written.event.id, 'string');
     assertIso(written.trace.recordedAt, 'write.trace.recordedAt');
 
-    const duplicate = await post(handler, '/write', { text: '主人喜欢白饭。', explicit: true });
+    const duplicate = await post(handler, '/write', { text: '用户喜欢白饭。', explicit: true });
     const deduped = expectData(duplicate, 'write duplicate');
     assert.equal(deduped.skipped, true);
     assert.equal(deduped.reason, 'duplicate');
@@ -483,7 +483,7 @@ test('POST /search validates its body and returns the retrieval envelope', async
   const { cortex } = context;
   try {
     const handler = createApiHandler({ cortex });
-    const written = writeTrace(cortex, '主人喜欢白饭，本鲸记着。', { title: '白饭' });
+    const written = writeTrace(cortex, '用户喜欢白饭，助手记着。', { title: '白饭' });
 
     const found = await post(handler, '/search', { query: '白饭', limit: 5, budget: 500 });
     const data = expectData(found, 'search post');
@@ -658,7 +658,7 @@ test('POST /qa abstains without memories and answers from evidence after a write
   const emptyContext = makeCortex();
   try {
     const emptyHandler = createApiHandler({ cortex: emptyContext.cortex });
-    const abstain = await post(emptyHandler, '/qa', { question: '主人喜欢什么？' });
+    const abstain = await post(emptyHandler, '/qa', { question: '用户喜欢什么？' });
     const abstainData = expectData(abstain, 'qa abstain');
     assert.equal(abstainData.mode, 'abstain');
     assert.equal(typeof abstainData.answer, 'string');
@@ -674,8 +674,8 @@ test('POST /qa abstains without memories and answers from evidence after a write
   const context = makeCortex();
   try {
     const handler = createApiHandler({ cortex: context.cortex });
-    writeTrace(context.cortex, '主人喜欢白饭，本鲸记着。', { title: '白饭' });
-    const answered = await post(handler, '/qa', { question: '主人喜欢什么？' });
+    writeTrace(context.cortex, '用户喜欢白饭，助手记着。', { title: '白饭' });
+    const answered = await post(handler, '/qa', { question: '用户喜欢什么？' });
     const data = expectData(answered, 'qa answered');
     assert.ok(['extractive', 'llm'].includes(data.mode));
     assert.equal(typeof data.answer, 'string');
@@ -692,7 +692,7 @@ test('POST /tick executes safe pending intentions and reports the queue', async 
   const { cortex } = context;
   try {
     const handler = createApiHandler({ cortex });
-    writeTrace(cortex, '主人喜欢白饭，本鲸记着。', { title: '白饭' });
+    writeTrace(cortex, '用户喜欢白饭，助手记着。', { title: '白饭' });
     const now = new Date();
     const intention = cortex.stores.initiativeStore.insert({
       kind: 'recall',
@@ -764,7 +764,7 @@ test('POST /guard/* backs up, validates, exports, repairs and restores safely', 
     const handler = createApiHandler({ cortex });
     writeTrace(cortex, '备份之前的记忆。', { title: '备份' });
 
-    const backupPath = path.join(context.dir, 'contract-backup.sqlite');
+    const backupPath = path.join(cortex.config.dataRoot, 'contract-backup.sqlite');
     const backup = await post(handler, '/guard/backup', { file: backupPath });
     const backupData = expectData(backup, 'guard backup');
     assert.equal(backupData.path, path.resolve(backupPath));
@@ -800,7 +800,7 @@ test('POST /guard/* backs up, validates, exports, repairs and restores safely', 
       match: /file/,
     });
 
-    const restorePath = path.join(context.dir, 'restored', 'copy.sqlite');
+    const restorePath = path.join(cortex.config.dataRoot, 'restored', 'copy.sqlite');
     const restored = await post(handler, '/guard/restore', { file: backupPath, target: restorePath });
     const restoredData = expectData(restored, 'guard restore');
     assert.equal(restoredData.restored, true);
@@ -809,8 +809,8 @@ test('POST /guard/* backs up, validates, exports, repairs and restores safely', 
     assert.equal(existsSync(restorePath), true);
 
     const invalidRestore = await post(handler, '/guard/restore', {
-      file: path.join(context.dir, 'missing.sqlite'),
-      target: path.join(context.dir, 'never.sqlite'),
+      file: path.join(cortex.config.dataRoot, 'missing.sqlite'),
+      target: path.join(cortex.config.dataRoot, 'never.sqlite'),
     });
     const invalidData = expectData(invalidRestore, 'guard restore invalid');
     assert.equal(invalidData.restored, false);
@@ -834,7 +834,7 @@ test('POST /guard/* backs up, validates, exports, repairs and restores safely', 
       match: /file/,
     });
 
-    const exportDir = path.join(context.dir, 'markdown-export');
+    const exportDir = path.join(cortex.config.dataRoot, 'markdown-export');
     const exported = await post(handler, '/guard/export', { dir: exportDir });
     const exportData = expectData(exported, 'guard export');
     assert.equal(exportData.root, path.resolve(exportDir));
@@ -1073,23 +1073,23 @@ test('POST /emotion/record detects emotions, updates affect, and tolerates neutr
     const handler = createApiHandler({ cortex });
 
     const recorded = await post(handler, '/emotion/record', {
-      text: '本鲸很喜欢主人，也很心疼主人。',
-      target: '主人',
+      text: '助手很喜欢用户，也很心疼用户。',
+      target: '用户',
     });
     const recordData = expectData(recorded, 'emotion record');
     assert.ok(Array.isArray(recordData.emotions));
     assert.ok(recordData.emotions.length >= 1);
     assert.equal(typeof recordData.event, 'object');
-    assert.equal(recordData.event.target, '主人');
+    assert.equal(recordData.event.target, '用户');
     assert.equal(typeof recordData.target, 'object');
-    assert.equal(recordData.target.name, '主人');
+    assert.equal(recordData.target.name, '用户');
     assert.equal(typeof recordData.target.attitude, 'string');
     assertInteger(recordData.target.count, 'emotion.count', { min: 1 });
     assertIso(recordData.event.at, 'emotion.event.at');
 
-    const defaultTarget = await post(handler, '/emotion/record', { text: '主人今天很开心。' });
+    const defaultTarget = await post(handler, '/emotion/record', { text: '用户今天很开心。' });
     const defaultData = expectData(defaultTarget, 'emotion default target');
-    assert.equal(defaultData.event.target, '主人');
+    assert.equal(defaultData.event.target, '用户');
 
     const neutral = await post(handler, '/emotion/record', { text: '今天是星期三。' });
     const neutralData = expectData(neutral, 'emotion neutral');
@@ -1104,7 +1104,7 @@ test('POST /emotion/record detects emotions, updates affect, and tolerates neutr
     assert.equal(emptyData.text, '');
 
     const status = expectData(await invokeApi(handler, { route: '/emotion' }), 'emotion status');
-    assert.ok(status.targets.some((target) => target.target === '主人'));
+    assert.ok(status.targets.some((target) => target.target === '用户'));
     assert.ok(status.events.length >= 2);
   } finally {
     cleanup(context);

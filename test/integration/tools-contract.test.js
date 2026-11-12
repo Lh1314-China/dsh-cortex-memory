@@ -239,7 +239,7 @@ test('cortex_write: minimal write, explicit facts, scopes and operationId idempo
     assert.equal(cortex.repos.traces.count(), 1);
 
     // Full args: kind/importance/confidence/tags/scope/facts all flow through.
-    const richText = '主人答应会买白饭，本鲸会一直等。';
+    const richText = '用户答应会买白饭，助手会一直等。';
     const rich = await call(tools.cortex_write, {
       text: richText,
       kind: 'promise',
@@ -248,7 +248,7 @@ test('cortex_write: minimal write, explicit facts, scopes and operationId idempo
       explicit: true,
       tags: ['白饭', '承诺'],
       scope: 'shared',
-      facts: [{ subject: '主人', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
     });
     assert.match(rich, /^已写入 trc_/);
     assert.match(rich, /（promise）/);
@@ -272,7 +272,7 @@ test('cortex_write: minimal write, explicit facts, scopes and operationId idempo
 
     // Idempotency: reusing operationId with the identical payload returns the first trace.
     const operationId = 'tools-contract-idempotent-write';
-    const opText = '幂等写入：主人会买白饭。';
+    const opText = '幂等写入：用户会买白饭。';
     const firstOp = await call(tools.cortex_write, { text: opText, explicit: true, operationId });
     const opId = idOf(firstOp, 'trc');
     const traceCount = cortex.repos.traces.count();
@@ -335,7 +335,7 @@ test('cortex_search: hits, filters, budgets, archived opt-in and empty queries',
       now: base,
     });
     const preference = cortex.write({
-      text: '主人喜欢白饭，本鲸记得。',
+      text: '用户喜欢白饭，助手记得。',
       title: '白饭偏好',
       kind: 'preference',
       explicit: true,
@@ -468,14 +468,14 @@ test('cortex_as_of: strict, historical, belief and associative views', async () 
   try {
     const t1 = Date.parse('2026-11-10T10:00:00+08:00');
     const t2 = Date.parse('2026-11-11T10:00:00+08:00');
-    cortex.write({ text: '主人喜欢白饭。', explicit: true, now: t1, facts: [{ subject: '主人', predicate: '喜欢', object: '白饭' }] });
-    cortex.write({ text: '主人现在喜欢面。', explicit: true, now: t2, facts: [{ subject: '主人', predicate: '喜欢', object: '面' }] });
-    let text = await call(tools.cortex_as_of, { subject: '主人', predicate: '喜欢', at: new Date(t1 + 1000).toISOString(), mode: 'historical' });
+    cortex.write({ text: '用户喜欢白饭。', explicit: true, now: t1, facts: [{ subject: '用户', predicate: '喜欢', object: '白饭' }] });
+    cortex.write({ text: '用户现在喜欢面。', explicit: true, now: t2, facts: [{ subject: '用户', predicate: '喜欢', object: '面' }] });
+    let text = await call(tools.cortex_as_of, { subject: '用户', predicate: '喜欢', at: new Date(t1 + 1000).toISOString(), mode: 'historical' });
     assert.match(text, /喜欢 → 白饭/);
-    text = await call(tools.cortex_as_of, { subject: '主人', predicate: '喜欢', mode: 'strict' });
+    text = await call(tools.cortex_as_of, { subject: '用户', predicate: '喜欢', mode: 'strict' });
     assert.match(text, /喜欢 → 面/);
     assert.doesNotMatch(text, /喜欢 → 白饭/);
-    text = await call(tools.cortex_as_of, { subject: '主人', mode: 'associative' });
+    text = await call(tools.cortex_as_of, { subject: '用户', mode: 'associative' });
     assert.match(text, /白饭/);
     assert.match(text, /面/);
     text = await call(tools.cortex_as_of, { subject: '不存在的主体' });
@@ -522,7 +522,7 @@ test('cortex_feedback: every signal updates DSR/confidence without throwing', as
   const harness = makeHarness();
   const { cortex, tools } = harness;
   try {
-    const written = cortex.write({ text: '反馈契约：主人会买白饭。', explicit: true });
+    const written = cortex.write({ text: '反馈契约：用户会买白饭。', explicit: true });
     let text = await call(tools.cortex_feedback, {
       id: written.trace.id,
       signal: 'used',
@@ -567,10 +567,10 @@ test('cortex_forget: archive stays searchable, delete cascades on a disposable t
   const base = Date.now();
   try {
     const archived = cortex.write({
-      text: '归档契约：主人会买白饭。',
+      text: '归档契约：用户会买白饭。',
       title: '归档目标',
       explicit: true,
-      facts: [{ subject: '主人', predicate: '会买', objectLiteral: '白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '会买', objectLiteral: '白饭', confidence: 0.9 }],
       now: base,
     });
     await call(tools.cortex_feedback, { id: archived.trace.id, signal: 'used' });
@@ -596,7 +596,7 @@ test('cortex_forget: archive stays searchable, delete cascades on a disposable t
       text: '删除契约：这段内容会被删除。',
       title: '删除目标',
       explicit: true,
-      facts: [{ subject: '本鲸', predicate: '测试', objectLiteral: '删除级联', confidence: 0.8 }],
+      facts: [{ subject: '助手', predicate: '测试', objectLiteral: '删除级联', confidence: 0.8 }],
       now: base + 1_000,
     });
     await call(tools.cortex_feedback, { id: disposable.trace.id, signal: 'incorrect' });
@@ -632,11 +632,11 @@ test('cortex_reflect: needs two traces, creates a reflection, skips duplicates a
     const onlyOne = await call(tools.cortex_reflect, {});
     assert.match(onlyOne, /^未整理：not-enough-traces/);
 
-    await call(tools.cortex_write, { text: '反思契约第一条：主人喜欢白饭。', explicit: true });
-    await call(tools.cortex_write, { text: '反思契约第二条：本鲸会等主人。', explicit: true });
+    await call(tools.cortex_write, { text: '反思契约第一条：用户喜欢白饭。', explicit: true });
+    await call(tools.cortex_write, { text: '反思契约第二条：助手会等用户。', explicit: true });
 
     const first = await call(tools.cortex_reflect, {});
-    assert.match(first, /^这段时间里，本鲸记住了：/);
+    assert.match(first, /^这段时间里，记住了：/);
     assert.match(first, /来源 2 条 · 覆盖率 100% · 反思痕迹 trc_/);
     const reflectionId = idOf(first, 'trc');
     assert.equal(cortex.get(reflectionId).kind, 'reflection');
@@ -649,7 +649,7 @@ test('cortex_reflect: needs two traces, creates a reflection, skips duplicates a
     assert.match(again, /^未整理：already-reflected/);
 
     const forced = await call(tools.cortex_reflect, { windowDays: 2, force: true });
-    assert.match(forced, /^这段时间里，本鲸记住了：/);
+    assert.match(forced, /^这段时间里，记住了：/);
     assert.match(forced, /来源 2 条 · 覆盖率 100% · 反思痕迹 trc_/);
     assert.equal(cortex.repos.summaries.list('global', { level: 'episode' }).length, 2);
   } finally {
@@ -669,7 +669,7 @@ test('cortex_self: snapshot fields, relationship/calibration feedback and read-o
     assert.doesNotMatch(text, /关系：/);
     assert.doesNotMatch(text, /校准：/);
 
-    const written = cortex.write({ text: '自我契约：主人喜欢白饭。', explicit: true });
+    const written = cortex.write({ text: '自我契约：用户喜欢白饭。', explicit: true });
     await call(tools.cortex_feedback, { id: written.trace.id, signal: 'used', predicted: 0.8 });
     await call(tools.cortex_working, { action: 'add', text: '写自我契约测试。' });
     await call(tools.cortex_goal, { action: 'add', title: '完成自我契约测试' });
@@ -677,7 +677,7 @@ test('cortex_self: snapshot fields, relationship/calibration feedback and read-o
     const eventsBefore = cortex.repos.events.count();
     const tracesBefore = cortex.repos.traces.count();
     text = await call(tools.cortex_self, {});
-    assert.match(text, /关系：主人 信任 \d+% \/ 在乎 \d+%/);
+    assert.match(text, /关系：用户 信任 \d+% \/ 在乎 \d+%/);
     assert.match(text, /校准：n=1 brier=0\.040 ece=\d+\.\d{3}/);
     assert.equal(cortex.repos.events.count(), eventsBefore);
     assert.equal(cortex.repos.traces.count(), tracesBefore);
@@ -693,9 +693,9 @@ test('cortex_health: clean audits, concrete counts, FTS drift detection and read
   try {
     const first = cortex.write({ text: '健康契约第一条。', explicit: true, now: base });
     const second = cortex.write({
-      text: '健康契约第二条：主人喜欢白饭。',
+      text: '健康契约第二条：用户喜欢白饭。',
       explicit: true,
-      facts: [{ subject: '主人', predicate: '喜欢', objectLiteral: '白饭', confidence: 0.8 }],
+      facts: [{ subject: '用户', predicate: '喜欢', objectLiteral: '白饭', confidence: 0.8 }],
       now: base + 1_000,
     });
     assert.equal(first.skipped, false);
@@ -733,10 +733,10 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
   const { cortex, tools } = harness;
   try {
     const written = cortex.write({
-      text: '守卫契约：主人会买白饭。',
+      text: '守卫契约：用户会买白饭。',
       title: '白饭承诺',
       explicit: true,
-      facts: [{ subject: '主人', predicate: '会买', objectLiteral: '白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '会买', objectLiteral: '白饭', confidence: 0.9 }],
     });
     assert.equal(written.skipped, false);
 
@@ -745,7 +745,7 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
     assert.match(text, /^自检：通过 · integrity=ok · db \d+ B/);
 
     // backup
-    const backupPath = path.join(harness.dir, 'backups', 'cortex-guard.sqlite');
+    const backupPath = path.join(cortex.config.dataRoot, 'backups', 'cortex-guard.sqlite');
     text = await call(tools.cortex_guard, { action: 'backup', file: backupPath });
     assert.match(text, /^备份完成：/);
     assert.ok(text.includes(path.resolve(backupPath)), 'backup text must name the resolved path');
@@ -762,7 +762,7 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
     assert.equal(text, '备份无效：missing');
 
     // restore is only allowed to an offline target.
-    const target = path.join(harness.dir, 'offline', 'restored.sqlite');
+    const target = path.join(cortex.config.dataRoot, 'offline', 'restored.sqlite');
     text = await call(tools.cortex_guard, { action: 'restore', file: backupPath, target });
     assert.equal(text, `已恢复到离线库：${path.resolve(target)}`);
     assert.ok(fs.existsSync(target));
@@ -771,7 +771,7 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
       assert.equal(restored.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
       assert.equal(Number(restored.prepare('SELECT COUNT(*) AS c FROM traces').get().c), 1);
       assert.equal(Number(restored.prepare('SELECT COUNT(*) AS c FROM facts').get().c), 1);
-      assert.equal(restored.prepare('SELECT content FROM traces LIMIT 1').get().content, '守卫契约：主人会买白饭。');
+      assert.equal(restored.prepare('SELECT content FROM traces LIMIT 1').get().content, '守卫契约：用户会买白饭。');
     } finally {
       restored.close();
     }
@@ -785,8 +785,8 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
     assert.equal(text, '恢复失败：target-required');
     text = await call(tools.cortex_guard, {
       action: 'restore',
-      file: path.join(harness.dir, 'never-created.sqlite'),
-      target: path.join(harness.dir, 'offline', 'nope.sqlite'),
+      file: path.join(cortex.config.dataRoot, 'never-created.sqlite'),
+      target: path.join(cortex.config.dataRoot, 'offline', 'nope.sqlite'),
     });
     assert.match(text, /^恢复失败：invalid-backup/);
 
@@ -802,7 +802,7 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
     assert.match(text, /^自检：通过/);
 
     // export into the temp directory
-    const mirror = path.join(harness.dir, 'mirror');
+    const mirror = path.join(cortex.config.dataRoot, 'mirror');
     text = await call(tools.cortex_guard, { action: 'export', dir: mirror });
     assert.match(text, /^Markdown 镜像已导出：/);
     assert.ok(text.includes(path.resolve(mirror)));
@@ -810,7 +810,7 @@ test('cortex_guard: check, backup, validate, restore-to-temp, repair and export'
     assert.match(text, /记忆 1 条（跳过 secret 0 条）/);
     const memoryFile = path.join(mirror, 'MEMORY.md');
     assert.ok(fs.existsSync(memoryFile));
-    assert.match(fs.readFileSync(memoryFile, 'utf8'), /守卫契约：主人会买白饭。/);
+    assert.match(fs.readFileSync(memoryFile, 'utf8'), /守卫契约：用户会买白饭。/);
     for (const file of ['SELF.md', 'FACTS.md', 'SKILLS.md']) {
       assert.ok(fs.existsSync(path.join(mirror, file)), `${file} must be exported`);
     }
@@ -896,7 +896,7 @@ test('cortex_emotion: detect, record, affect, events and lexicon', async () => {
     assert.ok(total > 100, `expected a useful vocabulary, got ${total}`);
     assert.match(text, /喜:\d+/);
 
-    text = await call(tools.cortex_emotion, { action: 'detect', text: '本鲸很开心，也有点难过。' });
+    text = await call(tools.cortex_emotion, { action: 'detect', text: '助手很开心，也有点难过。' });
     assert.match(text, /喜:1/);
     assert.match(text, /哀:1/);
     assert.equal(await call(tools.cortex_emotion, { action: 'detect', text: '今天只是普通的一天。' }), '没有命中情绪词。');
@@ -905,25 +905,25 @@ test('cortex_emotion: detect, record, affect, events and lexicon', async () => {
     assert.equal(await call(tools.cortex_emotion, { action: 'affect' }), '（情感库还没有形成态度）');
     assert.equal(await call(tools.cortex_emotion, { action: 'events' }), '（没有情绪事件）');
 
-    text = await call(tools.cortex_emotion, { action: 'record', text: '本鲸很开心，也很喜欢主人。', target: '主人' });
+    text = await call(tools.cortex_emotion, { action: 'record', text: '助手很开心，也很喜欢用户。', target: '用户' });
     assert.match(text, /^已记情绪事件 emo_/);
-    assert.match(text, /喜、爱 → 主人/);
-    text = await call(tools.cortex_emotion, { action: 'record', text: '本鲸有点难过。', target: '主人' });
+    assert.match(text, /喜、爱 → 用户/);
+    text = await call(tools.cortex_emotion, { action: 'record', text: '助手有点难过。', target: '用户' });
     assert.match(text, /^已记情绪事件 emo_/);
 
     text = await call(tools.cortex_emotion, { action: 'affect' });
-    assert.equal(text, '主人：又喜又爱（2 次）');
+    assert.equal(text, '用户：又喜又爱（2 次）');
     text = await call(tools.cortex_emotion, { action: 'events', limit: 1 });
     assert.equal(text.split('\n').length, 1);
-    assert.match(text, /主人/);
-    assert.match(text, /本鲸/);
+    assert.match(text, /用户/);
+    assert.match(text, /助手/);
     text = await call(tools.cortex_emotion, { action: 'events', limit: 10 });
-    assert.match(text, /本鲸很开心/);
-    assert.match(text, /本鲸有点难过/);
+    assert.match(text, /助手很开心/);
+    assert.match(text, /助手有点难过/);
 
     const eventCount = cortex.emotion.events({ limit: 10 }).length;
     assert.equal(eventCount, 2);
-    text = await call(tools.cortex_emotion, { action: 'record', text: '今天只是普通的一天。', target: '主人' });
+    text = await call(tools.cortex_emotion, { action: 'record', text: '今天只是普通的一天。', target: '用户' });
     assert.equal(text, '没有命中情绪词。');
     assert.equal(cortex.emotion.events({ limit: 10 }).length, eventCount);
   } finally {
@@ -968,8 +968,8 @@ test('cortex_life: diary entries, dreams, sleep and sleep-run history', async ()
     assert.equal(emptyDreams.length, 1);
     assert.equal(emptyDreams[0].sourceCount, 0);
 
-    await call(tools.cortex_write, { text: '生活侧记忆第一条：主人喜欢白饭。', explicit: true });
-    await call(tools.cortex_write, { text: '生活侧记忆第二条：本鲸会等主人。', explicit: true });
+    await call(tools.cortex_write, { text: '生活侧记忆第一条：用户喜欢白饭。', explicit: true });
+    await call(tools.cortex_write, { text: '生活侧记忆第二条：助手会等用户。', explicit: true });
     text = await call(tools.cortex_life, { action: 'dream' });
     assert.match(text, /^梦 drm_.*（来源 2 条，template）：/);
     assert.equal(cortex.life.dreamList({ limit: 10 }).length, 2);
@@ -1181,7 +1181,7 @@ test('cortex_digest: daily digest on empty and populated days, persisted as a su
     const first = await call(tools.cortex_write, { text: '摘要契约：今天修好了工具。', explicit: true });
     const second = await call(tools.cortex_write, { text: '摘要契约：今天写了测试。', explicit: true });
     await call(tools.cortex_feedback, { id: idOf(first, 'trc'), signal: 'used', predicted: 0.7 });
-    await call(tools.cortex_emotion, { action: 'record', text: '本鲸很开心。', target: '主人' });
+    await call(tools.cortex_emotion, { action: 'record', text: '助手很开心。', target: '用户' });
     await call(tools.cortex_goal, { action: 'add', title: '完成摘要测试' });
 
     text = await call(tools.cortex_digest, { action: 'daily', date });
@@ -1192,7 +1192,7 @@ test('cortex_digest: daily digest on empty and populated days, persisted as a su
     assert.match(text, /## 重要记忆/);
     assert.match(text, /摘要契约/);
     assert.match(text, /## 情绪/);
-    assert.match(text, /喜：本鲸很开心/);
+    assert.match(text, /喜：助手很开心/);
 
     assert.match(text, /反馈：1 条/);
     const feedbackRows = cortex.repos.feedback.list({ scopeId: 'global', limit: 500 });
@@ -1225,8 +1225,8 @@ test('cortex_tick: status, safe execution and proposals that need approval', asy
     text = await call(tools.cortex_tick, { action: 'run' });
     assert.equal(text, '执行 0 条，提案 0 条。');
 
-    await call(tools.cortex_write, { text: 'tick 契约第一条：主人喜欢白饭。', explicit: true });
-    await call(tools.cortex_write, { text: 'tick 契约第二条：本鲸会等主人。', explicit: true });
+    await call(tools.cortex_write, { text: 'tick 契约第一条：用户喜欢白饭。', explicit: true });
+    await call(tools.cortex_write, { text: 'tick 契约第二条：助手会等用户。', explicit: true });
 
     const now = Date.now();
     const schedule = {

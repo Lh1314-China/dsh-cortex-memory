@@ -32,7 +32,7 @@ test('web sources are passed into AI diary generation', async () => {
     config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), features: { webSearch: true } },
     llm: {
       dream: async () => null,
-      diary: async (args) => { seenWeb = args.web; return '今天本鲸从一份外部资料里看见了一点新东西。'; },
+      diary: async (args) => { seenWeb = args.web; return '今天助手从一份外部资料里看见了一点新东西。'; },
       feeling: async () => null,
     },
     webSearch: async () => ({
@@ -57,7 +57,7 @@ test('diary generation is written by the configured AI, with a labeled fallback'
     config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') },
     llm: {
       dream: async () => null,
-      diary: async () => '今天本鲸把检索和梦都重新摸了一遍，心里慢慢安静下来。',
+      diary: async () => '今天助手把检索和梦都重新摸了一遍，心里慢慢安静下来。',
     },
   });
   try {
@@ -65,7 +65,7 @@ test('diary generation is written by the configured AI, with a labeled fallback'
     const entry = await cortex.life.diaryGenerate({ at: Date.parse('2026-11-12T12:00:00+08:00') });
     assert.equal(entry.model, 'llm');
     assert.equal(entry.source, 'cortex:llm');
-    assert.match(entry.text, /本鲸/);
+    assert.match(entry.text, /助手/);
     assert.equal(cortex.life.diaryList()[0].source, 'cortex:llm');
   } finally {
     cortex.close();
@@ -81,9 +81,9 @@ test('feeling generation records AI-chosen emotion labels and affect', async () 
       dream: async () => null,
       diary: async () => null,
       feeling: async () => ({
-        text: '本鲸现在有一点安心，也有一点期待。',
+        text: '助手现在有一点安心，也有一点期待。',
         emotions: [{ name: '安', score: 2 }, { name: '盼', score: 1 }],
-        target: '主人',
+        target: '用户',
       }),
     },
   });

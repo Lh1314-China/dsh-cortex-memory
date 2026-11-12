@@ -10,6 +10,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   dataRoot: DEFAULT_ROOT,
   dbFile: path.join(DEFAULT_ROOT, 'cortex.sqlite'),
   scope: 'global',
+  persona: Object.freeze({ selfName: '助手', userAddress: '你' }),
   contextBudget: 2200,
   readOnlyScopes: Object.freeze([]),
   scopeWriteGrants: Object.freeze([]),
@@ -79,6 +80,7 @@ export function normalizeConfig(raw = {}) {
   const dsrInput = input.dsr && typeof input.dsr === 'object' ? input.dsr : {};
   const compressionInput = input.compression && typeof input.compression === 'object' ? input.compression : {};
   const featuresInput = input.features && typeof input.features === 'object' ? input.features : {};
+  const personaInput = input.persona && typeof input.persona === 'object' ? input.persona : {};
   const scope = typeof input.scope === 'string' && input.scope.trim() ? input.scope.trim() : DEFAULT_CONFIG.scope;
 
   return Object.freeze({
@@ -87,6 +89,10 @@ export function normalizeConfig(raw = {}) {
     dataRoot,
     dbFile,
     scope,
+    persona: Object.freeze({
+      selfName: (typeof personaInput.selfName === 'string' && personaInput.selfName.trim() ? personaInput.selfName.trim() : DEFAULT_CONFIG.persona.selfName).slice(0, 24),
+      userAddress: (typeof personaInput.userAddress === 'string' && personaInput.userAddress.trim() ? personaInput.userAddress.trim() : DEFAULT_CONFIG.persona.userAddress).slice(0, 24),
+    }),
     readOnlyScopes: Object.freeze(Array.isArray(input.readOnlyScopes)
       ? [...new Set(input.readOnlyScopes.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()).slice(0, 100))]
       : []),

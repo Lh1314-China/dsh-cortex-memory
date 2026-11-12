@@ -8,24 +8,24 @@ import { extractFactCandidates } from '../../src/engines/extract.js';
 import { coverageOf } from '../../src/engines/compression.js';
 
 test('fact extraction finds preferences, states and plans', () => {
-  const candidates = extractFactCandidates('主人喜欢白饭，本鲸会在明天继续修插件，白饭是主食。');
+  const candidates = extractFactCandidates('用户喜欢白饭，助手会在明天继续修插件，白饭是主食。');
   assert.ok(candidates.some((item) => item.predicate === 'likes' && item.object.includes('白饭')));
   assert.ok(candidates.some((item) => item.predicate === 'will'));
   assert.ok(candidates.some((item) => item.predicate === 'is'));
 });
 
 test('negated predicates are not also extracted as their positive form', () => {
-  const negative = extractFactCandidates('主人不喜欢猫。');
+  const negative = extractFactCandidates('用户不喜欢猫。');
   assert.ok(negative.some((item) => item.predicate === 'dislikes' && item.object.includes('猫')));
   assert.ok(!negative.some((item) => item.predicate === 'likes'));
 
-  const positive = extractFactCandidates('主人喜欢猫。');
+  const positive = extractFactCandidates('用户喜欢猫。');
   assert.ok(positive.some((item) => item.predicate === 'likes' && item.confidence === 0.55));
   assert.ok(!positive.some((item) => item.predicate === 'dislikes'));
 });
 
 test('coverage prefers source pointers over token overlap', () => {
-  const trace = { id: 't1', eventId: 'e1', content: '白饭 承诺 主人' };
+  const trace = { id: 't1', eventId: 'e1', content: '白饭 承诺 用户' };
   const bySource = coverageOf(trace, { summaries: [{ id: 's1', sourceIds: ['t1'], content: '完全不同的摘要' }], facts: [] });
   assert.equal(bySource.coverage, 1);
   assert.equal(bySource.by, 'summary-source');
@@ -65,7 +65,7 @@ test('autoFacts writes semantic facts when enabled', () => {
     config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), features: { autoFacts: true } },
   });
   try {
-    const result = cortex.write({ text: '主人喜欢白饭。', explicit: true });
+    const result = cortex.write({ text: '用户喜欢白饭。', explicit: true });
     assert.ok(result.autoFacts);
     assert.ok(result.autoFacts.resolved.length >= 1);
     assert.ok(cortex.repos.facts.list({ limit: 10 }).length >= 1);

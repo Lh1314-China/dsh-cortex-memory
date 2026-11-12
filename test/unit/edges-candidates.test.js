@@ -70,7 +70,7 @@ test('autoFacts queue candidate edges only when graphCandidateAutoFacts is enabl
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-edge-autofacts-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), features: { autoFacts: true, graphCandidateAutoFacts: true } } });
   try {
-    const written = cortex.write({ text: '主人喜欢白饭。', explicit: true });
+    const written = cortex.write({ text: '用户喜欢白饭。', explicit: true });
     assert.ok(written.edgeCandidates.length >= 1);
     assert.ok(cortex.graphCandidates({ scopeId: 'global' }).length >= 1);
     assert.equal(cortex.graphData({ scopeId: 'global' }).edges.length, 0);
@@ -84,7 +84,7 @@ test('autoFacts do not queue candidate edges by default', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-edge-autofacts-off-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), features: { autoFacts: true } } });
   try {
-    const written = cortex.write({ text: '主人喜欢白饭。', explicit: true });
+    const written = cortex.write({ text: '用户喜欢白饭。', explicit: true });
     assert.equal(written.edgeCandidates?.length ?? 0, 0);
     assert.equal(cortex.graphCandidates({ scopeId: 'global' }).length, 0);
   } finally {

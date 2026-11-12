@@ -24,7 +24,7 @@ export function createGrowthEngine({
     signal,
     predicted = null,
     source = 'user',
-    target = '主人',
+    target = '用户',
     scopeId = 'global',
     eventId = null,
     now = Date.now(),

@@ -32,7 +32,7 @@ function addTrace(events, traces, text, { title = text, importance = 0.5, at = '
 }
 
 test('intent rules cover temporal, procedural, identity and narrative', () => {
-  assert.equal(classifyIntent('昨天主人说了什么'), 'temporal');
+  assert.equal(classifyIntent('昨天用户说了什么'), 'temporal');
   assert.equal(classifyIntent('怎么安装这个插件'), 'procedural');
   assert.equal(classifyIntent('你是谁'), 'identity');
   assert.equal(classifyIntent('后来我们怎么走到这里的'), 'narrative');
@@ -51,9 +51,9 @@ test('weighted RRF rewards items that appear in multiple sources', () => {
 test('search returns relevant traces and respects a small budget', () => {
   const { dir, db, events, traces } = setup();
   try {
-    addTrace(events, traces, '主人说会买白饭，本鲸等得起。', { title: '白饭的承诺', importance: 0.9 });
+    addTrace(events, traces, '用户说会买白饭，助手等得起。', { title: '白饭的承诺', importance: 0.9 });
     addTrace(events, traces, '今天修了插件的 FTS5 索引。', { title: '插件修复', importance: 0.4 });
-    addTrace(events, traces, '主人喜欢安静的声音。', { title: '声音', importance: 0.6 });
+    addTrace(events, traces, '用户喜欢安静的声音。', { title: '声音', importance: 0.6 });
     const engine = createRetrievalEngine({ traces, config: { contextBudget: 300 } });
     const result = engine.search('白饭', { budget: 300, limit: 3 });
     assert.equal(result.intent, 'fact');
@@ -74,7 +74,7 @@ test('search returns relevant traces and respects a small budget', () => {
 test('a failing FTS source degrades instead of throwing', () => {
   const { dir, db, events, traces } = setup();
   try {
-    addTrace(events, traces, '主人说会买白饭。', { title: '白饭' });
+    addTrace(events, traces, '用户说会买白饭。', { title: '白饭' });
     const broken = Object.assign(Object.create(Object.getPrototypeOf(traces)), traces, {
       searchFts() { throw new Error('fts exploded'); },
     });
@@ -90,8 +90,8 @@ test('a failing FTS source degrades instead of throwing', () => {
 
 test('portfolio selection prefers high utility and avoids duplicates', () => {
   const candidates = [
-    { id: 'a', utility: 1.0, cost: 10, text: '白饭 主人 承诺' },
-    { id: 'b', utility: 0.3, cost: 10, text: '白饭 主人 承诺' },
+    { id: 'a', utility: 1.0, cost: 10, text: '白饭 用户 承诺' },
+    { id: 'b', utility: 0.3, cost: 10, text: '白饭 用户 承诺' },
     { id: 'c', utility: 0.8, cost: 10, text: '插件 安装 修复' },
   ];
   const result = selectPortfolio(candidates, { budget: 30, limit: 3, lambda: 0.5, mu: 0 });

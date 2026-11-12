@@ -9,8 +9,8 @@ import { createQaEngine } from '../../src/engines/qa.js';
 function setup() {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-qa-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
-  cortex.write({ text: '主人最喜欢白饭。', title: '白饭', explicit: true });
-  cortex.write({ text: '本鲸会一直等主人。', title: '等待', explicit: true });
+  cortex.write({ text: '用户最喜欢白饭。', title: '白饭', explicit: true });
+  cortex.write({ text: '助手会一直等用户。', title: '等待', explicit: true });
   return { dir, cortex };
 }
 
@@ -18,7 +18,7 @@ test('qa engine extracts evidence without an LLM', async () => {
   const { dir, cortex } = setup();
   try {
     const qa = createQaEngine({ cortex });
-    const result = await qa.answer({ question: '主人喜欢什么？' });
+    const result = await qa.answer({ question: '用户喜欢什么？' });
     assert.equal(result.mode, 'extractive');
     assert.ok(result.sources.length >= 1);
     assert.match(result.answer, /白饭|抽取式/);
@@ -63,7 +63,7 @@ test('host prefetch recall is not charged to the search budget', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-prefetch-budget-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), maxCallsPerHour: 1 } });
   try {
-    cortex.write({ text: '主人最喜欢白饭。', explicit: true });
+    cortex.write({ text: '用户最喜欢白饭。', explicit: true });
     assert.equal(cortex.search('白饭', { noBudget: true }).items.length, 1);
     assert.equal(cortex.search('白饭', { noBudget: true }).items.length, 1);
     assert.equal(cortex.budget.snapshot().calls, 0);
@@ -79,7 +79,7 @@ test('qa engine uses an injected LLM and abstains when nothing is recalled', asy
   const { dir, cortex } = setup();
   try {
     const qa = createQaEngine({ cortex, llm: { complete: async () => '白饭 [1]' } });
-    const result = await qa.answer({ question: '主人喜欢什么？' });
+    const result = await qa.answer({ question: '用户喜欢什么？' });
     assert.equal(result.mode, 'llm');
     assert.match(result.answer, /白饭/);
     const emptyDir = mkdtempSync(path.join(os.tmpdir(), 'cortex-qa-empty-'));

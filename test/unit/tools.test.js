@@ -62,7 +62,7 @@ test('tools reject life and emotion writes when the default scope is read-only',
   try {
     const diary = await tools.cortex_life.execute({ action: 'diary-write', text: '不该写进去的日记' });
     assert.match(diary.text, /只读共享/);
-    const emotion = await tools.cortex_emotion.execute({ action: 'record', text: '主人有点担心', target: '主人' });
+    const emotion = await tools.cortex_emotion.execute({ action: 'record', text: '用户有点担心', target: '用户' });
     assert.match(emotion.text, /只读共享/);
     const compress = await tools.cortex_compress.execute({ action: 'compress', limit: 1 });
     assert.match(compress.text, /只读共享/);
@@ -78,9 +78,9 @@ test('write/search/get/self/health return readable text', async () => {
   const { dir, cortex, tools } = setup();
   try {
     const write = await tools.cortex_write.execute({
-      text: '主人说会买白饭，本鲸会一直等。',
+      text: '用户说会买白饭，助手会一直等。',
       explicit: true,
-      facts: [{ subject: '主人', predicate: 'likes', object: '白饭' }],
+      facts: [{ subject: '用户', predicate: 'likes', object: '白饭' }],
     });
     assert.match(write.text, /已写入/);
     const id = write.text.match(/trc_[a-z0-9]+/)?.[0];

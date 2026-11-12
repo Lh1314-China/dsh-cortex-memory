@@ -1,9 +1,17 @@
+import path from 'node:path';
 import { isIP } from 'node:net';
 import { pruneBackups } from '../guardian/rotation.js';
 import { validateWrite, validateFeedback, validateForget, validateSearch, requireString } from './validate.js';
 
 export const API_BASE = '/api/cortex';
 const MAX_BODY = 256 * 1024;
+
+function guardPathAllowed(cortex, target) {
+  if (cortex?.config?.allowRestoreOutsideRoot === true) return true;
+  const root = path.resolve(String(cortex?.config?.dataRoot ?? process.cwd()));
+  const absolute = path.resolve(String(target ?? ''));
+  return absolute === root || absolute.startsWith(`${root}${path.sep}`);
+}
 
 function header(request, name) {
   const value = request.headers?.[name];
@@ -191,6 +199,12 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
           if (!trace || trace.scopeId !== scopeOf(request, url)) return sendJson(response, 404, { ok: false, error: 'not found' });
           return sendJson(response, 200, { ok: true, data: trace });
         }
+        if (route === '/timeline/recent') {
+          return sendJson(response, 200, { ok: true, data: cortex.recentTimeline({
+            scopeId: scopeOf(request, url),
+            limit: toInt(url.searchParams.get('limit'), 20, 1, 100),
+          }) });
+        }
         if (route === '/timeline') {
           const result = cortex.timeline({
             aroundId: url.searchParams.get('id'),
@@ -331,9 +345,11 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
       }
       if (route === '/guard/prune') {
         const dir = requireString(body.dir, 'dir', { max: 1000 });
+        if (!guardPathAllowed(cortex, dir)) return sendJson(response, 403, { ok: false, error: 'guard path outside dataRoot' });
         return sendJson(response, 200, { ok: true, data: pruneBackups(dir, { retain: body.retain, dryRun: body.dryRun === true }) });
       }
       if (route === '/guard/backup') {
+        if (body.file && !guardPathAllowed(cortex, body.file)) return sendJson(response, 403, { ok: false, error: 'guard path outside dataRoot' });
         return sendJson(response, 200, { ok: true, data: cortex.guardian.backup(body.file) });
       }
       if (route === '/guard/repair') {
@@ -343,13 +359,21 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
         return sendJson(response, 200, { ok: true, data: cortex.guardian.validateBackup(requireString(body.file, 'file', { max: 4000 })) });
       }
       if (route === '/guard/restore') {
-        return sendJson(response, 200, { ok: true, data: cortex.guardian.restore(requireString(body.file, 'file', { max: 4000 }), requireString(body.target, 'target', { max: 4000 })) });
+        const file = requireString(body.file, 'file', { max: 4000 });
+        const target = requireString(body.target, 'target', { max: 4000 });
+        if (!guardPathAllowed(cortex, file) || !guardPathAllowed(cortex, target)) {
+          return sendJson(response, 403, { ok: false, error: 'guard path outside dataRoot' });
+        }
+        return sendJson(response, 200, { ok: true, data: cortex.guardian.restore(file, target) });
       }
       if (route === '/guard/export') {
-        return sendJson(response, 200, { ok: true, data: cortex.exportMarkdown(requireString(body.dir, 'dir', { max: 4000 })) });
+        const dir = requireString(body.dir, 'dir', { max: 4000 });
+        if (!guardPathAllowed(cortex, dir)) return sendJson(response, 403, { ok: false, error: 'guard path outside dataRoot' });
+        return sendJson(response, 200, { ok: true, data: cortex.exportMarkdown(dir) });
       }
       if (route === '/guard/sync') {
         const dir = requireString(body.dir, 'dir', { max: 4000 });
+        if (!guardPathAllowed(cortex, dir)) return sendJson(response, 403, { ok: false, error: 'guard path outside dataRoot' });
         const dryRun = body.dryRun === true;
         if (!dryRun && !cortex.scopeWritable(scopeOf(request, url, body), agentOf(request))) {
           return sendJson(response, 403, { ok: false, error: 'scope-read-only' });
@@ -536,7 +560,10 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
         }) });
       }
       if (route === '/evolve/optimize') {
-        return sendJson(response, 200, { ok: true, data: cortex.evolution.selfOptimize() });
+        return sendJson(response, 200, { ok: true, data: cortex.evolution.selfOptimize({
+          scopeId: scopeOf(request, url, body),
+          baseline: body.baseline === true,
+        }) });
       }
       if (route === '/evolve/approve') {
         return sendJson(response, 200, { ok: true, data: cortex.evolution.approve(body.id) });

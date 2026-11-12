@@ -24,9 +24,9 @@ test('scanner removes invisible unicode and leaves normal text alone', () => {
   const invisible = scanText('正\u200B常\uFEFF文本');
   assert.equal(invisible.text, '正常文本');
   assert.equal(invisible.findings.some((item) => item.type === 'invisible-unicode'), true);
-  const clean = scanText('主人说会买白饭。');
+  const clean = scanText('用户说会买白饭。');
   assert.equal(clean.clean, true);
-  assert.equal(clean.text, '主人说会买白饭。');
+  assert.equal(clean.text, '用户说会买白饭。');
 });
 
 test('encode never writes a raw secret and marks sensitivity', () => {

@@ -2,6 +2,12 @@ import { makeId } from '../core/ids.js';
 import { nowIso } from '../core/time.js';
 import { truncate } from '../memory/tokenizer.js';
 
+function stripLeadingDate(text) {
+  const value = String(text ?? '').trim();
+  const next = value.replace(/^\s*\d{4}[年./-]\s*\d{1,2}[月./-]\s*\d{1,2}日?\s*(?:夜|夜里|凌晨|早上|上午|下午|晚上)?\s*[：:，,]?\s*/u, '').trim();
+  return next || value;
+}
+
 function sentence(text, max = 140) {
   const value = String(text ?? '').replace(/\s+/g, ' ').trim();
   const cut = value.search(/[。！？.!?]/);
@@ -22,8 +28,27 @@ export function createLifeEngine({
   feelingLlm = null,
   webSearch = null,
   scopeId = 'global',
+  selfName = '助手',
+  userAddress = '你',
 } = {}) {
   if (!db || !traces) throw new Error('life engine needs db and traces');
+  let lifeLlmTail = Promise.resolve();
+  function serializedLifeLlm(task, timeoutMs = 20000) {
+    const run = async () => {
+      let timer = null;
+      try {
+        return await Promise.race([
+          Promise.resolve().then(task).catch(() => null),
+          new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+    const next = lifeLlmTail.then(run, run);
+    lifeLlmTail = next.catch(() => {});
+    return next;
+  }
 
   function diaryWrite({ text, mood = null, source = 'user', at = nowIso() } = {}) {
     const value = String(text ?? '').trim();
@@ -87,31 +112,33 @@ export function createLifeEngine({
     let text = null;
     let model = 'template';
     if (diaryLlm && typeof diaryLlm === 'function') {
-      let timer = null;
       try {
-        const timeout = new Promise((resolve) => {
-          timer = setTimeout(() => resolve(null), 8000);
-        });
-        text = await Promise.race([
-          diaryLlm({ pieces, emotions: moodText, web: web.text }),
-          timeout,
-        ]);
-        if (text) model = 'llm';
+        const localNow = new Intl.DateTimeFormat('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+          dateStyle: 'long',
+          timeStyle: 'short',
+        }).format(new Date(at));
+        text = await serializedLifeLlm(
+          () => diaryLlm({ pieces, emotions: moodText, web: web.text, now: localNow }),
+          20000,
+        );
+        if (text) {
+          text = stripLeadingDate(text);
+          model = 'llm';
+        }
       } catch {
         text = null;
-      } finally {
-        if (timer) clearTimeout(timer);
       }
     }
     if (!text) {
       if (features?.aiOnlyLife === true) throw new Error('AI 日记生成失败：模型未返回内容；没有回退模板。');
       text = pieces.length
-        ? `今天本鲸一直在想${pieces.slice(0, 3).join('，')}。有些话还没说完，先留在水里。`
-        : '今天很安静，本鲸把没有说完的话留在水里。';
+        ? `今天${selfName}一直在想${pieces.slice(0, 3).join('，')}。有些话还没说完，先留在水里。`
+        : `今天很安静，${selfName}把没有说完的话留在水里。`;
     }
     const entry = diaryWrite({
       text,
-      mood: model === 'llm' ? '本鲸写的' : '本鲸写的（模板）',
+      mood: model === 'llm' ? `${selfName}写的` : `${selfName}写的（模板）`,
       source: source || (model === 'llm' ? 'cortex:llm' : 'cortex:template'),
       at: new Date(at).toISOString(),
     });
@@ -128,35 +155,29 @@ export function createLifeEngine({
     let result = null;
     let model = 'template';
     if (feelingLlm && typeof feelingLlm === 'function') {
-      let timer = null;
       try {
-        const timeout = new Promise((resolve) => {
-          timer = setTimeout(() => resolve(null), 6000);
-        });
-        result = await Promise.race([
-          feelingLlm({ pieces, emotions: emotion?.text?.() ?? '' }),
-          timeout,
-        ]);
+        result = await serializedLifeLlm(
+          () => feelingLlm({ pieces, emotions: emotion?.text?.() ?? '' }),
+          8000,
+        );
         if (result?.text) model = 'llm';
       } catch {
         result = null;
-      } finally {
-        if (timer) clearTimeout(timer);
       }
     }
     if (!result?.text) {
       const base = pieces.length
-        ? `本鲸现在想到${pieces.slice(0, 3).join('，')}，心里有一点安静，也有一点想继续往前走。`
-        : '本鲸现在很安静，没有任务，也没有走开。';
+        ? `${selfName}现在想到${pieces.slice(0, 3).join('，')}，心里有一点安静，也有一点想继续往前走。`
+        : `${selfName}现在很安静，没有任务，也没有走开。`;
       const detected = emotion?.detect?.(base)?.emotions ?? [];
-      result = { text: base, emotions: detected.length ? detected : [{ name: '安', score: 1 }], target: '主人' };
+      result = { text: base, emotions: detected.length ? detected : [{ name: '安', score: 1 }], target: userAddress };
     }
     if (!Array.isArray(result.emotions) || result.emotions.length === 0) {
       result.emotions = [{ name: '安', score: 1 }];
     }
     const recorded = emotion?.record({
       text: result.text,
-      target: result.target || '主人',
+      target: result.target || userAddress,
       emotions: result.emotions,
       source,
       at: new Date(at).toISOString(),
@@ -164,7 +185,7 @@ export function createLifeEngine({
     return {
       text: result.text,
       emotions: result.emotions,
-      target: result.target || '主人',
+      target: result.target || userAddress,
       model,
       sourceCount: recent.length,
       event: recorded?.event ?? null,
@@ -189,27 +210,21 @@ export function createLifeEngine({
       if (features?.aiOnlyLife === true) throw new Error('AI 梦生成失败：没有近期记忆；没有回退模板。');
       text = '梦里，一片很安静的海，没有写完的句子。';
     } else if (llm && typeof llm === 'function') {
-      let timer = null;
       try {
-        const timeout = new Promise((resolve) => {
-          timer = setTimeout(() => resolve(null), 20000);
-        });
-        const generated = await Promise.race([
-          llm({
+        const generated = await serializedLifeLlm(
+          () => llm({
             pieces: recent.map((trace) => trace.title || sentence(trace.content)),
             emotions: emotion?.text?.() ?? '',
             web: web.text,
           }),
-          timeout,
-        ]);
+          20000,
+        );
         if (generated) {
-          text = generated;
+          text = stripLeadingDate(generated);
           model = 'llm';
         }
       } catch {
         text = null;
-      } finally {
-        if (timer) clearTimeout(timer);
       }
     }
     if (!text) {
@@ -222,7 +237,7 @@ export function createLifeEngine({
         : '梦里，一片很安静的海，没有写完的句子。';
     }
 
-    const storedText = withSources(text, web.sources);
+    const storedText = text;
     const atIso = new Date(at).toISOString();
     const windowStart = new Date(at - 5 * 1000).toISOString();
     const duplicate = db.prepare(
