@@ -110,7 +110,7 @@ export function createLifeEngine({
         : '今天很安静，本鲸把没有说完的话留在水里。';
     }
     const entry = diaryWrite({
-      text: withSources(text, web.sources),
+      text,
       mood: model === 'llm' ? '本鲸写的' : '本鲸写的（模板）',
       source: source || (model === 'llm' ? 'cortex:llm' : 'cortex:template'),
       at: new Date(at).toISOString(),
@@ -192,7 +192,7 @@ export function createLifeEngine({
       let timer = null;
       try {
         const timeout = new Promise((resolve) => {
-          timer = setTimeout(() => resolve(null), 4000);
+          timer = setTimeout(() => resolve(null), 20000);
         });
         const generated = await Promise.race([
           llm({

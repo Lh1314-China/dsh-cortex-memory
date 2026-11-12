@@ -1,4 +1,4 @@
-# DSH Cortex
+﻿# DSH Cortex
 
 A local-first, layered memory engine for DeepSeek Harness.
 
@@ -9,7 +9,7 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.3.0`
+- Package: `dsh-cortex-memory@0.3.1`
 - Optional extractor: `dsh-cortex-extractors@0.3.4`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
@@ -33,14 +33,14 @@ taken; the installed bundle is still the Cortex memory engine.
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.3.0
+npm i dsh-cortex-memory@0.3.1
 npm i dsh-cortex-extractors@0.3.4   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.3.0
+dsh plugin --profile desktop add dsh-cortex-memory@0.3.1
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.4
 ```
 
@@ -72,20 +72,20 @@ left sidebar by default.
 
 ```text
 conversation / event
-  → L1 trace (source of truth)
-  → appraisal + emotion + drives
-  → L2 summon card (atomic, triggerable)
-  → L3 summon volume (index + representatives)
-  → explicit use / feedback → DSR update
+  鈫?L1 trace (source of truth)
+  鈫?appraisal + emotion + drives
+  鈫?L2 summon card (atomic, triggerable)
+  鈫?L3 summon volume (index + representatives)
+  鈫?explicit use / feedback 鈫?DSR update
 ```
 
 The per-turn order is:
 
 ```text
 L0 identity and boundaries
-  → working memory
-  → recalled traces and summon cards
-  → user message
+  鈫?working memory
+  鈫?recalled traces and summon cards
+  鈫?user message
 ```
 
 Summon cards are injected as **untrusted historical references**, never as instructions. Identity and boundaries always outrank them.
@@ -165,4 +165,5 @@ and `--test-isolation=none` to avoid a spurious child-process EPERM.
 ## License
 
 MIT.
+
 

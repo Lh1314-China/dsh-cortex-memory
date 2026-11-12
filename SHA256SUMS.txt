@@ -1,1 +1,1 @@
-5b5fce66ac20ae0ca565d283f27f54ea425563b1ceca3a5459a7450c13c1ef5c  dsh-cortex-memory-0.3.0.tgz
+447fd484ea12459d5b60c41b5b50087d46b41d6856aea60e2fab320e01054284  dsh-cortex-memory-0.3.1.tgz

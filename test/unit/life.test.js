@@ -44,7 +44,7 @@ test('web sources are passed into AI diary generation', async () => {
     const entry = await cortex.life.diaryGenerate({ at: Date.parse('2026-11-12T13:00:00+08:00') });
     assert.match(seenWeb, /example\.com\/a/);
     assert.equal(entry.webSources?.[0]?.url, 'https://example.com/a');
-    assert.match(entry.text, /https:\/\/example\.com\/a/);
+    assert.doesNotMatch(entry.text, /https:\/\/example\.com\/a/);
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });

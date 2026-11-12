@@ -1,6 +1,11 @@
+﻿## 0.3.1 — 2026-11-12
+
+- AI diary entries no longer append a “参考” footer; web sources still inform the model but are not stored in the diary body.
+- Manual dream generation timeout raised from 4s to 20s; `aiOnlyLife` still fails closed instead of falling back to a template.
+- No schema change; compatible with 0.3.0 databases and DSH `>=0.2.1-rc.2 <0.4.0`, Node `>=24`.
 # Changelog
 
-## 0.3.0 — 2026-11-12
+## 0.3.0 鈥?2026-11-12
 
 ### Added
 
@@ -24,15 +29,16 @@
 - DSH `>=0.2.1-rc.2 <0.4.0`; Node `>=24`.
 - No API keys, personal paths, or private data are shipped.
 
-## 0.2.2 — 2026-11-12
+## 0.2.2 鈥?2026-11-12
 
 - Public README and install commands.
 - License metadata and package metadata fixes.
 - No memory-engine behavior change.
 
-## 0.2.0 — 2026-11-12
+## 0.2.0 鈥?2026-11-12
 
 - First stable release of the rc line.
 - Trace UI extraction with layout selection.
 - Windows OCR / Tesseract layout-aware column ordering.
 - Permission confirmations and restart requirement documented.
+
