@@ -51,35 +51,53 @@ export function createLifeEngine({
       .filter((trace) => trace.kind !== 'reflection')
       .sort((a, b) => Number(b.importance) - Number(a.importance))
       .slice(0, maxSources);
-    if (recent.length === 0) {
-      const text = '梦里，一片很安静的海，没有写完的句子。';
-      const id = makeId('drm');
-      db.prepare('INSERT INTO dreams(id, scope_id, text, source_count, model, at) VALUES (?, ?, ?, 0, ?, ?)')
-        .run(id, scopeId, text, 'template', new Date(at).toISOString());
-      return { id, text, sourceCount: 0, model: 'template', at: new Date(at).toISOString() };
-    }
-    let text = null;
+    let text;
     let model = 'template';
-    if (llm && typeof llm === 'function') {
+    let sourceCount = recent.length;
+    if (recent.length === 0) {
+      text = '梦里，一片很安静的海，没有写完的句子。';
+    } else if (llm && typeof llm === 'function') {
       try {
-        text = await llm({
+        const generated = await llm({
           pieces: recent.map((trace) => trace.title || sentence(trace.content)),
           emotions: emotion?.text?.() ?? '',
         });
-        if (text) model = 'llm';
+        if (generated) {
+          text = generated;
+          model = 'llm';
+        }
       } catch {
         text = null;
       }
     }
     if (!text) {
-      const pieces = [...new Set(recent.map((trace) => sentence(trace.title || trace.content)))].slice(0, 5);
-      text = `梦里，${pieces.join('，')}。醒来时只记得一点温度。`;
+      const pieces = recent.length
+        ? [...new Set(recent.map((trace) => sentence(trace.title || trace.content)))].slice(0, 5)
+        : [];
+      text = pieces.length
+        ? `梦里，${pieces.join('，')}。醒来时只记得一点温度。`
+        : '梦里，一片很安静的海，没有写完的句子。';
     }
-    const id = makeId('drm');
+
     const atIso = new Date(at).toISOString();
+    const windowStart = new Date(at - 10 * 60 * 1000).toISOString();
+    const duplicate = db.prepare(
+      'SELECT * FROM dreams WHERE scope_id = ? AND text = ? AND at >= ? ORDER BY at DESC LIMIT 1',
+    ).get(scopeId, text, windowStart);
+    if (duplicate) {
+      return {
+        id: duplicate.id,
+        text: duplicate.text,
+        sourceCount: Number(duplicate.source_count),
+        model: duplicate.model,
+        at: duplicate.at,
+      };
+    }
+
+    const id = makeId('drm');
     db.prepare('INSERT INTO dreams(id, scope_id, text, source_count, model, at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, scopeId, text, recent.length, model, atIso);
-    return { id, text, sourceCount: recent.length, model, at: atIso };
+      .run(id, scopeId, text, sourceCount, model, atIso);
+    return { id, text, sourceCount, model, at: atIso };
   }
 
   function dreamList({ limit = 5 } = {}) {

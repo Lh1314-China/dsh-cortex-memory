@@ -29,3 +29,9 @@
 - Added author/homepage/repository/bugs metadata.
 - Added `dsh plugin ... add` install commands to the README.
 - No memory-engine behavior change.
+
+## 0.2.3 — 2026-11-12
+
+- Dream generation now deduplicates identical dream text inside a 10-minute window.
+- Life UI disables dream/sleep/diary actions while a request is in flight and collapses consecutive duplicate dream rows.
+- Tests: 407/407.

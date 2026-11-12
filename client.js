@@ -1652,26 +1652,41 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       const [data, setData] = useState(null);
       const [text, setText] = useState('');
       const [error, setError] = useState('');
+      const [busy, setBusy] = useState(false);
       const load = useCallback(async () => { try { setData(await api('/life')); } catch (issue) { setError(String(issue.message ?? issue)); } }, []);
       useEffect(() => { load(); }, [load]);
       const diary = async () => {
-        if (!text.trim()) return;
-        try { await api('/life/diary', { method: 'POST', body: JSON.stringify({ text }) }); setText(''); load(); } catch (issue) { setError(String(issue.message ?? issue)); }
+        if (!text.trim() || busy) return;
+        setBusy(true);
+        try { await api('/life/diary', { method: 'POST', body: JSON.stringify({ text }) }); setText(''); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
       };
-      const dream = async () => { try { await api('/life/dream', { method: 'POST', body: '{}' }); load(); } catch (issue) { setError(String(issue.message ?? issue)); } };
-      const sleep = async () => { try { await api('/life/sleep', { method: 'POST', body: '{}' }); load(); } catch (issue) { setError(String(issue.message ?? issue)); } };
+      const dream = async () => {
+        if (busy) return;
+        setBusy(true);
+        try { await api('/life/dream', { method: 'POST', body: '{}' }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      };
+      const sleep = async () => {
+        if (busy) return;
+        setBusy(true);
+        try { await api('/life/sleep', { method: 'POST', body: '{}' }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      };
+      const dreams = [];
+      for (const item of data?.dreams ?? []) {
+        if (dreams.length && dreams[dreams.length - 1].text === item.text) continue;
+        dreams.push(item);
+      }
       return h('div', {}, [
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
-        h('div', { key: 'line', className: 'cortex-line' }, [h('button', { key: 'd', type: 'button', className: 'cortex-btn', onClick: dream }, '做个梦'), h('button', { key: 's', type: 'button', className: 'cortex-btn', onClick: sleep }, '睡一觉')]),
+        h('div', { key: 'line', className: 'cortex-line' }, [h('button', { key: 'd', type: 'button', className: 'cortex-btn', disabled: busy, onClick: dream }, busy ? '梦里…' : '做个梦'), h('button', { key: 's', type: 'button', className: 'cortex-btn', disabled: busy, onClick: sleep }, busy ? '睡着…' : '睡一觉')]),
         h('div', { key: 'diary', className: 'cortex-card' }, [
           h('h4', {}, '日记'),
           h('div', { key: 'line', className: 'cortex-line' }, [
-            h('input', { key: 'i', className: 'cortex-input', value: text, placeholder: '今天想记住…', 'aria-label': '日记', onChange: (event) => setText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') diary(); } }),
-            h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', onClick: diary }, '写'),
+            h('input', { key: 'i', className: 'cortex-input', value: text, disabled: busy, placeholder: '今天想记住…', 'aria-label': '日记', onChange: (event) => setText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') diary(); } }),
+            h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: diary }, '写'),
           ]),
           ...((data?.diary ?? []).length ? data.diary.map((item) => h('div', { key: item.id, className: 'cortex-row' }, `${item.at.slice(0, 10)} ${item.text}`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
         ]),
-        h('div', { key: 'dreams', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '梦'), ...((data?.dreams ?? []).length ? data.dreams.map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))])]),
+        h('div', { key: 'dreams', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '梦'), ...(dreams.length ? dreams.map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))])]),
       ]);
     }
 

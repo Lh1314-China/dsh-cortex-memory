@@ -39,6 +39,24 @@ test('dream generation uses recent memories and falls back to template', async (
   }
 });
 
+test('dream generation dedupes identical dreams inside ten minutes', async () => {
+  const { dir, cortex } = setup();
+  try {
+    const at = Date.parse('2026-11-11T20:00:00+08:00');
+    const first = await cortex.life.dreamGenerate({ at });
+    const second = await cortex.life.dreamGenerate({ at: at + 1000 });
+    assert.equal(second.id, first.id);
+    assert.equal(cortex.life.dreamList().length, 1);
+
+    const later = await cortex.life.dreamGenerate({ at: at + 11 * 60 * 1000 });
+    assert.notEqual(later.id, first.id);
+    assert.equal(cortex.life.dreamList().length, 2);
+  } finally {
+    cortex.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('sleep runs consolidation and records a report', async () => {
   const { dir, cortex } = setup();
   try {
