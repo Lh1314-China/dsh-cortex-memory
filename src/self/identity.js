@@ -77,6 +77,15 @@ export function createIdentityStore(db, { defaultIdentity = DEFAULT_IDENTITY } =
     return get(id);
   }
 
+  function amendActive(scopeId = 'global', content, { rationale = '', amendedBy = 'self:ascend' } = {}) {
+    const current = active(scopeId);
+    if (!current) throw new CortexError(ERROR_CODES.NOT_FOUND, 'no active identity to amend');
+    const normalized = normalizeIdentity(content);
+    db.prepare('UPDATE identity_versions SET content = ?, rationale = ?, approved_by = ? WHERE id = ?')
+      .run(stableStringify(normalized), rationale || current.rationale, amendedBy, current.id);
+    return get(current.id);
+  }
+
   function approve(id, approvedBy = 'user') {
     const target = get(id);
     if (!target) throw new CortexError(ERROR_CODES.NOT_FOUND, `identity version not found: ${id}`);
@@ -110,5 +119,5 @@ export function createIdentityStore(db, { defaultIdentity = DEFAULT_IDENTITY } =
     }));
   }
 
-  return { list, get, active: ensure, ensure, propose, approve, rollbackTo, history, render: renderIdentity };
+  return { list, get, active: ensure, ensure, propose, amendActive, approve, rollbackTo, history, render: renderIdentity };
 }

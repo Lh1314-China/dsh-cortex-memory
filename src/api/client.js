@@ -389,7 +389,8 @@ export function createApiClient({
       const input = assertObject(options, 'emotion options');
       if (action === 'status' || action === 'affect') return get('/emotion');
       if (action === 'record') return post('/emotion/record', defined(input, ['text', 'target', 'traceId']));
-      throw new TypeError('emotion action must be "status", "affect", or "record"');
+      if (action === 'generate') return post('/emotion/generate', {});
+      throw new TypeError('emotion action must be "status", "affect", "record", or "generate"');
     },
 
     /**
@@ -403,9 +404,11 @@ export function createApiClient({
       const input = assertObject(options, 'life options');
       if (action === 'status' || action === 'overview') return get('/life');
       if (action === 'diary') return post('/life/diary', defined(input, ['text', 'mood']));
+      if (action === 'diary-generate') return post('/life/diary/generate', {});
       if (action === 'dream') return post('/life/dream', {});
+      if (action === 'feeling-generate') return post('/emotion/generate', {});
       if (action === 'sleep') return post('/life/sleep', defined(input, ['windowDays']));
-      throw new TypeError('life action must be "status", "overview", "diary", "dream", or "sleep"');
+      throw new TypeError('life action must be "status", "overview", "diary", "diary-generate", "dream", "feeling-generate", or "sleep"');
     },
 
     /**

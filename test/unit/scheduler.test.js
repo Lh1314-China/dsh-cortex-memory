@@ -35,6 +35,88 @@ test('scheduler can run consolidation on a tick when explicitly enabled', async 
   assert.equal(report.steps.consolidation.run.status, 'applied');
 });
 
+test('scheduler writes an automatic diary at the 12:00 slot', async () => {
+  const calls = [];
+  const at = new Date(2026, 10, 12, 12, 0, 0).getTime();
+  const scheduler = createScheduler({
+    cortex: {
+      autonomy: null,
+      retention: null,
+      guardian: null,
+      runner: null,
+      config: { scope: 'global', features: { autoDiary: true, autoDream: false } },
+      scopeWritable: () => true,
+      life: {
+        diaryList: () => [],
+        diaryGenerate: async (args) => {
+          calls.push(args);
+          return { id: 'dly_test', text: '自动日记', model: 'llm', sourceCount: 1, source: args.source };
+        },
+      },
+    },
+    now: () => at,
+    isIdle: () => true,
+    intervalMs: 60_000,
+  });
+  const report = await scheduler.runOnce();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].source, 'cortex:auto:slot:12');
+  assert.equal(report.steps.autoDiary.source, 'cortex:auto:slot:12');
+});
+
+test('scheduler writes an automatic feeling when idle', async () => {
+  const calls = [];
+  const at = new Date(2026, 10, 12, 13, 0, 0).getTime();
+  const scheduler = createScheduler({
+    cortex: {
+      autonomy: null,
+      retention: null,
+      guardian: null,
+      runner: null,
+      config: { scope: 'global', features: { autoDiary: false, autoDream: false, autoFeeling: true } },
+      scopeWritable: () => true,
+      emotion: { events: () => [] },
+      life: {
+        feelingGenerate: async (args) => {
+          calls.push(args);
+          return { text: '本鲸现在很安静。', emotions: [{ name: '安', score: 1 }], target: '主人', model: 'llm', sourceCount: 1 };
+        },
+      },
+    },
+    now: () => at,
+    isIdle: () => true,
+    intervalMs: 60_000,
+  });
+  const report = await scheduler.runOnce();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].source, 'cortex:auto:feeling');
+  assert.equal(report.steps.autoFeeling.text, '本鲸现在很安静。');
+});
+
+test('scheduler asks the LLM to review candidate edges', async () => {
+  const actions = [];
+  const scheduler = createScheduler({
+    cortex: {
+      autonomy: null,
+      retention: null,
+      guardian: null,
+      runner: null,
+      config: { scope: 'global', features: { autoDiary: false, autoDream: false, autoFeeling: false, aiEdgeReview: true } },
+      scopeWritable: () => true,
+      graphCandidates: () => [{ id: 'edge-1', fromId: 'a', toId: 'b', rel: 'likes' }],
+      reviewGraphCandidate: async () => ({ decision: 'approve', confidence: 0.8, reason: 'evidence matches' }),
+      graphCandidateAction: (args) => { actions.push(args); return { id: args.id }; },
+    },
+    now: () => Date.now(),
+    isIdle: () => false,
+    intervalMs: 60_000,
+  });
+  const report = await scheduler.runOnce();
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].action, 'approve');
+  assert.equal(report.steps.aiEdgeReview.reviewed, 1);
+});
+
 test('scheduler start/stop uses an unref timer and does not double start', () => {
   const timers = [];
   const cleared = [];

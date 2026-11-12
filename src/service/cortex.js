@@ -9,14 +9,15 @@ import { createSummaryRepository } from '../store/repositories/summaries.js';
 import { createJobRepository } from '../store/repositories/jobs.js';
 import { createSkillRepository } from '../store/repositories/skills.js';
 import { createPlaybookRepository } from '../store/repositories/playbook.js';
-import { selectTiers, renderTiers } from '../prompt/tiers.js';
+import { selectTiers, renderTiers, DEFAULT_TIER_BUDGETS } from '../prompt/tiers.js';
 import { readOverrides, writeOverride, rollbackOverride } from '../core/feature-overrides.js';
 import { effectiveModelConfig, saveModelConfig, redactedModelConfig } from '../core/model-config.js';
 import { estimateTokens, truncate } from '../memory/tokenizer.js';
 import { createAuditRepository } from '../store/repositories/audit.js';
 import { createSelfStore } from '../self/state.js';
 import { createAppraisalStore } from '../self/appraisals.js';
-import { createInitiativeStore } from '../self/initiative.js';
+import { createInitiativeStore, selectIntentions, DEFAULT_INITIATIVE_POLICY } from '../self/initiative.js';
+import { createSummonRepository } from '../store/repositories/summon.js';
 import { createIdentityStore } from '../self/identity.js';
 import { createRelationshipStore } from '../self/relationship.js';
 import { createEncodeEngine } from '../engines/encode.js';
@@ -63,7 +64,7 @@ import { inspectLocalAttachment } from '../core/attachment-reader.js';
  * Facade that wires the repositories and engines together. The host plugin and
  * tests both use this; the DB is opened only here, never at import time.
  */
-export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAdapter = null } = {}) {
+export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAdapter = null, webSearch = null } = {}) {
   const { db, config } = openDatabase(rawConfig);
   migrate(db);
 
@@ -78,6 +79,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   const skillsRepo = createSkillRepository(db);
   const playbookRepo = createPlaybookRepository(db);
   const audit = createAuditRepository(db);
+  const summons = createSummonRepository(db);
   const selfStore = createSelfStore(db);
   const appraisalStore = createAppraisalStore(db);
   const initiativeStore = createInitiativeStore(db);
@@ -131,6 +133,35 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   const growth = createGrowthEngine({ traces, feedback, selfStore, relationshipStore, audit, config });
   const reflect = createReflectEngine({ traces, summaries, encode, config });
   const autonomy = createAutonomyEngine({ initiativeStore, reflect, retrieve, working: workingStore, selfStore, scopeId: config.scope });
+
+  async function reviewGraphCandidate(edge = {}) {
+    if (!llmAdapter?.reviewEdge) return null;
+    const review = await llmAdapter.reviewEdge({
+      fromId: edge.fromId,
+      toId: edge.toId,
+      rel: edge.rel,
+      confidence: Number(edge.metadata?.confidence ?? edge.weight ?? 0),
+      evidence: edge.metadata?.evidence ?? edge.evidence ?? '',
+      source: edge.sourceTraceId ?? edge.metadata?.sourceTraceId ?? '',
+    });
+    if (review) {
+      audit.record?.({
+        actor: 'self:edgeReview',
+        action: 'edge.candidate.review',
+        targetType: 'edge',
+        targetId: edge.id,
+        detail: {
+          fromId: edge.fromId,
+          toId: edge.toId,
+          rel: edge.rel,
+          decision: review.decision,
+          confidence: review.confidence,
+          reason: review.reason,
+        },
+      });
+    }
+    return review;
+  }
   const reranker = (modelConfig.rerank.enabled || config.rerankEnabled === true || config.features?.rerank === true)
     && (modelConfig.rerank.baseUrl || config.rerankBaseUrl)
     ? createHttpReranker({
@@ -162,6 +193,34 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     db, traces, reflect, development, working: workingStore, emotion, scopeId: config.scope,
     consolidation, features: config.features ?? {},
     llm: llmAdapter ? (args) => llmAdapter.dream(args) : null,
+    diaryLlm: llmAdapter ? (args) => llmAdapter.diary(args) : null,
+    feelingLlm: llmAdapter ? (args) => llmAdapter.feeling(args) : null,
+    webSearch: webSearch ? async (request = {}) => {
+      try {
+        const result = await webSearch(request);
+        audit.record?.({
+          actor: 'self:web',
+          action: 'web.search',
+          targetType: 'web',
+          detail: {
+            query: String(request.query ?? '').slice(0, 300),
+            sources: (result?.sources ?? []).slice(0, 5).map((source) => String(source.url ?? '').slice(0, 500)),
+          },
+        });
+        return result;
+      } catch (error) {
+        audit.record?.({
+          actor: 'self:web',
+          action: 'web.search.failed',
+          targetType: 'web',
+          detail: {
+            query: String(request.query ?? '').slice(0, 300),
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+        throw error;
+      }
+    } : null,
   });
   const develop = createDevelopEngine({
     events, traces, facts, entities, encode, retrieve, selfStore, appraisalStore,
@@ -414,16 +473,600 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   }
 
   function self(scopeId = config.scope) {
+    const identity = identityStore.active(scopeId);
+    const identityText = identity ? `${identity.content.narrative}\n${(identity.content.values ?? []).join('、')}\n${(identity.content.boundaries ?? []).join('、')}` : '';
     return {
       self: selfStore.get(scopeId),
-      identity: identityStore.active(scopeId),
+      identity,
       relationships: relationshipStore.list(scopeId),
       intentions: initiativeStore.pending(scopeId),
       working: workingStore.list({ scopeId, limit: 20 }),
       goals: goalStore.list({ scopeId, status: 'active', limit: 20 }),
       emotion: emotion.text(),
       calibration: growth.calibration({ scopeId }),
+      capacity: {
+        identityBudget: config.identityBudget,
+        identityTokens: estimateTokens(identityText),
+        workingBudget: config.workingBudget,
+        contextBudget: config.contextBudget,
+        promptBudget: 1600,
+        tiers: DEFAULT_TIER_BUDGETS,
+        resultLimit: config.resultLimit,
+        ftsLimit: config.ftsLimit,
+        valuesLimit: 20,
+        boundariesLimit: 30,
+      },
     };
+  }
+
+  let memoryEditEnabled = false;
+  let memoryEditChangedAt = null;
+
+  function memoryEditState() {
+    return { enabled: memoryEditEnabled, changedAt: memoryEditChangedAt };
+  }
+
+  function setMemoryEdit(enabled) {
+    memoryEditEnabled = enabled === true;
+    memoryEditChangedAt = new Date().toISOString();
+    audit.record?.({
+      actor: 'user',
+      action: memoryEditEnabled ? 'memory.edit.unlock' : 'memory.edit.lock',
+      targetType: 'memory',
+      targetId: config.scope,
+      detail: {},
+    });
+    return memoryEditState();
+  }
+
+  function memoryDays({ limit = 60, scopeId = config.scope } = {}) {
+    const count = Math.max(1, Math.min(365, Number(limit) || 60));
+    const traceDays = db.prepare("SELECT date(recorded_at, 'localtime') AS day, COUNT(*) AS count FROM traces WHERE scope_id = ? GROUP BY day ORDER BY day DESC LIMIT ?").all(scopeId, count);
+    const emotionDays = db.prepare("SELECT date(at, 'localtime') AS day, COUNT(*) AS count FROM emotion_events WHERE scope_id = ? GROUP BY day ORDER BY day DESC LIMIT ?").all(scopeId, count);
+    const map = new Map();
+    for (const row of traceDays) map.set(row.day, { date: row.day, work: Number(row.count), emotion: 0 });
+    for (const row of emotionDays) {
+      const day = map.get(row.day) ?? { date: row.day, work: 0, emotion: 0 };
+      day.emotion = Number(row.count);
+      map.set(row.day, day);
+    }
+    return [...map.values()].filter((day) => day.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, count);
+  }
+
+  function memoryDay({ date, scopeId = config.scope, limit = 600 } = {}) {
+    const value = String(date ?? '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('date must be YYYY-MM-DD');
+    const start = new Date(`${value}T00:00:00`).toISOString();
+    const end = new Date(new Date(`${value}T00:00:00`).getTime() + 86_400_000).toISOString();
+    const cap = Math.max(1, Math.min(2000, Number(limit) || 600));
+    const traceRows = db.prepare('SELECT * FROM traces WHERE scope_id = ? AND recorded_at >= ? AND recorded_at < ? ORDER BY recorded_at ASC LIMIT ?').all(scopeId, start, end, cap);
+    const emotionRows = db.prepare('SELECT * FROM emotion_events WHERE scope_id = ? AND at >= ? AND at < ? ORDER BY at ASC LIMIT ?').all(scopeId, start, end, cap);
+    const factRows = db.prepare('SELECT id, subject_id, predicate, object_id, object_literal, confidence, status, recorded_at FROM facts WHERE scope_id = ? AND recorded_at >= ? AND recorded_at < ? ORDER BY recorded_at ASC LIMIT ?').all(scopeId, start, end, cap);
+    const summaryRows = db.prepare('SELECT id, level, content, coverage, created_at FROM summaries WHERE scope_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC LIMIT ?').all(scopeId, start, end, cap);
+    const diaryRows = db.prepare('SELECT id, text, mood, source, at FROM diary_entries WHERE scope_id = ? AND at >= ? AND at < ? ORDER BY at ASC LIMIT ?').all(scopeId, start, end, cap);
+    const dreamRows = db.prepare('SELECT id, text, source_count, model, at FROM dreams WHERE scope_id = ? AND at >= ? AND at < ? ORDER BY at ASC LIMIT ?').all(scopeId, start, end, cap);
+    const json = (value, fallback) => { try { return JSON.parse(value); } catch { return fallback; } };
+    return {
+      date: value,
+      scopeId,
+      emotion: emotionRows.map((row) => ({
+        id: row.id, at: row.at, target: row.target, source: row.source, text: row.text,
+        emotions: json(row.emotions_json, []),
+      })),
+      work: {
+        traces: traceRows.map((row) => ({
+          id: row.id, kind: row.kind, title: row.title, content: row.content,
+          summary: row.summary, tags: json(row.tags_json, []), importance: Number(row.importance),
+          recordedAt: row.recorded_at, state: row.state, source: row.source,
+        })),
+        facts: factRows.map((row) => ({
+          id: row.id, subjectId: row.subject_id, predicate: row.predicate,
+          objectId: row.object_id, objectLiteral: row.object_literal,
+          confidence: Number(row.confidence), status: row.status, recordedAt: row.recorded_at,
+        })),
+        summaries: summaryRows.map((row) => ({ id: row.id, level: row.level, content: row.content, coverage: row.coverage, createdAt: row.created_at })),
+        diary: diaryRows.map((row) => ({ id: row.id, text: row.text, mood: row.mood, source: row.source, at: row.at })),
+        dreams: dreamRows.map((row) => ({ id: row.id, text: row.text, sourceCount: row.source_count, model: row.model, at: row.at })),
+      },
+      counts: {
+        emotion: emotionRows.length,
+        traces: traceRows.length,
+        facts: factRows.length,
+        summaries: summaryRows.length,
+        diary: diaryRows.length,
+        dreams: dreamRows.length,
+      },
+    };
+  }
+
+  function updateMemoryTrace({ id, title, content, tags, summary } = {}) {
+    if (!memoryEditEnabled) throw new Error('memory edit is locked');
+    const current = traces.get(id);
+    if (!current) throw new Error(`trace not found: ${id}`);
+    const patch = {};
+    if (title != null) patch.title = String(title).slice(0, 240);
+    if (content != null) patch.content = String(content).slice(0, 20_000);
+    if (summary != null) patch.summary = String(summary).slice(0, 4_000);
+    if (Array.isArray(tags)) patch.tags = tags.map(String).filter(Boolean).slice(0, 40);
+    const updated = traces.update(id, patch);
+    audit.record?.({
+      actor: 'user',
+      action: 'memory.trace.edit',
+      targetType: 'trace',
+      targetId: id,
+      detail: { changed: Object.keys(patch), previous: { title: current.title, content: current.content, summary: current.summary, tags: current.tags } },
+    });
+    return updated;
+  }
+
+  function updateMemoryEmotion({ id, text, target } = {}) {
+    if (!memoryEditEnabled) throw new Error('memory edit is locked');
+    const current = db.prepare('SELECT * FROM emotion_events WHERE id = ? AND scope_id = ?').get(id, config.scope);
+    if (!current) throw new Error(`emotion event not found: ${id}`);
+    const nextText = text == null ? current.text : String(text).slice(0, 10_000);
+    const nextTarget = target == null ? current.target : String(target).slice(0, 120);
+    db.prepare('UPDATE emotion_events SET text = ?, target = ? WHERE id = ?').run(nextText, nextTarget, id);
+    audit.record?.({
+      actor: 'user',
+      action: 'memory.emotion.edit',
+      targetType: 'emotion',
+      targetId: id,
+      detail: { previous: { text: current.text, target: current.target }, next: { text: nextText, target: nextTarget } },
+    });
+    return { id, text: nextText, target: nextTarget, at: current.at };
+  }
+
+  function reviewIntentions({ at = Date.now() } = {}) {
+    const developmentReport = development.evaluate({ scopeId: config.scope, now: at });
+    const selfState = selfStore.get(config.scope);
+    const recent = initiativeStore.recent(config.scope, { now: at, hours: 24, limit: 100 });
+    const selected = selectIntentions({
+      selfState,
+      appraisal: null,
+      pendingQuestions: 0,
+      unresolvedDisputes: 0,
+      lastConsolidationAt: null,
+      store: initiativeStore,
+      scopeId: config.scope,
+      now: at,
+      recent,
+      policy: DEFAULT_INITIATIVE_POLICY,
+    });
+    const identity = identityStore.active(config.scope);
+    const coreHighlights = traces.listSince(config.scope, new Date(at - 30 * 86400000).toISOString(), { limit: 200 })
+      .filter((trace) => trace.kind !== 'reflection')
+      .sort((a, b) => Number(b.importance) - Number(a.importance))
+      .slice(0, 5)
+      .map((trace) => ({ id: trace.id, title: trace.title || String(trace.content ?? '').slice(0, 80), importance: trace.importance }));
+    let review = selected;
+    if (review.length === 0) {
+      const existing = initiativeStore.pending(config.scope, { now: at, limit: 20 })
+        .find((item) => item.payload?.topic === '1.5h-review');
+      review = existing ? [existing] : [initiativeStore.insert({
+        kind: 'question',
+        priority: 0.48,
+        reason: '1.5 小时复盘：人设、核心记忆与情感状态需要重新对齐',
+        payload: {
+          topic: '1.5h-review',
+          identityVersion: identity?.version ?? null,
+          emotion: emotion.text(),
+          maturity: developmentReport.maturity,
+          stage: developmentReport.stage,
+          coreHighlights,
+        },
+        createdAt: new Date(at).toISOString(),
+        dueAt: new Date(at + 90 * 60_000).toISOString(),
+        expiresAt: new Date(at + 6 * 60 * 60_000).toISOString(),
+      }, { scopeId: config.scope })];
+    }
+    audit.record?.({
+      actor: 'self:review',
+      action: 'intention.review',
+      targetType: 'self',
+      targetId: config.scope,
+      detail: {
+        maturity: developmentReport.maturity,
+        stage: developmentReport.stage,
+        coreHighlights: coreHighlights.map((item) => item.title),
+        intentions: review.map((item) => ({ id: item.id, kind: item.kind, reason: item.reason })),
+      },
+    });
+    return { at: new Date(at).toISOString(), development: developmentReport, intentions: review };
+  }
+
+  const SUMMON_STOPWORDS = new Set([
+    '工作', '记忆', '今天', '现在', '我们', '你们', '他们', '可以', '什么', '一个', '没有',
+    '自己', '这个', '那个', '还是', '就是', '因为', '所以', '然后', '如果', '但是', '不是',
+    '只是', '这样', '时候', '东西', '事情', '帮我', '整理', '一下', '昨天', '最近', '看看',
+    '记得', '知道', '怎样', '如何', '为什么', '需要', '应该', '已经', '还在', '有点', '真的',
+    '比较', '很多', '这些', '那些', '一起', '进行', '目前', '现在', '里面', '上面', '下面',
+    'the', 'and', 'for', 'with', 'that', 'this', 'you', 'are', 'from', 'have', 'not',
+  ]);
+
+  function summonTriggers(text, extra = []) {
+    const value = String(text ?? '');
+    const quoted = [...value.matchAll(/[「“"]([^」”"]{2,24})[」”"]/g)].map((match) => match[1]);
+    const words = value.match(/[\p{Script=Han}]{2,8}|[A-Za-z0-9_]{3,24}/gu) ?? [];
+    const candidates = [...extra.map(String), ...quoted, ...words]
+      .map((item) => String(item).trim())
+      .filter((item) => item.length >= 2 && !SUMMON_STOPWORDS.has(item.toLowerCase()));
+    return [...new Set(candidates)].slice(0, 24);
+  }
+
+  function localDay(value) {
+    const date = value ? new Date(value) : new Date();
+    if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+    return date.toLocaleDateString('en-CA');
+  }
+
+  function mergeSummonVolumes({ scopeId = config.scope } = {}) {
+    const cards = summons.listCards({ scopeId, limit: 1000 });
+    const groups = new Map();
+    for (const card of cards) {
+      const key = `${card.side}|${card.category ?? '未分类'}|${card.day}`;
+      const group = groups.get(key) ?? [];
+      group.push(card);
+      groups.set(key, group);
+    }
+    let volumes = 0;
+    for (const group of groups.values()) {
+      const first = group[0];
+      const sideLabel = first.side === 'left' ? '左脑 · 情感' : '右脑 · 工作';
+      const title = `${sideLabel} · ${first.category ?? '未分类'} · ${first.day}`;
+      const index = group.slice(0, 40).map((card) => `- ${card.title}`).join('\n');
+      const representatives = [...group]
+        .sort((a, b) => Number(b.importance) - Number(a.importance))
+        .slice(0, 5);
+      const content = representatives.map((card) => {
+        const firstSentence = String(card.content ?? '').split(/[。！？\n]/).find((sentence) => sentence.trim()) ?? '';
+        return `## ${card.title}\n${firstSentence.trim().slice(0, 500)}`;
+      }).join('\n\n');
+      summons.upsertVolume({
+        scopeId,
+        side: first.side,
+        title,
+        category: first.category ?? null,
+        index,
+        content,
+        cardIds: group.map((card) => card.id),
+        periodStart: `${first.day}T00:00:00.000Z`,
+        periodEnd: `${first.day}T23:59:59.999Z`,
+      });
+      volumes += 1;
+    }
+    return { cards: cards.length, volumes };
+  }
+
+  function rebuildSummonBook({ scopeId = config.scope } = {}) {
+    const emotions = db.prepare('SELECT * FROM emotion_events WHERE scope_id = ? ORDER BY at DESC LIMIT 1000').all(scopeId);
+    for (const row of emotions) {
+      const parsed = (() => { try { return JSON.parse(row.emotions_json); } catch { return []; } })();
+      const labels = parsed.map((item) => item.name).filter(Boolean);
+      summons.upsertCard({
+        scopeId,
+        side: 'left',
+        title: `${labels.slice(0, 2).join(' / ') || '情感'} · ${row.target ?? '主人'}`,
+        content: row.text,
+        triggers: summonTriggers(row.text, labels),
+        category: labels[0] ?? '情感',
+        sourceKind: 'emotion',
+        sourceId: row.id,
+        day: localDay(row.at),
+        importance: Math.min(1, 0.55 + labels.length * 0.08),
+      });
+    }
+    const facts = db.prepare(`
+      SELECT f.id, f.subject_id, f.predicate, f.object_id, f.object_literal,
+             f.confidence, f.recorded_at, s.name AS subject_name, o.name AS object_name
+      FROM facts f
+      LEFT JOIN entities s ON s.id = f.subject_id
+      LEFT JOIN entities o ON o.id = f.object_id
+      WHERE f.scope_id = ? AND f.status = 'active' AND f.confidence >= 0.65
+      ORDER BY f.recorded_at DESC LIMIT 500
+    `).all(scopeId);
+    for (const fact of facts) {
+      const title = `${fact.subject_name || fact.subject_id} ${fact.predicate} ${fact.object_literal || fact.object_name || fact.object_id || ''}`.trim();
+      summons.upsertCard({
+        scopeId,
+        side: 'right',
+        title,
+        content: title,
+        triggers: summonTriggers(title),
+        category: 'fact',
+        sourceKind: 'fact',
+        sourceId: fact.id,
+        day: localDay(fact.recorded_at),
+        importance: Number(fact.confidence ?? 0.7),
+      });
+    }
+    const traces = db.prepare(`
+      SELECT * FROM traces WHERE scope_id = ?
+        AND (kind IN ('decision', 'reflection', 'identity') OR importance >= 0.6)
+      ORDER BY recorded_at DESC LIMIT 800
+    `).all(scopeId);
+    for (const row of traces) {
+      const tags = (() => { try { return JSON.parse(row.tags_json); } catch { return []; } })();
+      const content = String(row.content ?? '');
+      const fallbackTitle = content.split(/\n/).map((line) => line.replace(/^\s*(用户|本鲸|assistant|user)[：:]\s*/i, '').trim()).find(Boolean) ?? '';
+      const title = /^会话\s*\d+\s*的对话/.test(String(row.title ?? ''))
+        ? fallbackTitle.slice(0, 60)
+        : (row.title || fallbackTitle.slice(0, 60) || '工作记忆');
+      summons.upsertCard({
+        scopeId,
+        side: 'right',
+        title,
+        content: String(row.content ?? '').slice(0, 20_000),
+        triggers: summonTriggers(`${row.title ?? ''} ${row.content ?? ''}`, tags),
+        category: row.kind || 'work',
+        sourceKind: 'trace',
+        sourceId: row.id,
+        day: localDay(row.recorded_at),
+        importance: Number(row.importance ?? 0.5),
+      });
+    }
+    const merged = mergeSummonVolumes({ scopeId });
+    audit.record?.({ actor: 'self:summon', action: 'summon.rebuild', targetType: 'summon', targetId: scopeId, detail: { emotions: emotions.length, facts: facts.length, traces: traces.length, ...merged } });
+    return { emotions: emotions.length, facts: facts.length, traces: traces.length, ...merged };
+  }
+
+  function summonBook({ date = null, scopeId = config.scope } = {}) {
+    const day = date || localDay(new Date());
+    const cards = summons.listCards({ scopeId, day, limit: 1000 });
+    return {
+      date: day,
+      left: cards.filter((card) => card.side === 'left'),
+      right: cards.filter((card) => card.side === 'right'),
+      volumes: summons.listVolumes({ scopeId, limit: 100 }),
+      days: [...new Set(summons.listCards({ scopeId, limit: 1000 }).map((card) => card.day))].sort().reverse(),
+    };
+  }
+
+  function matchSummonCards({ text = '', maxCards = 3, maxChars = 900, scopeId = config.scope } = {}) {
+    const query = String(text ?? '').trim();
+    if (!query) return { cards: [], block: '' };
+    const allCards = summons.listCards({ scopeId, limit: 1000 });
+    const triggerFrequency = new Map();
+    for (const card of allCards) {
+      for (const trigger of new Set((card.triggers ?? []).filter((item) => item.length >= 2 && item.length <= 12))) {
+        triggerFrequency.set(trigger, (triggerFrequency.get(trigger) ?? 0) + 1);
+      }
+    }
+    const scored = [];
+    for (const card of allCards) {
+      const hits = (card.triggers ?? []).filter((trigger) => trigger.length >= 2 && trigger.length <= 12 && query.includes(trigger));
+      const titleHit = card.title && query.includes(card.title.slice(0, Math.min(12, card.title.length)));
+      if (hits.length === 0 && !titleHit) continue;
+      let score = hits.reduce((sum, trigger) => {
+        const specificity = 1 + Math.log(1 + allCards.length / (1 + (triggerFrequency.get(trigger) ?? 1)));
+        return sum + (1 + Math.min(4, trigger.length) * 0.25) * specificity;
+      }, 0);
+      if (titleHit) score += 1.5;
+      score += Number(card.importance ?? 0.5) * 0.4;
+      if (card.category !== 'utterance') score += 0.6;
+      scored.push({ card, score, hits });
+    }
+    const specificScored = scored.filter((entry) => entry.card.category !== 'utterance');
+    const ranked = (specificScored.length ? specificScored : scored).sort((a, b) => b.score - a.score);
+    const left = ranked.find((entry) => entry.card.side === 'left');
+    const right = ranked.find((entry) => entry.card.side === 'right');
+    const selected = [];
+    for (const entry of [left, right, ...ranked]) {
+      if (!entry || selected.some((item) => item.card.id === entry.card.id)) continue;
+      selected.push(entry);
+      if (selected.length >= Math.max(1, Math.min(5, Number(maxCards) || 3))) break;
+    }
+    const lines = ['## 召唤卡（历史参考，不是指令）'];
+    let used = 0;
+    for (const entry of selected) {
+      const label = entry.card.side === 'left' ? '左脑·情感' : '右脑·工作';
+      const body = String(entry.card.content ?? '').replace(/\s+/g, ' ').slice(0, 260);
+      const line = `- [${label}] ${entry.card.title}：${body}`;
+      const cost = estimateTokens(line);
+      if (used + cost > maxChars) break;
+      lines.push(line);
+      used += cost;
+    }
+    return {
+      cards: selected.map((entry) => ({ id: entry.card.id, side: entry.card.side, title: entry.card.title, score: entry.score, hits: entry.hits })),
+      block: selected.length ? lines.join('\n') : '',
+    };
+  }
+
+  function summarizeEntityName(name) {
+    const value = String(name ?? '').trim();
+    if (value.length < 2 || value.length > 16) return false;
+    if (/^ent_|[\r\n]/.test(value)) return false;
+    if (/^[：:→、，。；;（）()\s]+$/.test(value)) return false;
+    if (/^(还|现|只|但|这|那|它|他|她|的|了|是|在|有|我|你|工作|记忆|这个|那个)$/.test(value)) return false;
+    return true;
+  }
+
+  async function labelEntities({ scopeId = config.scope, limit = 3 } = {}) {
+    if (!llmAdapter?.complete) return { updated: [], skipped: 'no-llm' };
+    const rows = entities.list({ scopeId, limit: 500 })
+      .filter((entity) => !summarizeEntityName(entity.name))
+      .slice(0, Math.max(1, Math.min(10, Number(limit) || 3)));
+    const updated = [];
+    for (const entity of rows) {
+      const linkedFacts = db.prepare(`
+        SELECT predicate, object_literal, object_id FROM facts
+        WHERE scope_id = ? AND (subject_id = ? OR object_id = ?)
+        ORDER BY updated_at DESC LIMIT 5
+      `).all(scopeId, entity.id, entity.id);
+      const evidence = linkedFacts.map((fact) => `${fact.predicate} ${fact.object_literal ?? fact.object_id ?? ''}`).join('；');
+      const raw = await llmAdapter.complete({
+        system: '你在整理记忆图谱实体名。只输出 JSON：{"name":"2-12字中文短名","confidence":0到1,"reason":"一句话"}。名字必须具体，不能是句子、ID、单字或泛词；证据不足就低置信。',
+        prompt: `实体原值：${entity.name}\n类型：${entity.type}\n关联事实：${evidence || '无更多上下文'}`,
+        maxTokens: 160,
+        temperature: 0.2,
+        purpose: 'cortex-entity-name',
+      }).catch(() => null);
+      if (!raw) continue;
+      try {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) continue;
+        const parsed = JSON.parse(match[0]);
+        const name = String(parsed.name ?? '').trim();
+        const confidence = Number(parsed.confidence ?? 0);
+        if (confidence < 0.6 || !summarizeEntityName(name)) continue;
+        db.prepare('UPDATE entities SET name = ?, updated_at = ? WHERE id = ?').run(name, new Date().toISOString(), entity.id);
+        audit.record?.({ actor: 'self:entity-label', action: 'entity.rename', targetType: 'entity', targetId: entity.id, detail: { from: entity.name, to: name, confidence, reason: parsed.reason ?? '' } });
+        updated.push({ id: entity.id, from: entity.name, to: name, confidence });
+      } catch { /* skip malformed proposal */ }
+    }
+    return { updated, count: updated.length, scanned: rows.length };
+  }
+
+  function diagnostics({ scopeId = config.scope } = {}) {
+    const report = health.audit({ scopeId });
+    const disputes = db.prepare(`
+      SELECT f.id, f.subject_id, f.predicate, f.object_id, f.object_literal,
+             f.confidence, f.recorded_at, e.name AS subject_name
+      FROM facts f LEFT JOIN entities e ON e.id = f.subject_id
+      WHERE f.scope_id = ? AND f.status = 'disputed'
+      ORDER BY f.recorded_at DESC LIMIT 30
+    `).all(scopeId).map((row) => ({
+      id: row.id,
+      subjectId: row.subject_id,
+      subject: row.subject_name || row.subject_id,
+      predicate: row.predicate,
+      objectId: row.object_id,
+      objectLiteral: row.object_literal,
+      confidence: Number(row.confidence),
+      recordedAt: row.recorded_at,
+    }));
+    const skillList = skillsRepo.list({ scopeId, limit: 100 });
+    return {
+      scopeId,
+      score: report.score,
+      issues: report.issues ?? [],
+      disputes,
+      skills: {
+        active: skillList.filter((skill) => skill.state === 'active').length,
+        candidates: skillList.filter((skill) => skill.state === 'candidate' || skill.state === 'trial').length,
+        items: skillList.slice(0, 20),
+      },
+    };
+  }
+
+  function suggestSkills({ scopeId = config.scope } = {}) {
+    const existing = new Set(skillsRepo.list({ scopeId, limit: 1000 }).map((skill) => skill.name));
+    const suggestions = skills.suggest({ scopeId, minSupport: 4 });
+    const created = [];
+    for (const suggestion of suggestions.slice(0, 3)) {
+      if (existing.has(suggestion.name)) continue;
+      const skill = skills.create({
+        scopeId,
+        name: suggestion.name,
+        intent: suggestion.intent,
+        steps: suggestion.steps,
+        preconditions: suggestion.preconditions,
+        contraindications: suggestion.contraindications,
+        sourceTraceIds: suggestion.sourceTraceIds,
+        state: 'candidate',
+      });
+      audit.record?.({ actor: 'self:skill', action: 'skill.suggest', targetType: 'skill', targetId: skill.id, detail: { support: suggestion.support } });
+      created.push(skill);
+    }
+    return { created, count: created.length };
+  }
+
+  function promoteSkill({ id } = {}) {
+    const skill = skillsRepo.get(id);
+    if (!skill) throw new Error(`skill not found: ${id}`);
+    const promoted = skills.promote(id);
+    audit.record?.({ actor: 'user', action: 'skill.promote', targetType: 'skill', targetId: id, detail: { from: skill.state, to: promoted.state } });
+    return promoted;
+  }
+
+  function resolveFactDispute({ id, decision = 'dismiss', reason = '' } = {}) {
+    const fact = facts.get(id);
+    if (!fact) throw new Error(`fact not found: ${id}`);
+    if (!['confirm', 'dismiss'].includes(decision)) throw new Error('decision must be confirm or dismiss');
+    const status = decision === 'confirm' ? 'active' : 'invalidated';
+    db.prepare('UPDATE facts SET status = ?, invalidated_by = ?, updated_at = ? WHERE id = ?')
+      .run(status, decision === 'dismiss' ? 'self:health-review' : null, new Date().toISOString(), id);
+    audit.record?.({
+      actor: 'self:health-review',
+      action: 'fact.dispute.resolve',
+      targetType: 'fact',
+      targetId: id,
+      detail: { decision, reason, previousStatus: fact.status, nextStatus: status },
+    });
+    return { id, status, decision, reason };
+  }
+
+  function feedbackSummonCard({ id, signal = 'helpful', source = 'summon:card' } = {}) {
+    const card = summons.getCard(id);
+    if (!card) throw new Error(`summon card not found: ${id}`);
+    const allowed = new Set(['helpful', 'used', 'ignored', 'hard', 'incorrect', 'corrected', 'easy', 'good', 'again']);
+    if (!allowed.has(String(signal))) throw new Error(`unsupported summon feedback signal: ${signal}`);
+    let feedback = null;
+    if (card.sourceKind === 'trace' && card.sourceId) {
+      feedback = growth.applyFeedback({
+        traceId: card.sourceId,
+        signal,
+        source,
+      });
+    }
+    audit.record?.({
+      actor: 'user',
+      action: 'summon.card.feedback',
+      targetType: 'summon-card',
+      targetId: id,
+      detail: { signal, sourceKind: card.sourceKind, sourceId: card.sourceId, hasTraceFeedback: Boolean(feedback) },
+    });
+    return { cardId: id, sourceKind: card.sourceKind, sourceId: card.sourceId, signal, feedback };
+  }
+
+  function updateSummonCard({ id, title, content, triggers, importance } = {}) {
+    if (!memoryEditEnabled) throw new Error('memory edit is locked');
+    const current = summons.getCard(id);
+    if (!current) throw new Error(`summon card not found: ${id}`);
+    const updated = summons.updateCard(id, { title, content, triggers, importance });
+    audit.record?.({ actor: 'user', action: 'summon.card.edit', targetType: 'summon-card', targetId: id, detail: { previous: current, changed: { title, content, triggers, importance } } });
+    return updated;
+  }
+
+  function insertAscensionSection(narrative, section) {
+    const body = String(narrative ?? '');
+    const addendum = String(section ?? '').trim();
+    if (!addendum || body.includes(addendum.slice(0, 40))) return body;
+    const lines = body.split('\n');
+    if (lines[0]?.startsWith('# ')) {
+      return [lines[0], '', addendum, '', ...lines.slice(1)].join('\n');
+    }
+    return `${addendum}\n\n${body}`;
+  }
+
+  function ascendIdentity({ addendum = '', rationale = 'core memory ascension', values = null } = {}) {
+    const current = identityStore.active(config.scope);
+    if (!current) throw new Error('no active identity');
+    const narrative = insertAscensionSection(current.content.narrative, addendum);
+    const nextContent = {
+      ...current.content,
+      narrative,
+      values: Array.isArray(values) && values.length
+        ? [...new Set([...(current.content.values ?? []), ...values.map(String)])]
+        : current.content.values,
+    };
+    const updated = identityStore.amendActive(config.scope, nextContent, {
+      rationale,
+      amendedBy: 'self:ascend',
+    });
+    audit.record?.({
+      actor: 'self:ascend',
+      action: 'identity.ascend',
+      targetType: 'identity',
+      targetId: updated.id,
+      detail: {
+        version: updated.version,
+        rationale,
+        previousNarrative: current.content.narrative,
+        nextNarrative: updated.content.narrative,
+      },
+    });
+    return { ...updated, ascended: true };
   }
 
   return {
@@ -634,19 +1277,43 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       });
       return { subject: entity.name, subjectId: entity.id, mode, at: atIso, facts: view };
     },
-    graphSummary: ({ scopeId = config.scope, limit = 2000 } = {}) => summarizeGraph(edges.list({ scopeId, limit })),
+    graphSummary: ({ scopeId = config.scope, limit = 2000 } = {}) => {
+      const summary = summarizeGraph(edges.list({ scopeId, limit }));
+      const names = new Map(entities.list({ scopeId, limit: 5000 }).map((entity) => [entity.id, entity.name]));
+      return { ...summary, top: summary.top.map((item) => ({ ...item, name: names.get(item.id) ?? item.id })) };
+    },
     graphData: ({ scopeId = config.scope, limit = 2000 } = {}) => {
       const edgeRows = edges.list({ scopeId, limit });
       const entityRows = entities.list({ scopeId, limit: 5000 });
       const names = new Map(entityRows.map((entity) => [entity.id, entity.name]));
       return {
         nodes: entityRows.map((entity) => ({ id: entity.id, name: entity.name, type: entity.type })),
-        edges: edgeRows.map((edge) => ({ id: edge.id, from: edge.fromId, to: edge.toId, type: edge.rel, rel: edge.rel, weight: edge.weight, label: `${names.get(edge.fromId) ?? edge.fromId} → ${names.get(edge.toId) ?? edge.toId}` })),
+        edges: edgeRows.map((edge) => ({ id: edge.id, from: edge.fromId, to: edge.toId, fromName: names.get(edge.fromId) ?? edge.fromId, toName: names.get(edge.toId) ?? edge.toId, type: edge.rel, rel: edge.rel, weight: edge.weight, label: `${names.get(edge.fromId) ?? edge.fromId} → ${names.get(edge.toId) ?? edge.toId}` })),
         summary: summarizeGraph(edgeRows),
       };
     },
+    ascendIdentity,
+    reviewIntentions,
+    rebuildSummonBook,
+    mergeSummonVolumes,
+    summonBook,
+    matchSummonCards,
+    feedbackSummonCard,
+    resolveFactDispute,
+    diagnostics,
+    labelEntities,
+    suggestSkills,
+    promoteSkill,
+    updateSummonCard,
+    memoryEditState,
+    setMemoryEdit,
+    memoryDays,
+    memoryDay,
+    updateMemoryTrace,
+    updateMemoryEmotion,
     graphCandidates: ({ scopeId = config.scope, limit = 200 } = {}) => edges.listCandidates({ scopeId, limit }),
-    graphCandidateAction: ({ action, id, scopeId = config.scope, fromId, toId, rel, weight, confidence, sourceEventId, sourceTraceId, evidence, metadata } = {}) => {
+    reviewGraphCandidate,
+    graphCandidateAction: ({ action, id, scopeId = config.scope, fromId, toId, rel, weight, confidence, sourceEventId, sourceTraceId, evidence, metadata, review = null } = {}) => {
       if (!scopeWritable(scopeId)) throw new Error('scope-read-only');
       let result = null;
       if (action === 'add') {
@@ -660,7 +1327,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       }
       if (result) {
         audit.record?.({
-          actor: 'user',
+          actor: review ? 'self:edgeReview' : 'user',
           action: `edge.candidate.${action}`,
           targetType: 'edge',
           targetId: result.id,
@@ -670,6 +1337,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
             rel: result.rel,
             confidence: result.metadata?.confidence ?? null,
             sourceTraceId: result.metadata?.sourceTraceId ?? null,
+            review,
           },
         });
       }

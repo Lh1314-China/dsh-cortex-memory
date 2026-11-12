@@ -10,7 +10,7 @@ $stamp = Get-Date -Format 'yyyyMMdd-HHmm'
 Copy-Item -Recurse "$env:USERPROFILE\.dsh\profiles\desktop" "$env:USERPROFILE\Desktop\dsh-profile-backup-$stamp"
 ```
 
-`dsh-cortex` 默认数据在 `~/.dsh/cortex`，**不读写 shiori 的 `D:\shiori-data`**。第一次安装没有旧数据，不需要迁移。
+`dsh-cortex` 默认数据在 `~/.dsh/cortex`，**不读写旧系统的 shiori 数据目录**。第一次安装没有旧数据，不需要迁移。
 
 ## 2. 生成/取得 tgz
 
@@ -40,8 +40,8 @@ dsh plugin --profile desktop add "C:\完整路径\dsh-cortex-0.2.0-dev.1.tgz"
 3. 写一条测试记忆：
 
 ```text
-cortex_write({ text: "安装验收：主人喜欢白饭。", explicit: true })
-cortex_search({ query: "白饭" })
+cortex_write({ text: "安装验收：记下这条测试记忆。", explicit: true })
+cortex_search({ query: "测试记忆" })
 cortex_self({})
 cortex_guard({ action: "check" })
 ```

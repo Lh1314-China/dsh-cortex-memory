@@ -55,8 +55,8 @@ const ACTION_ENUMS = {
   cortex_working: ['add', 'list', 'pin', 'remove', 'purge'],
   cortex_goal: ['add', 'list', 'update', 'complete'],
   cortex_compress: ['evaluate', 'compress', 'revive'],
-  cortex_life: ['diary-write', 'diary-list', 'diary-forget', 'dream', 'sleep', 'sleep-runs'],
-  cortex_emotion: ['detect', 'record', 'affect', 'events', 'lexicon'],
+  cortex_life: ['diary-generate', 'diary-write', 'diary-list', 'diary-forget', 'dream', 'sleep', 'sleep-runs'],
+  cortex_emotion: ['generate', 'detect', 'record', 'affect', 'events', 'lexicon'],
   cortex_evolve: ['status', 'optimize', 'propose', 'approve', 'rollback'],
   cortex_guard: ['check', 'backup', 'validate', 'restore', 'repair', 'export', 'sync'],
 };

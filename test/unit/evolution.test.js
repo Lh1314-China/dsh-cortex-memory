@@ -61,6 +61,23 @@ test('selfOptimize proposes a skill demotion when success rate is low', () => {
   }
 });
 
+test('autoEvolve activates its own policy candidates', () => {
+  const { dir, cortex } = setup();
+  try {
+    const skill = cortex.engines.skills.create({ name: 'auto-evolve-test', steps: ['a'], state: 'active' });
+    cortex.engines.skills.record(skill.id, false);
+    cortex.engines.skills.record(skill.id, false);
+    cortex.engines.skills.record(skill.id, false);
+    const result = cortex.evolution.autoEvolve();
+    assert.ok(result.proposals.length >= 1);
+    assert.ok(result.activated.length >= 1);
+    assert.equal(result.activated[0].status, 'active');
+  } finally {
+    cortex.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('identity proposals require explicit approval', () => {
   const { dir, cortex } = setup();
   try {

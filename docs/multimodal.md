@@ -8,7 +8,7 @@
 
 ```json
 {
-  "text": "主人发来一张白饭照片。",
+  "text": "用户发来一张示例图片。",
   "explicit": true,
   "attachments": [
     {

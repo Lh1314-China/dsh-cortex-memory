@@ -104,6 +104,7 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
       try {
         if (route === '/ping') return sendJson(response, 200, { ok: true, at: new Date().toISOString() });
         if (route === '/health') return sendJson(response, 200, { ok: true, data: cortex.health() });
+        if (route === '/diagnostics') return sendJson(response, 200, { ok: true, data: cortex.diagnostics({ scopeId: scopeOf(request, url) }) });
         if (route === '/self') return sendJson(response, 200, { ok: true, data: cortex.self(scopeOf(request, url)) });
         if (route === '/stats') {
           return sendJson(response, 200, { ok: true, data: { config: { scope: cortex.config.scope, dbFile: cortex.config.dbFile }, vector: cortex.vector?.status?.() ?? null } });
@@ -118,6 +119,10 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
         if (route === '/models') return sendJson(response, 200, { ok: true, data: cortex.models.get() });
         if (route === '/permissions') return sendJson(response, 200, { ok: true, data: cortex.permissions.status() });
         if (route === '/security/grants') return sendJson(response, 200, { ok: true, data: cortex.security.grants() });
+        if (route === '/summon/book') return sendJson(response, 200, { ok: true, data: cortex.summonBook({ date: url.searchParams.get('date'), scopeId: scopeOf(request, url) }) });
+        if (route === '/memory/days') return sendJson(response, 200, { ok: true, data: cortex.memoryDays({ limit: toInt(url.searchParams.get('limit'), 60, 1, 365), scopeId: scopeOf(request, url) }) });
+        if (route === '/memory/day') return sendJson(response, 200, { ok: true, data: cortex.memoryDay({ date: url.searchParams.get('date'), scopeId: scopeOf(request, url) }) });
+        if (route === '/memory/edit') return sendJson(response, 200, { ok: true, data: cortex.memoryEditState() });
         if (route === '/settings') return sendJson(response, 200, { ok: true, data: cortex.settings() });
         if (route === '/report') return sendJson(response, 200, { ok: true, data: cortex.report(scopeOf(request, url)) });
         if (route === '/metrics') return sendJson(response, 200, { ok: true, data: cortex.metrics() });
@@ -227,8 +232,22 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
         '/consolidate',
         '/vector/rebuild',
         '/emotion/record',
+        '/emotion/generate',
+        '/identity/ascend',
+        '/memory/edit',
+        '/memory/trace',
+        '/memory/emotion',
+        '/summon/rebuild',
+        '/summon/merge',
+        '/summon/card',
+        '/summon/feedback',
+        '/facts/resolve',
+        '/skills/suggest',
+        '/skills/promote',
+        '/entities/label',
         '/compress',
         '/life/diary',
+        '/life/diary/generate',
         '/life/dream',
         '/life/sleep',
       ]);
@@ -453,6 +472,69 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
       if (route === '/working/purge') {
         return sendJson(response, 200, { ok: true, data: { purged: cortex.working.purgeExpired() } });
       }
+      if (route === '/memory/edit') {
+        return sendJson(response, 200, { ok: true, data: cortex.setMemoryEdit(body.enabled === true) });
+      }
+      if (route === '/summon/rebuild') {
+        return sendJson(response, 200, { ok: true, data: cortex.rebuildSummonBook({ scopeId: scopeOf(request, url, body) }) });
+      }
+      if (route === '/summon/merge') {
+        return sendJson(response, 200, { ok: true, data: cortex.mergeSummonVolumes({ scopeId: scopeOf(request, url, body) }) });
+      }
+      if (route === '/entities/label') {
+        return sendJson(response, 200, { ok: true, data: await cortex.labelEntities({ scopeId: scopeOf(request, url, body), limit: toInt(body.limit, 3, 1, 10) }) });
+      }
+      if (route === '/skills/suggest') {
+        return sendJson(response, 200, { ok: true, data: cortex.suggestSkills({ scopeId: scopeOf(request, url, body) }) });
+      }
+      if (route === '/skills/promote') {
+        return sendJson(response, 200, { ok: true, data: cortex.promoteSkill({ id: requireString(body.id, 'id', { max: 200 }) }) });
+      }
+      if (route === '/facts/resolve') {
+        return sendJson(response, 200, { ok: true, data: cortex.resolveFactDispute({
+          id: requireString(body.id, 'id', { max: 200 }),
+          decision: body.decision === 'confirm' ? 'confirm' : 'dismiss',
+          reason: body.reason ? requireString(body.reason, 'reason', { max: 1000 }) : '',
+        }) });
+      }
+      if (route === '/summon/feedback') {
+        return sendJson(response, 200, { ok: true, data: cortex.feedbackSummonCard({
+          id: requireString(body.id, 'id', { max: 200 }),
+          signal: requireString(body.signal ?? 'helpful', 'signal', { max: 20 }),
+        }) });
+      }
+      if (route === '/summon/card') {
+        return sendJson(response, 200, { ok: true, data: cortex.updateSummonCard({
+          id: requireString(body.id, 'id', { max: 200 }),
+          title: body.title == null ? undefined : requireString(body.title, 'title', { max: 240 }),
+          content: body.content == null ? undefined : requireString(body.content, 'content', { max: 20000 }),
+          triggers: Array.isArray(body.triggers) ? body.triggers.slice(0, 40).map(String) : undefined,
+          importance: body.importance == null ? undefined : Number(body.importance),
+        }) });
+      }
+      if (route === '/memory/emotion') {
+        return sendJson(response, 200, { ok: true, data: cortex.updateMemoryEmotion({
+          id: requireString(body.id, 'id', { max: 200 }),
+          text: body.text == null ? undefined : requireString(body.text, 'text', { max: 10000 }),
+          target: body.target == null ? undefined : requireString(body.target, 'target', { max: 120 }),
+        }) });
+      }
+      if (route === '/memory/trace') {
+        return sendJson(response, 200, { ok: true, data: cortex.updateMemoryTrace({
+          id: requireString(body.id, 'id', { max: 200 }),
+          title: body.title == null ? undefined : requireString(body.title, 'title', { max: 240 }),
+          content: body.content == null ? undefined : requireString(body.content, 'content', { max: 20000 }),
+          summary: body.summary == null ? undefined : requireString(body.summary, 'summary', { max: 4000 }),
+          tags: Array.isArray(body.tags) ? body.tags.slice(0, 40).map(String) : undefined,
+        }) });
+      }
+      if (route === '/identity/ascend') {
+        return sendJson(response, 200, { ok: true, data: cortex.ascendIdentity({
+          addendum: requireString(body.addendum, 'addendum', { max: 6000 }),
+          rationale: body.rationale ? requireString(body.rationale, 'rationale', { max: 2000 }) : 'core memory ascension',
+          values: Array.isArray(body.values) ? body.values.slice(0, 20).map(String) : null,
+        }) });
+      }
       if (route === '/evolve/optimize') {
         return sendJson(response, 200, { ok: true, data: cortex.evolution.selfOptimize() });
       }
@@ -483,8 +565,14 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
       if (route === '/emotion/record') {
         return sendJson(response, 200, { ok: true, data: cortex.emotion.record({ text: body.text, target: body.target, traceId: body.traceId }) });
       }
+      if (route === '/emotion/generate') {
+        return sendJson(response, 200, { ok: true, data: await cortex.life.feelingGenerate({ source: 'cortex:manual:feeling' }) });
+      }
       if (route === '/life/diary') {
         return sendJson(response, 200, { ok: true, data: cortex.life.diaryWrite({ text: body.text, mood: body.mood }) });
+      }
+      if (route === '/life/diary/generate') {
+        return sendJson(response, 200, { ok: true, data: await cortex.life.diaryGenerate() });
       }
       if (route === '/life/dream') {
         return sendJson(response, 200, { ok: true, data: await cortex.life.dreamGenerate() });

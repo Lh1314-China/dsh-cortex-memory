@@ -19,6 +19,15 @@ function ensureTraceColumns(db) {
   }
 }
 
+function ensureSummonColumns(db) {
+  const cards = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'summon_cards'").get();
+  if (!cards) return;
+  const columns = db.prepare('PRAGMA table_info(summon_cards)').all();
+  if (!columns.some((column) => column.name === 'manual_json')) {
+    db.exec("ALTER TABLE summon_cards ADD COLUMN manual_json TEXT NOT NULL DEFAULT '{}'");
+  }
+}
+
 function ensureFactsColumns(db) {
   const columns = db.prepare('PRAGMA table_info(facts)').all();
   if (!columns.some((column) => column.name === 'superseded_at')) {
@@ -76,6 +85,7 @@ export function migrate(db, { version = SCHEMA_VERSION } = {}) {
     db.exec(readSchema());
     ensureTraceColumns(db);
     ensureFactsColumns(db);
+    ensureSummonColumns(db);
     const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
     if (!row) {
       db.prepare('INSERT INTO meta(key, value, updated_at) VALUES (?, ?, ?)').run('schema_version', String(version), nowIso());

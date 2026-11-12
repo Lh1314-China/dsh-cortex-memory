@@ -219,7 +219,7 @@ export function createToolDefinitions(service) {
         additionalProperties: false,
         required: ['action'],
         properties: {
-          action: { type: 'string', enum: ['diary-write', 'diary-list', 'diary-forget', 'dream', 'sleep', 'sleep-runs'] },
+          action: { type: 'string', enum: ['diary-generate', 'diary-write', 'diary-list', 'diary-forget', 'dream', 'sleep', 'sleep-runs'] },
           text: { type: 'string' },
           mood: { type: 'string' },
           id: { type: 'string' },
@@ -230,6 +230,11 @@ export function createToolDefinitions(service) {
       output: TEXT_OUTPUT,
       isConcurrencySafe: () => false,
       async execute(args = {}) {
+        if (args.action === 'diary-generate') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
+          const item = await service.life.diaryGenerate();
+          return { text: `日记 ${item.id}（${item.model}，来源 ${item.sourceCount} 条）：\n${item.text}` };
+        }
         if (args.action === 'diary-write') {
           if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
           const item = service.life.diaryWrite({ text: args.text, mood: args.mood });
@@ -259,13 +264,13 @@ export function createToolDefinitions(service) {
     },
     {
       name: 'cortex_emotion',
-      description: 'Detect emotions in text, record an emotion event for a target, show affect attitudes, or list the 24-category lexicon.',
+      description: 'Generate an AI-authored feeling, detect emotions in text, record an emotion event for a target, show affect attitudes, or list the 24-category lexicon.',
       parameters: {
         type: 'object',
         additionalProperties: false,
         required: ['action'],
         properties: {
-          action: { type: 'string', enum: ['detect', 'record', 'affect', 'events', 'lexicon'] },
+          action: { type: 'string', enum: ['generate', 'detect', 'record', 'affect', 'events', 'lexicon'] },
           text: { type: 'string' },
           target: { type: 'string' },
           traceId: { type: 'string' },
@@ -275,6 +280,11 @@ export function createToolDefinitions(service) {
       output: TEXT_OUTPUT,
       isConcurrencySafe: () => false,
       async execute(args = {}) {
+        if (args.action === 'generate') {
+          if (!service.scopeWritable(service.settings().scope)) return { text: '未执行：当前 scope 只读共享。' };
+          const result = await service.life.feelingGenerate({ source: 'cortex:manual:feeling' });
+          return { text: `感受（${result.model}，来源 ${result.sourceCount} 条）：${result.text}\n情绪：${result.emotions.map((item) => item.name).join('、')} → ${result.target}` };
+        }
         if (args.action === 'detect') {
           const result = service.emotion.detect(args.text);
           return { text: result.emotions.length ? result.emotions.map((item) => `${item.name}:${item.score}`).join(' / ') : '没有命中情绪词。' };

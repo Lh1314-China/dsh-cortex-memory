@@ -8,6 +8,34 @@ window.__ModuleLoader__.load({
     const NS = 'cortex';
     const API = '/api/cortex';
 
+    const FEATURE_META = {
+      recall: { zh: '自动召回', en: 'Auto recall', descZh: '每轮前查找相关记忆', descEn: 'Find relevant memories before each turn' },
+      capture: { zh: '自动捕获', en: 'Auto capture', descZh: '对话自动写入记忆', descEn: 'Write turns into memory' },
+      reflect: { zh: '反思整理', en: 'Reflection', descZh: '摘要、反思与巩固', descEn: 'Summaries, reflection and consolidation' },
+      growth: { zh: '成长评估', en: 'Growth', descZh: '评估阶段与成长指标', descEn: 'Evaluate stage and growth metrics' },
+      vector: { zh: '向量检索', en: 'Vector search', descZh: '相似记忆向量检索', descEn: 'Semantic vector retrieval' },
+      vectorAnn: { zh: '本地近似索引', en: 'Local ANN', descZh: 'HNSW 加速大量向量', descEn: 'HNSW acceleration for many vectors' },
+      vectorAnnExternal: { zh: '外置近似索引', en: 'External ANN', descZh: '调用外置 ANN 服务', descEn: 'Use an external ANN service' },
+      attachmentReader: { zh: '读取附件', en: 'Attachments', descZh: '读取本地附件内容', descEn: 'Read local attachment content' },
+      graph: { zh: '关系图', en: 'Graph', descZh: '时间关系图激活', descEn: 'Temporal graph activation' },
+      llm: { zh: '模型调用', en: 'LLM', descZh: '允许调用模型', descEn: 'Allow model calls' },
+      autoDiary: { zh: '自动日记', en: 'Auto diary', descZh: '每天 12:00 / 22:00 写', descEn: 'Write at 12:00 and 22:00' },
+      autoDream: { zh: '自动做梦', en: 'Auto dream', descZh: '每天 22:05 做一次', descEn: 'One dream at 22:05' },
+      autoFeeling: { zh: '自动感受', en: 'Auto feeling', descZh: '空闲时每小时写感受', descEn: 'Hourly feelings while idle' },
+      autoEvolve: { zh: '自动迭代', en: 'Auto evolve', descZh: '策略自动提案并激活', descEn: 'Auto-propose and activate policies' },
+      aiOnlyLife: { zh: 'AI 接管生活', en: 'AI-only life', descZh: '日记/梦只由 AI 写，不套模板', descEn: 'Diary/dream are AI-only, no template fallback' },
+      autoGraphCandidates: { zh: 'AI 接管候选边', en: 'Auto graph candidates', descZh: '高置信候选边自动入图', descEn: 'Approve high-confidence candidate edges' },
+      aiEdgeReview: { zh: 'AI 逐条审核边', en: 'AI edge review', descZh: '每条候选边由 LLM 判断', descEn: 'LLM reviews each candidate edge' },
+      webSearch: { zh: '联网资料', en: 'Web search', descZh: '日记/梦参考外部来源', descEn: 'Use external sources for diary/dreams' },
+      api: { zh: '本机接口', en: 'Local API', descZh: '本机 HTTP 接口，锁定开启', descEn: 'Local HTTP API, locked on' },
+      autoFacts: { zh: '自动事实', en: 'Auto facts', descZh: '写入时自动抽事实', descEn: 'Extract facts on write' },
+      llmFacts: { zh: '模型事实', en: 'LLM facts', descZh: '用模型抽取事实', descEn: 'Extract facts with the model' },
+      tieredRecall: { zh: '分层召回', en: 'Tiered recall', descZh: '按 perm / hot / cold 取记忆', descEn: 'Recall by perm / hot / cold tiers' },
+      consolidateOnSleep: { zh: '睡眠整理', en: 'Sleep consolidate', descZh: '睡一觉时整理记忆', descEn: 'Consolidate during sleep' },
+      consolidateOnTick: { zh: '心跳整理', en: 'Tick consolidate', descZh: '每次心跳整理一次', descEn: 'Consolidate on each heartbeat' },
+      rerank: { zh: '远程重排', en: 'Rerank', descZh: '模型对候选记忆重排', descEn: 'Rerank candidate memories' },
+    };
+
     const DICT = {
       zh: {
         navLabel: 'Cortex 记忆',
@@ -25,6 +53,7 @@ window.__ModuleLoader__.load({
         tabTimeline: '时间线',
         tabAudit: '审计',
         tabRetention: '留存',
+        tabMemoryEdit: '召唤册',
         tabWorking: '工作/目标',
         tabEmotion: '情绪',
         tabLife: '生活',
@@ -226,6 +255,8 @@ window.__ModuleLoader__.load({
         rerankHint: '不配置就回退原融合顺序；失败也回退。',
         permissionClick: '点击切换',
         permissionApiLocked: '本机接口不能从自身关闭',
+        permissionReadOnly: '只读快照',
+        autoEvolveNote: '自动迭代已开：策略会自动提案并激活，可回滚；身份变更仍单独审批。',
         vector: '向量',
         scope: 'scope',
         dataRoot: 'dataRoot',
@@ -288,6 +319,7 @@ window.__ModuleLoader__.load({
         tabTimeline: 'Timeline',
         tabAudit: 'Audit',
         tabRetention: 'Retention',
+        tabMemoryEdit: 'Summon book',
         tabWorking: 'Work/Goals',
         tabEmotion: 'Emotion',
         tabLife: 'Life',
@@ -489,6 +521,8 @@ window.__ModuleLoader__.load({
         rerankHint: 'Leave off to keep fusion order; failures fall back.',
         permissionClick: 'click to toggle',
         permissionApiLocked: 'The local API cannot disable itself from this panel',
+        permissionReadOnly: 'read-only snapshot',
+        autoEvolveNote: 'Autonomous evolution is on: policies can be proposed and activated automatically, with rollback. Identity changes still require separate approval.',
         vector: 'Vector',
         scope: 'scope',
         dataRoot: 'dataRoot',
@@ -552,6 +586,44 @@ window.__ModuleLoader__.load({
 .cortex-tab.on{color:var(--dsw-alias-brand-primary,#2f6fed);border-bottom-color:var(--dsw-alias-brand-primary,#2f6fed);font-weight:600}
 .cortex-panel{min-height:120px}
 .cortex-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.cortex-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.cortex-settings > .cortex-card--wide{grid-column:1/-1}
+.cortex-feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:6px}
+.cortex-feature{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-2,#f7f8fa);border-radius:10px;padding:8px 10px;min-width:0}
+.cortex-feature-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cortex-feature-name{font-size:12px;font-weight:600}
+.cortex-feature-desc{font-size:11px;line-height:1.4;color:var(--dsw-alias-label-secondary,#6b7280);margin:3px 0 6px}
+.cortex-feature .cortex-btn{padding:2px 8px;font-size:11px}
+.cortex-memory-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cortex-memory-layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;align-items:start}
+.cortex-memory-days{max-height:640px;overflow:auto;padding:8px}
+.cortex-memory-day{appearance:none;border:0;background:transparent;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:7px 8px;border-radius:8px;color:var(--dsw-alias-label-primary,#1f2329);font:inherit;cursor:pointer;text-align:left}
+.cortex-memory-day:hover{background:var(--dsw-alias-bg-layer-2,#f7f8fa)}
+.cortex-memory-day.on{background:var(--dsw-alias-bg-layer-2,#f7f8fa);box-shadow:inset 2px 0 var(--dsw-alias-brand-primary,#2f6fed)}
+.cortex-memory-emotion{border-left:3px solid #d97706}
+.cortex-memory-work{border-left:3px solid var(--dsw-alias-brand-primary,#2f6fed)}
+.cortex-memory-event{border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);padding:8px 0}
+.cortex-memory-event:first-of-type{border-top:0}
+.cortex-memory-trace{border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);padding:9px 0}
+.cortex-memory-trace:first-of-type{border-top:0}
+.cortex-memory-title{font-size:12px;font-weight:600;margin:2px 0 4px}
+.cortex-memory-text{font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto}
+.cortex-memory-edit-form{display:grid;gap:6px;margin:6px 0}
+.cortex-memory-edit-form textarea{resize:vertical;min-height:120px}
+.cortex-memory-extra{margin-top:10px;font-size:12px}
+.cortex-memory-extra summary{cursor:pointer;color:var(--dsw-alias-label-secondary,#6b7280)}
+.cortex-summon-left{border-left:3px solid #db7c9b}
+.cortex-summon-right{border-left:3px solid var(--dsw-alias-brand-primary,#2f6fed)}
+.cortex-summon-card{border-top:1px solid var(--dsw-alias-border-l1,#e5e7eb);padding:4px 0 8px}
+.cortex-summon-card:first-of-type{border-top:0}
+.cortex-summon-title{appearance:none;border:0;background:transparent;padding:7px 4px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;cursor:pointer;font:inherit;color:inherit;border-radius:8px}
+.cortex-summon-title:hover{background:var(--dsw-alias-bg-layer-2,#f7f8fa)}
+.cortex-summon-title span:first-child{font-size:12px;font-weight:600}
+.cortex-summon-body{padding:2px 4px 4px}
+.cortex-summon-volume{margin-top:6px;font-size:12px}
+.cortex-summon-volume summary{cursor:pointer;color:var(--dsw-alias-brand-primary,#2f6fed)}
+.cortex-diagnostics .cortex-row{flex-wrap:wrap}
+@media (max-width:900px){.cortex-settings{grid-template-columns:1fr}.cortex-settings > .cortex-card--wide{grid-column:auto}.cortex-memory-layout{grid-template-columns:1fr}.cortex-memory-days{max-height:200px}}
 .cortex-card{border:1px solid var(--dsw-alias-border-l1,#e5e7eb);background:var(--dsw-alias-bg-layer-1,#fff);border-radius:12px;padding:12px 14px;min-width:0}
 .cortex-card h4{margin:0 0 6px;font-size:12px;color:var(--dsw-alias-label-secondary,#6b7280);font-weight:600}
 .cortex-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
@@ -848,6 +920,19 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         ]),
         h('div', { key: 'drives', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '驱力'), ...Object.entries(self.drives).map(([name, value]) => h(Meter, { key: name, label: name, value }))]),
         h('div', { key: 'id', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, `身份 v${identity?.version ?? '—'}`), h('div', { className: 'cortex-pre' }, identity?.content?.narrative ?? '—')]),
+        h('div', { key: 'capacity', className: 'cortex-card', style: { marginTop: 10 } }, [
+          h('h4', {}, '容量上限'),
+          data.capacity ? h('div', {}, [
+            h('div', { key: 'l0', className: 'cortex-row' }, `人设 L0：${data.capacity.identityTokens} / ${data.capacity.identityBudget} tokens${data.capacity.identityTokens > data.capacity.identityBudget ? '（超出预算，注入会截断）' : ''}`),
+            h('div', { key: 'l1', className: 'cortex-row' }, `工作记忆 L1：${data.capacity.workingBudget} tokens`),
+            h('div', { key: 'prompt', className: 'cortex-row' }, `系统提示总预算：${data.capacity.promptBudget} tokens`),
+            h('div', { key: 'ctx', className: 'cortex-row' }, `检索上下文：${data.capacity.contextBudget} tokens`),
+            h('div', { key: 'tiers', className: 'cortex-row' }, `分层召回：perm ${data.capacity.tiers?.perm} / hot ${data.capacity.tiers?.hot} / cold ${data.capacity.tiers?.cold} tokens`),
+            h('div', { key: 'search', className: 'cortex-row' }, `单次检索：${data.capacity.resultLimit} 条；FTS 候选 ${data.capacity.ftsLimit} 条`),
+            h('div', { key: 'shape', className: 'cortex-row' }, `人设结构：values ≤ ${data.capacity.valuesLimit}；boundaries ≤ ${data.capacity.boundariesLimit}`),
+            h('div', { key: 'l23', className: 'cortex-note' }, 'L2 火花卡 / L3 专题没有固定条数上限，受检索、注入预算和每轮选择约束。'),
+          ]) : h('div', { className: 'cortex-note' }, '容量数据暂不可用。'),
+        ]),
       ]);
     }
 
@@ -949,7 +1034,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
           h(Field, { key: 'tag', label: t('filterTag'), hint: t('filterTagsHint') }, h('input', {
             className: 'cortex-input',
             value: filters.tag,
-            placeholder: '白饭, 主人',
+            placeholder: '主题, 对象',
             'aria-label': t('filterTag'),
             onChange: (event) => change('tag', event.target.value),
             onKeyDown: enter,
@@ -1626,39 +1711,48 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
 
     function EmotionTab({ t }) {
       const [data, setData] = useState(null);
-      const [text, setText] = useState('');
       const [error, setError] = useState('');
+      const [busy, setBusy] = useState(false);
       const load = useCallback(async () => { try { setData(await api('/emotion')); } catch (issue) { setError(String(issue.message ?? issue)); } }, []);
       useEffect(() => { load(); }, [load]);
-      const record = async () => {
-        if (!text.trim()) return;
-        try { await api('/emotion/record', { method: 'POST', body: JSON.stringify({ text, target: '主人' }) }); setText(''); load(); } catch (issue) { setError(String(issue.message ?? issue)); }
+      const generate = async () => {
+        if (busy) return;
+        setBusy(true);
+        try { await api('/emotion/generate', { method: 'POST', body: '{}' }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
       };
       return h('div', {}, [
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
         h('div', { key: 'line', className: 'cortex-line' }, [
-          h('input', { key: 'i', className: 'cortex-input', value: text, placeholder: '本鲸现在有点…', 'aria-label': '情绪记录', onChange: (event) => setText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') record(); } }),
-          h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', onClick: record }, '记一下'),
+          h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: generate }, busy ? '本鲸在感受…' : '让本鲸感受一下'),
+          h('span', { key: 'note', className: 'cortex-meta' }, '空闲时每小时自动写一次；感受由本鲸自己判断'),
         ]),
         data ? h('div', {}, [
           h('div', { key: 't', className: 'cortex-card' }, [h('h4', {}, '情感态度'), h('div', { className: 'cortex-big' }, data.text)]),
           h('div', { key: 'targets', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '对象'), ...(data.targets.length ? data.targets.map((item) => h('div', { key: item.target, className: 'cortex-row' }, `${item.target} · ${item.attitude} · ${item.count} 次`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))])]),
-          h('div', { key: 'events', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '最近情绪事件'), ...(data.events.length ? data.events.slice(0, 8).map((item) => h('div', { key: item.id, className: 'cortex-row' }, `${item.emotions.map((emotion) => emotion.name).join('、')} · ${item.text.slice(0, 60)}`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))])]),
+          h('div', { key: 'events', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '最近感受'), ...(data.events.length ? data.events.slice(0, 8).map((item) => h('div', { key: item.id, className: 'cortex-row' }, `${item.emotions.map((emotion) => emotion.name).join('、')} · ${item.text.slice(0, 120)}`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))])]),
         ]) : h(LoadingBlock, { key: 'loading', label: t('loading') }),
       ]);
     }
 
     function LifeTab({ t }) {
       const [data, setData] = useState(null);
-      const [text, setText] = useState('');
       const [error, setError] = useState('');
       const [busy, setBusy] = useState(false);
+      const settings = useEndpoint('/settings');
       const load = useCallback(async () => { try { setData(await api('/life')); } catch (issue) { setError(String(issue.message ?? issue)); } }, []);
       useEffect(() => { load(); }, [load]);
-      const diary = async () => {
-        if (!text.trim() || busy) return;
+      const autoValue = (key) => settings.data?.overrides?.[key] ?? settings.data?.features?.[key] ?? false;
+      const toggleAuto = async (key) => {
+        if (!window.confirm(t('permissionConfirm'))) return;
+        try {
+          await api('/permissions', { method: 'POST', body: JSON.stringify({ key, value: !autoValue(key), confirm: true }) });
+          settings.reload();
+        } catch (issue) { setError(String(issue.message ?? issue)); }
+      };
+      const writeDiary = async () => {
+        if (busy) return;
         setBusy(true);
-        try { await api('/life/diary', { method: 'POST', body: JSON.stringify({ text }) }); setText(''); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+        try { await api('/life/diary/generate', { method: 'POST', body: '{}' }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
       };
       const dream = async () => {
         if (busy) return;
@@ -1670,23 +1764,28 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         setBusy(true);
         try { await api('/life/sleep', { method: 'POST', body: '{}' }); await load(); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
       };
-      const dreams = [];
-      for (const item of data?.dreams ?? []) {
-        if (dreams.length && dreams[dreams.length - 1].text === item.text) continue;
-        dreams.push(item);
-      }
       return h('div', {}, [
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
-        h('div', { key: 'line', className: 'cortex-line' }, [h('button', { key: 'd', type: 'button', className: 'cortex-btn', disabled: busy, onClick: dream }, busy ? '梦里…' : '做个梦'), h('button', { key: 's', type: 'button', className: 'cortex-btn', disabled: busy, onClick: sleep }, busy ? '睡着…' : '睡一觉')]),
+        h('div', { key: 'line', className: 'cortex-line' }, [h('button', { key: 'd', type: 'button', className: 'cortex-btn', disabled: busy, onClick: dream }, busy ? '梦里…' : '做个梦'), h('button', { key: 's', type: 'button', className: 'cortex-btn', disabled: busy, onClick: sleep }, busy ? '睡着…' : '睡一觉'), h('button', { key: 'ai', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('aiOnlyLife') }, `不用模板：${autoValue('aiOnlyLife') ? '开' : '关'}`)]),
         h('div', { key: 'diary', className: 'cortex-card' }, [
           h('h4', {}, '日记'),
           h('div', { key: 'line', className: 'cortex-line' }, [
-            h('input', { key: 'i', className: 'cortex-input', value: text, disabled: busy, placeholder: '今天想记住…', 'aria-label': '日记', onChange: (event) => setText(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') diary(); } }),
-            h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: diary }, '写'),
+            h('button', { key: 'b', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: writeDiary }, busy ? '本鲸在想…' : '让本鲸写日记'),
+            h('button', { key: 'auto', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('autoDiary') }, `AI 接管日记：${autoValue('autoDiary') ? '开' : '关'}`),
+            h('button', { key: 'web', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('webSearch') }, `联网：${autoValue('webSearch') ? '开' : '关'}`),
+            h('span', { key: 'note', className: 'cortex-meta' }, '本鲸自己思考后写；不是主人代笔'),
           ]),
           ...((data?.diary ?? []).length ? data.diary.map((item) => h('div', { key: item.id, className: 'cortex-row' }, `${item.at.slice(0, 10)} ${item.text}`)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
         ]),
-        h('div', { key: 'dreams', className: 'cortex-card', style: { marginTop: 10 } }, [h('h4', {}, '梦'), ...(dreams.length ? dreams.map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))])]),
+        h('div', { key: 'dreams', className: 'cortex-card', style: { marginTop: 10 } }, [
+          h('h4', {}, '梦'),
+          h('div', { key: 'auto-line', className: 'cortex-line' }, [
+            h('button', { key: 'auto', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('autoDream') }, `AI 接管梦：${autoValue('autoDream') ? '开' : '关'}`),
+            h('button', { key: 'web', type: 'button', className: 'cortex-btn', onClick: () => toggleAuto('webSearch') }, `联网：${autoValue('webSearch') ? '开' : '关'}`),
+            h('span', { key: 'note', className: 'cortex-meta' }, '22:05 自动生成；失败不回退模板'),
+          ]),
+          ...((data?.dreams ?? []).length ? data.dreams.map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)) : [h('div', { key: 'none', className: 'cortex-empty' }, t('empty'))]),
+        ]),
       ]);
     }
 
@@ -1833,6 +1932,9 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       const { data, error, busy, reload } = useEndpoint('/graph');
       const { data: edgeData } = useEndpoint('/graph/edges');
       const candidates = useEndpoint('/graph/candidates');
+      const settings = useEndpoint('/settings');
+      const autoGraph = settings.data?.overrides?.autoGraphCandidates ?? settings.data?.features?.autoGraphCandidates ?? false;
+      const aiEdgeReview = settings.data?.overrides?.aiEdgeReview ?? settings.data?.features?.aiEdgeReview ?? false;
       const [candidateNotice, setCandidateNotice] = useState('');
       const [candidateBusy, setCandidateBusy] = useState('');
       const top = Array.isArray(data?.top) ? data.top : [];
@@ -1840,10 +1942,11 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       const positions = new Map(layout.map((node) => [node.id, node]));
       const edges = Array.isArray(edgeData?.edges) ? edgeData.edges.filter((edge) => positions.has(edge.from) && positions.has(edge.to)).slice(0, 120) : [];
       const pendingEdges = Array.isArray(candidates.data) ? candidates.data : [];
-      const shortLabel = (id) => {
-        const value = String(id ?? '');
-        return value.length > 18 ? `${value.slice(0, 16)}…` : value;
+      const shortLabel = (value) => {
+        const text = String(value ?? '');
+        return text.length > 18 ? `${text.slice(0, 16)}…` : text;
       };
+      const labelOf = (id) => shortLabel(positions.get(id)?.name || id);
       const decideCandidate = async (id, action) => {
         setCandidateBusy(id);
         setCandidateNotice('');
@@ -1858,10 +1961,42 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
           setCandidateBusy('');
         }
       };
+      const toggleAutoGraph = async () => {
+        if (!window.confirm(t('permissionConfirm'))) return;
+        try {
+          await api('/permissions', { method: 'POST', body: JSON.stringify({ key: 'autoGraphCandidates', value: !autoGraph, confirm: true }) });
+          settings.reload();
+        } catch (issue) {
+          setCandidateNotice(String(issue.message ?? issue));
+        }
+      };
+      const toggleAiEdgeReview = async () => {
+        if (!window.confirm(t('permissionConfirm'))) return;
+        try {
+          await api('/permissions', { method: 'POST', body: JSON.stringify({ key: 'aiEdgeReview', value: !aiEdgeReview, confirm: true }) });
+          settings.reload();
+        } catch (issue) {
+          setCandidateNotice(String(issue.message ?? issue));
+        }
+      };
+      const labelEntities = async () => {
+        setCandidateBusy('entity-label');
+        setCandidateNotice('');
+        try {
+          const result = await api('/entities/label', { method: 'POST', body: JSON.stringify({ limit: 5 }) });
+          setCandidateNotice(`已审阅 ${result.scanned ?? 0} 个坏名，改名 ${result.count ?? 0} 个`);
+          reload();
+        } catch (issue) {
+          setCandidateNotice(String(issue.message ?? issue));
+        } finally {
+          setCandidateBusy('');
+        }
+      };
       return h('div', {}, [
         h('div', { key: 'hint', className: 'cortex-note' }, t('graphHint')),
         h('div', { key: 'line', className: 'cortex-line' }, [
           h('button', { key: 'r', type: 'button', className: 'cortex-btn', disabled: busy, onClick: reload }, t('refresh')),
+          h('button', { key: 'label', type: 'button', className: 'cortex-btn', disabled: candidateBusy === 'entity-label', onClick: labelEntities }, '自动命名实体'),
         ]),
         error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed'), onRetry: reload, retryLabel: t('retry') }) : null,
         busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
@@ -1903,14 +2038,14 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
                 });
               }),
               ...layout.map((node) => h('g', { key: node.id, className: 'cortex-graph-node' }, [
-                h('title', { key: 't' }, `${node.id} · ${t('graphRank')} ${formatNumber(node.score, 5)}`),
+                h('title', { key: 't' }, `${node.name || node.id} · ${t('graphRank')} ${formatNumber(node.score, 5)}`),
                 h('circle', { key: 'c', className: 'cortex-graph-dot', cx: node.x, cy: node.y, r: node.r }),
-                h('text', { key: 'l', className: 'cortex-graph-label', x: node.x, y: node.y + node.r + 13, textAnchor: 'middle' }, shortLabel(node.id)),
+                h('text', { key: 'l', className: 'cortex-graph-label', x: node.x, y: node.y + node.r + 13, textAnchor: 'middle' }, labelOf(node.id)),
               ])),
             ]),
             h('div', { key: 'note', className: 'cortex-meta' }, t('graphScaleNote')),
             h('div', { key: 'top', className: 'cortex-graph-top' }, top.map((node) => h('div', { key: node.id, className: 'cortex-graph-top-row' }, [
-              h('span', { key: 'i', title: node.id }, node.id),
+              h('span', { key: 'i', title: node.id }, node.name || node.id),
               h('span', { key: 's' }, formatNumber(node.score, 5)),
             ]))),
           ]) : null,
@@ -1921,6 +2056,11 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             h('span', { key: 'count', className: 'cortex-meta' }, pendingEdges.length),
           ]),
           h('div', { key: 'hint', className: 'cortex-meta' }, t('graphCandidatesHint')),
+          h('div', { key: 'ai-line', className: 'cortex-line' }, [
+            h('button', { key: 'ai', type: 'button', className: 'cortex-btn', onClick: toggleAutoGraph }, `AI 接管候选边：${autoGraph ? '开' : '关'}`),
+            h('button', { key: 'ai-review', type: 'button', className: 'cortex-btn', onClick: toggleAiEdgeReview }, `AI 全权审核：${aiEdgeReview ? '开' : '关'}`),
+            h('span', { key: 'ai-note', className: 'cortex-meta' }, '全权审核会逐条让 LLM 判断；可回滚'),
+          ]),
           candidates.busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
           pendingEdges.length ? h('div', { key: 'list', style: { marginTop: 6 } }, pendingEdges.map((edge) => h('div', {
             key: edge.id,
@@ -1928,7 +2068,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
             style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
           }, [
             h('span', { key: 'label', style: { flex: '1 1 240px', minWidth: 0 } },
-              `${shortLabel(edge.fromId)} → ${shortLabel(edge.toId)} · ${edge.rel} · ${t('graphCandidateConfidence')} ${formatNumber(edge.metadata?.confidence ?? edge.weight ?? 0, 2)}`),
+              `${shortLabel(edge.fromName || positions.get(edge.fromId)?.name || edge.fromId)} → ${shortLabel(edge.toName || positions.get(edge.toId)?.name || edge.toId)} · ${edge.rel} · ${t('graphCandidateConfidence')} ${formatNumber(edge.metadata?.confidence ?? edge.weight ?? 0, 2)}`),
             h('button', {
               key: 'approve',
               type: 'button',
@@ -2032,6 +2172,366 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       ]);
     }
 
+    function MemoryEditTab({ t }) {
+      const days = useEndpoint('/memory/days?limit=60');
+      const lock = useEndpoint('/memory/edit');
+      const [selected, setSelected] = useState('');
+      const [day, setDay] = useState(null);
+      const [error, setError] = useState('');
+      const [busy, setBusy] = useState(false);
+      const [editing, setEditing] = useState(null);
+      const [draft, setDraft] = useState({ title: '', content: '', tags: '' });
+      const [editingEmotion, setEditingEmotion] = useState(null);
+      const [emotionDraft, setEmotionDraft] = useState({ text: '', target: '' });
+      const [emotionOpen, setEmotionOpen] = useState(false);
+      const [workOpen, setWorkOpen] = useState(true);
+      const unlocked = lock.data?.enabled === true;
+      const dayList = Array.isArray(days.data) ? days.data : [];
+      const loadDay = useCallback(async (value) => {
+        if (!value) { setDay(null); return; }
+        setBusy(true); setError('');
+        try { setDay(await api(`/memory/day?date=${encodeURIComponent(value)}`)); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      }, []);
+      useEffect(() => {
+        if (!selected && dayList.length) setSelected(dayList[0].date);
+      }, [selected, dayList]);
+      useEffect(() => { loadDay(selected); }, [selected, loadDay]);
+      useEffect(() => {
+        if (!selected) return undefined;
+        const sync = () => { loadDay(selected); };
+        const timer = setInterval(sync, 10_000);
+        const onFocus = () => { sync(); days.reload(); };
+        window.addEventListener('focus', onFocus);
+        return () => { clearInterval(timer); window.removeEventListener('focus', onFocus); };
+      }, [selected, loadDay, days.reload]);
+      const moveDay = (offset) => {
+        const index = dayList.findIndex((item) => item.date === selected);
+        const next = dayList[index + offset];
+        if (next) setSelected(next.date);
+      };
+      const toggleLock = async () => {
+        if (!window.confirm(unlocked ? '关闭编辑权限，恢复只读？' : '打开编辑权限？开启后可以修改记忆正文；会写入审计。')) return;
+        try { await api('/memory/edit', { method: 'POST', body: JSON.stringify({ enabled: !unlocked }) }); lock.reload(); } catch (issue) { setError(String(issue.message ?? issue)); }
+      };
+      const startEdit = (trace) => {
+        if (!unlocked) return;
+        setEditing(trace.id);
+        setDraft({ title: trace.title ?? '', content: trace.content ?? '', tags: (trace.tags ?? []).join(', ') });
+      };
+      const saveEdit = async () => {
+        if (!editing || !unlocked) return;
+        setBusy(true); setError('');
+        try {
+          await api('/memory/trace', { method: 'POST', body: JSON.stringify({
+            id: editing,
+            title: draft.title,
+            content: draft.content,
+            tags: draft.tags.split(/[,，\s]+/).filter(Boolean),
+          }) });
+          setEditing(null);
+          await loadDay(selected);
+        } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      };
+      const startEmotionEdit = (event) => {
+        if (!unlocked) return;
+        setEditingEmotion(event.id);
+        setEmotionDraft({ text: event.text ?? '', target: event.target ?? '' });
+      };
+      const saveEmotionEdit = async () => {
+        if (!editingEmotion || !unlocked) return;
+        setBusy(true); setError('');
+        try {
+          await api('/memory/emotion', { method: 'POST', body: JSON.stringify({ id: editingEmotion, ...emotionDraft }) });
+          setEditingEmotion(null);
+          await loadDay(selected);
+        } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      };
+      const emotionEvents = day?.emotion ?? [];
+      const work = day?.work ?? { traces: [], facts: [], summaries: [], diary: [], dreams: [] };
+      const counts = day?.counts ?? {};
+      return h('div', { className: 'cortex-memory-edit' }, [
+        error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
+        h('div', { key: 'toolbar', className: 'cortex-memory-toolbar' }, [
+          h('div', { key: 'lock', className: 'cortex-line' }, [
+            h('span', { key: 'label', className: `cortex-badge${unlocked ? ' on' : ''}` }, `编辑权限：${unlocked ? '开' : '关（只读）'}`),
+            h('button', { key: 'toggle', type: 'button', className: 'cortex-btn', onClick: toggleLock }, unlocked ? '关闭编辑' : '开启编辑权限'),
+            h('span', { key: 'hint', className: 'cortex-meta' }, '关闭时只能查询；开启后可改正文，改动进审计'),
+          ]),
+          h('div', { key: 'nav', className: 'cortex-line' }, [
+            h('button', { key: 'prev', type: 'button', className: 'cortex-btn', onClick: () => moveDay(1), disabled: !dayList.length }, '上一天'),
+            h('input', { key: 'date', type: 'date', className: 'cortex-input', value: selected, onChange: (event) => setSelected(event.target.value), 'aria-label': '选择日期' }),
+            h('button', { key: 'next', type: 'button', className: 'cortex-btn', onClick: () => moveDay(-1), disabled: !dayList.length }, '下一天'),
+            h('button', { key: 'refresh', type: 'button', className: 'cortex-btn', onClick: () => { days.reload(); loadDay(selected); } }, t('refresh')),
+            h('span', { key: 'sync', className: 'cortex-meta' }, '自动同步 10 秒；编辑后立即刷新'),
+          ]),
+        ]),
+        h('div', { key: 'layout', className: 'cortex-memory-layout' }, [
+          h('aside', { key: 'days', className: 'cortex-card cortex-memory-days' }, [
+            h('h4', {}, '按天'),
+            dayList.length ? dayList.map((item) => h('button', {
+              key: item.date,
+              type: 'button',
+              className: `cortex-memory-day${item.date === selected ? ' on' : ''}`,
+              onClick: () => setSelected(item.date),
+            }, [
+              h('span', { key: 'd' }, item.date),
+              h('span', { key: 'c', className: 'cortex-meta' }, `情 ${item.emotion} · 工 ${item.work}`),
+            ])) : h('div', { className: 'cortex-empty' }, '还没有按天记录'),
+            dayList.length ? h('div', { key: 'earliest', className: 'cortex-note', style: { marginTop: 8 } }, `最早可查 ${dayList[dayList.length - 1].date}；Cortex 初始化前没有原始痕迹。`) : null,
+          ]),
+          h('div', { key: 'main', className: 'cortex-memory-main' }, [
+            busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
+            h('section', { key: 'emotion', className: 'cortex-card cortex-memory-emotion' }, [
+              h('div', { key: 'head', className: 'cortex-card-head' }, [
+                h('h4', {}, `情感 · ${selected || '—'}`),
+                h('div', { key: 'actions', className: 'cortex-line' }, [
+                  h('span', { key: 'count', className: 'cortex-meta' }, counts.emotion ?? 0),
+                  h('button', { key: 'toggle', type: 'button', className: 'cortex-btn', onClick: () => setEmotionOpen(!emotionOpen) }, emotionOpen ? '收起情感' : '展开情感'),
+                ]),
+              ]),
+              !emotionOpen ? h('div', { key: 'collapsed', className: 'cortex-note' }, `情感已收起（${counts.emotion ?? 0} 条）；展开后再看，下面是工作记忆。`) : emotionEvents.length ? emotionEvents.map((event) => h('div', { key: event.id, className: 'cortex-memory-event' }, [
+                h('div', { key: 'meta', className: 'cortex-line' }, [
+                  h('span', { key: 'time', className: 'cortex-meta' }, formatTime(event.at)),
+                  h('span', { key: 'target', className: 'cortex-badge' }, event.target ?? '—'),
+                  ...(event.emotions ?? []).map((emotion) => h('span', { key: `${event.id}-${emotion.name}`, className: 'cortex-badge on' }, `${emotion.name}${emotion.score ? ` ${emotion.score}` : ''}`)),
+                  unlocked ? h('button', { key: 'edit', type: 'button', className: 'cortex-btn', onClick: () => startEmotionEdit(event) }, '编辑') : null,
+                ]),
+                editingEmotion === event.id ? h('div', { key: 'form', className: 'cortex-memory-edit-form' }, [
+                  h('input', { key: 'target', className: 'cortex-input', value: emotionDraft.target, onChange: (e) => setEmotionDraft({ ...emotionDraft, target: e.target.value }), placeholder: '对象' }),
+                  h('textarea', { key: 'text', className: 'cortex-input', rows: 4, value: emotionDraft.text, onChange: (e) => setEmotionDraft({ ...emotionDraft, text: e.target.value }), placeholder: '感受正文' }),
+                  h('div', { key: 'buttons', className: 'cortex-line' }, [
+                    h('button', { key: 'save', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: saveEmotionEdit }, '保存修改'),
+                    h('button', { key: 'cancel', type: 'button', className: 'cortex-btn', onClick: () => setEditingEmotion(null) }, '取消'),
+                  ]),
+                ]) : h('div', { key: 'text', className: 'cortex-memory-text' }, event.text),
+              ])) : h('div', { key: 'empty', className: 'cortex-empty' }, '这天没有情感记录'),
+            ]),
+            h('section', { key: 'work', className: 'cortex-card cortex-memory-work' }, [
+              h('div', { key: 'head', className: 'cortex-card-head' }, [
+                h('h4', {}, `工作记忆 · ${selected || '—'}`),
+                h('div', { key: 'actions', className: 'cortex-line' }, [
+                  h('span', { key: 'count', className: 'cortex-meta' }, `${counts.traces ?? 0} 痕迹`),
+                  h('button', { key: 'toggle', type: 'button', className: 'cortex-btn', onClick: () => setWorkOpen(!workOpen) }, workOpen ? '收起工作' : '展开工作'),
+                ]),
+              ]),
+              !workOpen ? h('div', { key: 'collapsed', className: 'cortex-note' }, `工作记忆已收起（${counts.traces ?? 0} 条痕迹）；点“展开工作”查看。`) : h('div', { key: 'body' }, [
+                work.traces.length ? work.traces.map((trace) => h('div', { key: trace.id, className: 'cortex-memory-trace' }, [
+                  h('div', { key: 'meta', className: 'cortex-line' }, [
+                    h('span', { key: 'time', className: 'cortex-meta' }, formatTime(trace.recordedAt)),
+                    h('span', { key: 'kind', className: 'cortex-badge' }, trace.kind),
+                    h('span', { key: 'imp', className: 'cortex-meta' }, `重要度 ${formatNumber(trace.importance, 2)}`),
+                    unlocked ? h('button', { key: 'edit', type: 'button', className: 'cortex-btn', onClick: () => startEdit(trace) }, '编辑') : h('span', { key: 'ro', className: 'cortex-meta' }, '只读'),
+                  ]),
+                  h('div', { key: 'title', className: 'cortex-memory-title' }, trace.title || '(无标题)'),
+                  editing === trace.id ? h('div', { key: 'form', className: 'cortex-memory-edit-form' }, [
+                    h('input', { key: 'title', className: 'cortex-input', value: draft.title, onChange: (event) => setDraft({ ...draft, title: event.target.value }), placeholder: '标题' }),
+                    h('textarea', { key: 'content', className: 'cortex-input', rows: 8, value: draft.content, onChange: (event) => setDraft({ ...draft, content: event.target.value }), placeholder: '正文' }),
+                    h('input', { key: 'tags', className: 'cortex-input', value: draft.tags, onChange: (event) => setDraft({ ...draft, tags: event.target.value }), placeholder: '标签，用逗号分隔' }),
+                    h('div', { key: 'buttons', className: 'cortex-line' }, [
+                      h('button', { key: 'save', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: saveEdit }, '保存修改'),
+                      h('button', { key: 'cancel', type: 'button', className: 'cortex-btn', onClick: () => setEditing(null) }, '取消'),
+                    ]),
+                  ]) : h('div', { key: 'text', className: 'cortex-memory-text' }, trace.content),
+                  (trace.tags ?? []).length ? h('div', { key: 'tags', className: 'cortex-chips' }, trace.tags.map((tag) => h('span', { key: tag, className: 'cortex-badge' }, tag))) : null,
+                ])) : h('div', { key: 'empty', className: 'cortex-empty' }, '这天没有工作记忆'),
+                h('details', { key: 'facts', className: 'cortex-memory-extra' }, [
+                  h('summary', {}, `事实 ${counts.facts ?? 0} · 摘要 ${counts.summaries ?? 0} · 日记 ${counts.diary ?? 0} · 梦 ${counts.dreams ?? 0}`),
+                  ...(work.facts ?? []).map((fact) => h('div', { key: fact.id, className: 'cortex-row' }, `${fact.subjectId ?? '—'} ${fact.predicate} ${fact.objectLiteral ?? fact.objectId ?? '—'}`)),
+                  ...(work.summaries ?? []).map((summary) => h('div', { key: summary.id, className: 'cortex-snippet' }, summary.content)),
+                  ...(work.diary ?? []).map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)),
+                  ...(work.dreams ?? []).map((item) => h('div', { key: item.id, className: 'cortex-snippet' }, item.text)),
+                ]),
+              ]),
+            ]),
+          ]),
+        ]),
+      ]);
+    }
+
+    function SummonBookTab({ t }) {
+      const lock = useEndpoint('/memory/edit');
+      const [book, setBook] = useState(null);
+      const [selected, setSelected] = useState('');
+      const [error, setError] = useState('');
+      const [busy, setBusy] = useState(false);
+      const [leftOpen, setLeftOpen] = useState(true);
+      const [rightOpen, setRightOpen] = useState(true);
+      const [volumesOpen, setVolumesOpen] = useState(false);
+      const [openCard, setOpenCard] = useState(null);
+      const [editing, setEditing] = useState(null);
+      const [draft, setDraft] = useState({ title: '', content: '', triggers: '' });
+      const [feedbackNotice, setFeedbackNotice] = useState('');
+      const unlocked = lock.data?.enabled === true;
+      const load = useCallback(async (date) => {
+        setBusy(true); setError('');
+        try { setBook(await api(`/summon/book${date ? `?date=${encodeURIComponent(date)}` : ''}`)); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      }, []);
+      useEffect(() => { load(selected); }, [load, selected]);
+      useEffect(() => {
+        const timer = setInterval(() => load(selected), 10_000);
+        const onFocus = () => load(selected);
+        window.addEventListener('focus', onFocus);
+        return () => { clearInterval(timer); window.removeEventListener('focus', onFocus); };
+      }, [load, selected]);
+      const days = book?.days ?? [];
+      const chooseDay = (date) => setSelected(date);
+      const toggleLock = async () => {
+        if (!window.confirm(unlocked ? '关闭召唤册编辑权限？' : '开启召唤册编辑权限？改动会写审计。')) return;
+        try { await api('/memory/edit', { method: 'POST', body: JSON.stringify({ enabled: !unlocked }) }); lock.reload(); } catch (issue) { setError(String(issue.message ?? issue)); }
+      };
+      const rebuild = async () => {
+        setBusy(true); setError('');
+        try { await api('/summon/rebuild', { method: 'POST', body: '{}' }); await load(selected); } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      };
+      const startEdit = (card) => {
+        if (!unlocked) return;
+        setEditing(card.id);
+        setDraft({ title: card.title, content: card.content, triggers: (card.triggers ?? []).join(', ') });
+        setOpenCard(card.id);
+      };
+      const save = async () => {
+        if (!editing || !unlocked) return;
+        setBusy(true); setError('');
+        try {
+          await api('/summon/card', { method: 'POST', body: JSON.stringify({ id: editing, title: draft.title, content: draft.content, triggers: draft.triggers.split(/[,，\s]+/).filter(Boolean) }) });
+          setEditing(null);
+          await load(selected);
+        } catch (issue) { setError(String(issue.message ?? issue)); } finally { setBusy(false); }
+      };
+      const sendFeedback = async (card, signal) => {
+        try {
+          await api('/summon/feedback', { method: 'POST', body: JSON.stringify({ id: card.id, signal }) });
+          setFeedbackNotice(`${card.title}：${signal === 'helpful' ? '已标记有用' : '已标记忽略'}`);
+        } catch (issue) { setError(String(issue.message ?? issue)); }
+      };
+      const cardList = (cards, side) => cards.length ? cards.map((card) => h('div', { key: card.id, className: 'cortex-summon-card' }, [
+        h('button', { key: 'title', type: 'button', className: 'cortex-summon-title', onClick: () => setOpenCard(openCard === card.id ? null : card.id) }, [
+          h('span', { key: 'n' }, card.title),
+          h('span', { key: 't', className: 'cortex-meta' }, `${card.day} · ${card.category ?? side}`),
+        ]),
+        openCard === card.id ? h('div', { key: 'body', className: 'cortex-summon-body' }, [
+          editing === card.id ? h('div', { key: 'form', className: 'cortex-memory-edit-form' }, [
+            h('input', { key: 'title', className: 'cortex-input', value: draft.title, onChange: (event) => setDraft({ ...draft, title: event.target.value }), placeholder: '卡片名' }),
+            h('textarea', { key: 'content', className: 'cortex-input', rows: 6, value: draft.content, onChange: (event) => setDraft({ ...draft, content: event.target.value }), placeholder: '卡片内容' }),
+            h('input', { key: 'triggers', className: 'cortex-input', value: draft.triggers, onChange: (event) => setDraft({ ...draft, triggers: event.target.value }), placeholder: '触发词，逗号分隔' }),
+            h('div', { key: 'buttons', className: 'cortex-line' }, [
+              h('button', { key: 'save', type: 'button', className: 'cortex-btn primary', disabled: busy, onClick: save }, '保存'),
+              h('button', { key: 'cancel', type: 'button', className: 'cortex-btn', onClick: () => setEditing(null) }, '取消'),
+            ]),
+          ]) : h('div', { key: 'content', className: 'cortex-memory-text' }, card.content),
+          h('div', { key: 'triggers', className: 'cortex-chips' }, (card.triggers ?? []).slice(0, 16).map((trigger) => h('span', { key: trigger, className: 'cortex-badge' }, trigger))),
+          h('div', { key: 'feedback', className: 'cortex-line' }, [
+            h('button', { key: 'helpful', type: 'button', className: 'cortex-btn', onClick: () => sendFeedback(card, 'helpful') }, '这张卡有用'),
+            h('button', { key: 'ignored', type: 'button', className: 'cortex-btn', onClick: () => sendFeedback(card, 'ignored') }, '忽略'),
+          ]),
+          unlocked && editing !== card.id ? h('div', { key: 'edit', className: 'cortex-line' }, [h('button', { type: 'button', className: 'cortex-btn', onClick: () => startEdit(card) }, '编辑这张卡')]) : null,
+        ]) : null,
+      ])) : h('div', { key: 'empty', className: 'cortex-empty' }, '这一天还没有召唤卡');
+      return h('div', { className: 'cortex-summon-book' }, [
+        error ? h(ErrorBlock, { key: 'err', message: error, prefix: t('requestFailed') }) : null,
+        h('div', { key: 'toolbar', className: 'cortex-memory-toolbar' }, [
+          h('div', { key: 'lock', className: 'cortex-line' }, [
+            h('span', { key: 'state', className: `cortex-badge${unlocked ? ' on' : ''}` }, `编辑权限：${unlocked ? '开' : '关（只读）'}`),
+            h('button', { key: 'toggle', type: 'button', className: 'cortex-btn', onClick: toggleLock }, unlocked ? '关闭编辑' : '开启编辑权限'),
+            h('span', { key: 'sync', className: 'cortex-meta' }, '召唤册 10 秒同步；召唤卡由记忆自动生成'),
+          ]),
+          h('div', { key: 'nav', className: 'cortex-line' }, [
+            h('input', { key: 'date', type: 'date', className: 'cortex-input', value: selected, onChange: (event) => setSelected(event.target.value), 'aria-label': '选择召唤日期' }),
+            h('button', { key: 'rebuild', type: 'button', className: 'cortex-btn', disabled: busy, onClick: rebuild }, '回填旧记忆为召唤卡'),
+            h('button', { key: 'refresh', type: 'button', className: 'cortex-btn', onClick: () => load(selected) }, t('refresh')),
+          ]),
+        ]),
+        feedbackNotice ? h('div', { key: 'feedbackNotice', className: 'cortex-note' }, feedbackNotice) : null,
+        h('div', { key: 'layout', className: 'cortex-memory-layout' }, [
+          h('aside', { key: 'days', className: 'cortex-card cortex-memory-days' }, [
+            h('h4', {}, '召唤日'),
+            days.length ? days.map((day) => h('button', { key: day, type: 'button', className: `cortex-memory-day${day === (selected || book?.date) ? ' on' : ''}`, onClick: () => chooseDay(day) }, day)) : h('div', { className: 'cortex-empty' }, '还没有召唤卡'),
+            h('div', { key: 'note', className: 'cortex-note', style: { marginTop: 8 } }, '召唤卡从情感/工作记忆回填；召唤策按类别合册。'),
+          ]),
+          h('div', { key: 'main', className: 'cortex-memory-main' }, [
+            busy ? h(LoadingBlock, { key: 'loading', label: t('loading') }) : null,
+            h('section', { key: 'left', className: 'cortex-card cortex-summon-left' }, [
+              h('div', { key: 'head', className: 'cortex-card-head' }, [
+                h('h4', {}, `左脑 · 情感卡 · ${book?.date || selected || '—'}`),
+                h('div', { key: 'a', className: 'cortex-line' }, [h('span', { className: 'cortex-meta' }, book?.left?.length ?? 0), h('button', { type: 'button', className: 'cortex-btn', onClick: () => setLeftOpen(!leftOpen) }, leftOpen ? '收起' : '展开')]),
+              ]),
+              leftOpen ? cardList(book?.left ?? [], '情感') : h('div', { className: 'cortex-note' }, '左脑召唤卡已收起'),
+            ]),
+            h('section', { key: 'right', className: 'cortex-card cortex-summon-right' }, [
+              h('div', { key: 'head', className: 'cortex-card-head' }, [
+                h('h4', {}, `右脑 · 工作卡 · ${book?.date || selected || '—'}`),
+                h('div', { key: 'a', className: 'cortex-line' }, [h('span', { className: 'cortex-meta' }, book?.right?.length ?? 0), h('button', { type: 'button', className: 'cortex-btn', onClick: () => setRightOpen(!rightOpen) }, rightOpen ? '收起' : '展开')]),
+              ]),
+              rightOpen ? cardList(book?.right ?? [], '工作') : h('div', { className: 'cortex-note' }, '右脑召唤卡已收起'),
+            ]),
+            h('section', { key: 'volumes', className: 'cortex-card cortex-summon-volumes' }, [
+              h('div', { key: 'head', className: 'cortex-card-head' }, [
+                h('h4', {}, `召唤策 · ${book?.volumes?.length ?? 0}`),
+                h('button', { key: 'toggle', type: 'button', className: 'cortex-btn', onClick: () => setVolumesOpen(!volumesOpen) }, volumesOpen ? '收起召唤策' : '展开召唤策'),
+              ]),
+              volumesOpen ? (book?.volumes ?? []).map((volume) => h('details', { key: volume.id, className: 'cortex-summon-volume' }, [
+                h('summary', {}, `${volume.side === 'left' ? '左脑册' : '右脑册'} · ${volume.title}`),
+                h('div', { className: 'cortex-memory-text' }, volume.content),
+              ])) : h('div', { className: 'cortex-note' }, '召唤策收起中；展开后按左右脑与类别看合册。'),
+            ]),
+          ]),
+        ]),
+      ]);
+    }
+
+    function DiagnosticsCard({ t }) {
+      const diagnostics = useEndpoint('/diagnostics');
+      const [busy, setBusy] = useState('');
+      const [notice, setNotice] = useState('');
+      const data = diagnostics.data;
+      const act = async (kind, id, decision = 'dismiss') => {
+        if (!window.confirm('这会写审计记录；确认处理这一项？')) return;
+        setBusy(id); setNotice('');
+        try {
+          if (kind === 'fact') {
+            await api('/facts/resolve', { method: 'POST', body: JSON.stringify({ id, decision, reason: '主人从诊断框处理' }) });
+            setNotice(decision === 'confirm' ? '已确认有效' : '已降级为无效，内容保留');
+          } else if (kind === 'suggest') {
+            const result = await api('/skills/suggest', { method: 'POST', body: '{}' });
+            setNotice(`已提炼 ${result.count} 个技能候选；候选不会自动启用`);
+          } else if (kind === 'promote') {
+            await api('/skills/promote', { method: 'POST', body: JSON.stringify({ id }) });
+            setNotice('技能已启用');
+          }
+          diagnostics.reload();
+        } catch (issue) { setNotice(String(issue.message ?? issue)); } finally { setBusy(''); }
+      };
+      return h('section', { key: 'diagnostics', className: 'cortex-card cortex-diagnostics', style: { marginTop: 10 } }, [
+        h('div', { key: 'head', className: 'cortex-card-head' }, [
+          h('h4', {}, '诊断'),
+          h('span', { key: 'score', className: `cortex-badge${data?.score === 100 ? ' on' : ''}` }, `健康 ${data?.score ?? '—'}/100`),
+        ]),
+        notice ? h('div', { key: 'notice', className: 'cortex-note' }, notice) : null,
+        !data ? h('div', { key: 'loading', className: 'cortex-note' }, t('loading')) : h('div', {}, [
+          (data.issues ?? []).length ? h('div', { key: 'issues' }, [
+            h('div', { key: 'label', className: 'cortex-meta' }, '检测到的问题'),
+            ...data.issues.map((issue) => h('div', { key: issue.code ?? issue.message, className: 'cortex-row' }, `${issue.code ?? 'ISSUE'} · ${issue.message ?? ''}`)),
+          ]) : h('div', { key: 'ok', className: 'cortex-note' }, '没有发现问题。'),
+          h('div', { key: 'disputes', style: { marginTop: 10 } }, [
+            h('div', { key: 'label', className: 'cortex-meta' }, `争议事实 ${data.disputes?.length ?? 0}`),
+            ...(data.disputes ?? []).map((fact) => h('div', { key: fact.id, className: 'cortex-row cortex-diagnostic-row' }, [
+              h('span', { key: 'text', style: { flex: '1 1 260px' } }, `${fact.subject} ${fact.predicate} ${fact.objectLiteral ?? fact.objectId ?? '—'} · 置信 ${formatNumber(fact.confidence, 2)}`),
+              h('button', { key: 'confirm', type: 'button', className: 'cortex-btn', disabled: busy === fact.id, onClick: () => act('fact', fact.id, 'confirm') }, '确认有效'),
+              h('button', { key: 'dismiss', type: 'button', className: 'cortex-btn', disabled: busy === fact.id, onClick: () => act('fact', fact.id, 'dismiss') }, '降级无效'),
+            ])),
+          ]),
+          h('div', { key: 'skills', style: { marginTop: 10 } }, [
+            h('div', { key: 'label', className: 'cortex-meta' }, `技能：active ${data.skills?.active ?? 0} · 候选 ${data.skills?.candidates ?? 0}`),
+            h('button', { key: 'suggest', type: 'button', className: 'cortex-btn', disabled: busy === 'suggest', onClick: () => act('suggest') }, '从痕迹提炼技能候选'),
+            ...(data.skills?.items ?? []).filter((skill) => skill.state !== 'active').slice(0, 6).map((skill) => h('div', { key: skill.id, className: 'cortex-row cortex-diagnostic-row' }, [
+              h('span', { key: 'name', style: { flex: '1 1 220px' } }, `${skill.name} · ${skill.state}`),
+              h('button', { key: 'promote', type: 'button', className: 'cortex-btn', disabled: busy === skill.id, onClick: () => act('promote', skill.id) }, '启用'),
+            ])),
+          ]),
+        ]),
+      ]);
+    }
+
     function SettingsTab({ t }) {
       const settings = useEndpoint('/settings');
       const metrics = useEndpoint('/metrics');
@@ -2084,7 +2584,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         settings.error ? h(ErrorBlock, { key: 'serr', message: settings.error, prefix: t('requestFailed'), onRetry: settings.reload, retryLabel: t('retry') }) : null,
         metrics.error ? h(ErrorBlock, { key: 'merr', message: metrics.error, prefix: t('requestFailed'), onRetry: metrics.reload, retryLabel: t('retry') }) : null,
         settings.busy && !setting ? h(LoadingBlock, { key: 'sload', label: t('loading') }) : null,
-        setting ? h('div', { key: 'settings', className: 'cortex-grid' }, [
+        setting ? h('div', { key: 'settings', className: 'cortex-settings' }, [
           h('section', { key: 'runtime', className: 'cortex-card' }, [
             h('h4', {}, t('runtime')),
             h(KeyValueList, { rows: [
@@ -2096,25 +2596,37 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
               ['promptBudget', t('promptBudget'), setting.promptBudget],
             ].map(([key, label, value]) => [key, label, displayValue(value)]) }),
           ]),
-          h('section', { key: 'features', className: 'cortex-card' }, [
+          h('section', { key: 'features', className: 'cortex-card cortex-card--wide' }, [
             h('h4', {}, t('features')),
             Object.keys(setting.features ?? {}).length
-              ? h('div', { className: 'cortex-chips' }, Object.entries(setting.features).map(([name, value]) => {
+              ? h('div', { className: 'cortex-feature-grid' }, Object.entries(setting.features).map(([name, value]) => {
                 const current = setting.overrides?.[name] ?? value;
                 const editable = name !== 'api';
-                return h('button', {
-                  key: name,
-                  type: 'button',
-                  className: `cortex-badge${current ? ' on' : ''}`,
-                  'aria-pressed': Boolean(current),
-                  disabled: !editable,
-                  title: editable ? `${t('permissionClick')} · ${t('permissionRestart')}` : t('permissionApiLocked'),
-                  onClick: editable ? () => changePermission(name, !current) : undefined,
-                }, `${name} ${current ? 'on' : 'off'}`);
+                const meta = FEATURE_META[name] ?? { zh: name, en: name, descZh: '', descEn: '' };
+                const zh = t('permissionOn') === '开';
+                const label = zh ? meta.zh : meta.en;
+                const desc = zh ? meta.descZh : meta.descEn;
+                return h('div', { key: name, className: 'cortex-feature' }, [
+                  h('div', { key: 'head', className: 'cortex-feature-head' }, [
+                    h('span', { key: 'name', className: 'cortex-feature-name' }, label),
+                    h('span', { key: 'state', className: `cortex-badge${current ? ' on' : ''}` }, current ? t('permissionOn') : t('permissionOff')),
+                  ]),
+                  h('div', { key: 'desc', className: 'cortex-feature-desc' }, desc),
+                  h('button', {
+                    key: 'toggle',
+                    type: 'button',
+                    className: 'cortex-btn',
+                    disabled: !editable,
+                    'aria-pressed': Boolean(current),
+                    title: editable ? `${t('permissionClick')} · ${t('permissionRestart')}` : t('permissionReadOnly'),
+                    onClick: editable ? () => changePermission(name, !current) : undefined,
+                  }, editable ? (current ? '关闭' : '开启') : '锁定'),
+                ]);
               }))
               : h(EmptyBlock, {}, t('empty')),
+            setting.features?.autoEvolve ? h('div', { key: 'auto-evolve-note', className: 'cortex-note' }, t('autoEvolveNote')) : null,
           ]),
-          h('section', { key: 'permissions', className: 'cortex-card' }, [
+          h('section', { key: 'permissions', className: 'cortex-card cortex-card--wide' }, [
             h('h4', {}, t('permissions')),
             h('div', { className: 'cortex-chips' }, [
               h(Badge, { key: 'local', tone: setting.permissions?.localApi ? 'on' : '' }, `${t('permissionLocal')} ${setting.permissions?.localApi ? t('permissionOn') : t('permissionOff')}`),
@@ -2123,23 +2635,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
               h(Badge, { key: 'rerank', tone: setting.permissions?.network?.rerank ? 'on' : '' }, `rerank ${setting.permissions?.network?.rerank ? t('permissionOn') : t('permissionOff')}`),
               h(Badge, { key: 'vector', tone: setting.permissions?.vector ? 'on' : '' }, `vector ${setting.permissions?.vector ? t('permissionOn') : t('permissionOff')}`),
             ]),
-            h('div', { className: 'cortex-grid', style: { marginTop: 10 } }, [
-              ['llm', 'LLM'], ['rerank', 'rerank'], ['capture', 'capture'], ['recall', 'recall'],
-              ['vector', t('vector')], ['autoFacts', 'autoFacts'],
-            ].map(([key, label]) => {
-              const current = setting.overrides?.[key] ?? setting.features?.[key] ?? (key === 'rerank' ? setting.permissions?.network?.rerank : false);
-              return h('div', { key, className: 'cortex-row', style: { justifyContent: 'space-between', gap: 8 } }, [
-                h('span', { key: 'label' }, label),
-                h('button', {
-                  key: 'toggle',
-                  type: 'button',
-                  className: 'cortex-btn',
-                  'aria-pressed': Boolean(current),
-                  title: `${t('permissionClick')} · ${t('permissionRestart')}`,
-                  onClick: () => changePermission(key, !current),
-                }, `${current ? t('permissionOn') : t('permissionOff')} · ${t('permissionClick')}`),
-              ]);
-            })),
+            h('p', { key: 'ro', className: 'cortex-note' }, t('permissionReadOnly')),
             h('div', { className: 'cortex-line', style: { marginTop: 8 } }, [
               h('button', { key: 'undo', type: 'button', className: 'cortex-btn', onClick: rollbackPermission }, t('permissionRollback')),
               h('span', { key: 'note', className: 'cortex-meta' }, t('permissionRestart')),
@@ -2179,6 +2675,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
           ]),
           h(ModelSettings, { key: 'models', t }),
         ]) : null,
+        h(DiagnosticsCard, { key: 'diagnostics', t }),
         h('div', { key: 'metrics', className: 'cortex-card', style: { marginTop: 10 } }, [
           h('div', { key: 'head', className: 'cortex-card-head' }, [
             h('h4', {}, t('metricsTitle')),
@@ -2233,6 +2730,12 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
       }, []);
 
       useEffect(() => { loadSelf(); }, [loadSelf]);
+      useEffect(() => {
+        const timer = setInterval(async () => {
+          try { setSelf(await api('/self')); } catch { /* keep last snapshot */ }
+        }, 15_000);
+        return () => clearInterval(timer);
+      }, []);
 
       const openTrace = useCallback((value) => {
         const id = typeof value === 'string' ? value : value?.id;
@@ -2260,6 +2763,7 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         ['playbook', t('tabPlaybook')],
         ['audit', t('tabAudit')],
         ['retention', t('tabRetention')],
+        ['memory', t('tabMemoryEdit')],
         ['health', t('tabHealth')],
         ['evolution', t('tabEvolution')],
         ['settings', t('tabSettings')],
@@ -2302,6 +2806,8 @@ button.cortex-badge:disabled{cursor:not-allowed;opacity:.55}
         content = h(AuditTab, { t });
       } else if (tab === 'retention') {
         content = h(RetentionTab, { t, onSelect: openTrace });
+      } else if (tab === 'memory') {
+        content = h(SummonBookTab, { t });
       } else if (tab === 'playbook') {
         content = h(PlaybookTab, { t });
       } else if (tab === 'health') {

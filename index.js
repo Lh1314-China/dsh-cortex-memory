@@ -61,6 +61,14 @@ export const Config = Schema ? Schema.object({
     llm: Schema.boolean().default(false),
     api: Schema.boolean().default(true),
     autoFacts: Schema.boolean().default(false),
+    autoDiary: Schema.boolean().default(false),
+    autoDream: Schema.boolean().default(false),
+    autoFeeling: Schema.boolean().default(false),
+    autoEvolve: Schema.boolean().default(false),
+    aiOnlyLife: Schema.boolean().default(false),
+    autoGraphCandidates: Schema.boolean().default(false),
+    aiEdgeReview: Schema.boolean().default(false),
+    webSearch: Schema.boolean().default(false),
     llmFacts: Schema.boolean().default(false),
     tieredRecall: Schema.boolean().default(true),
     consolidateOnSleep: Schema.boolean().default(true),
@@ -96,7 +104,14 @@ export async function apply(ctx, config = {}) {
     const effective = effectiveFeatures(config);
     config = { ...config, features: effective.features };
     const llm = config.features?.llm === true ? createLlmAdapter({ ctx, logger: ctx.logger }) : null;
-    cortex = createCortex({ config, logger: ctx.logger, llm });
+    let webSearch = null;
+    try {
+      const web = ctx.get?.('web') ?? null;
+      if (web && typeof web.search === 'function') webSearch = (request) => web.search(request);
+    } catch {
+      webSearch = null;
+    }
+    cortex = createCortex({ config, logger: ctx.logger, llm, webSearch });
   } catch (error) {
     try {
       ctx.logger?.error?.(`cortex: init failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -112,7 +127,7 @@ export async function apply(ctx, config = {}) {
       ? createHostRuntime({ cortex, config, logger: ctx.logger })
       : null;
     const scheduler = config.scheduler !== false
-      ? createScheduler({ cortex, intervalMs: config.schedulerIntervalMs ?? 60000, logger: ctx.logger, consolidateOnTick: config.features?.llm === true && config.features?.consolidateOnTick === true })
+      ? createScheduler({ cortex, intervalMs: config.schedulerIntervalMs ?? 60000, logger: ctx.logger, consolidateOnTick: config.features?.llm === true && config.features?.consolidateOnTick === true, isIdle: () => runtime?.isIdle?.() ?? true })
       : null;
     try {
       for (const tool of createToolDefinitions(cortex)) disposers.push(ctx.tools.register(tool));

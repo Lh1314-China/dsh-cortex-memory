@@ -104,6 +104,20 @@ export function createEvolutionEngine({
     return { proposals, count: proposals.length, at: nowIso() };
   }
 
+  function autoEvolve({ scopeId = 'global' } = {}) {
+    const optimized = selfOptimize({ scopeId });
+    const activated = [];
+    const errors = [];
+    for (const proposal of optimized.proposals) {
+      try {
+        activated.push(approve(proposal.id, { approvedBy: 'self:autoEvolve' }));
+      } catch (error) {
+        errors.push({ id: proposal.id, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    return { ...optimized, activated, errors };
+  }
+
   function proposeIdentity({ scopeId = 'global', content, rationale = '' } = {}) {
     if (!identityStore) throw new Error('identity store is not available');
     const proposal = identityStore.propose(scopeId, content, { rationale, proposedBy: 'self' });
@@ -159,5 +173,5 @@ export function createEvolutionEngine({
     return { ...updated, comparison };
   }
 
-  return { propose, approve, rollback, selfOptimize, proposeIdentity, approveIdentity, status, evaluate };
+  return { propose, approve, rollback, selfOptimize, autoEvolve, proposeIdentity, approveIdentity, status, evaluate };
 }

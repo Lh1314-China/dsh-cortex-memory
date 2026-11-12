@@ -482,3 +482,48 @@ CREATE INDEX IF NOT EXISTS dream_runs_scope_at ON dream_runs(scope_id, at);
 
 
 
+
+-- 召唤卡：Cortex 原生的 L2 卡层，不依赖 shiori。
+-- side: left = 情感卡，right = 工作卡。
+CREATE TABLE IF NOT EXISTS summon_cards (
+  id TEXT PRIMARY KEY,
+  scope_id TEXT NOT NULL,
+  side TEXT NOT NULL CHECK(side IN ('left', 'right')),
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  triggers_json TEXT NOT NULL DEFAULT '[]',
+  category TEXT,
+  source_kind TEXT,
+  source_id TEXT,
+  day TEXT NOT NULL,
+  importance REAL NOT NULL DEFAULT 0.5,
+  manual_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(scope_id, source_kind, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS summon_cards_scope_day ON summon_cards(scope_id, day, side);
+CREATE INDEX IF NOT EXISTS summon_cards_scope_status ON summon_cards(scope_id, status);
+
+-- 召唤策：按左右脑与事件类别合并的册；index 只放一行索引，正文按需读。
+CREATE TABLE IF NOT EXISTS summon_volumes (
+  id TEXT PRIMARY KEY,
+  scope_id TEXT NOT NULL,
+  side TEXT NOT NULL CHECK(side IN ('left', 'right')),
+  title TEXT NOT NULL,
+  category TEXT,
+  index_text TEXT NOT NULL,
+  content TEXT NOT NULL,
+  card_ids_json TEXT NOT NULL DEFAULT '[]',
+  period_start TEXT,
+  period_end TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(scope_id, side, category, period_start, period_end)
+);
+
+CREATE INDEX IF NOT EXISTS summon_volumes_scope_side ON summon_volumes(scope_id, side, status);
+CREATE INDEX IF NOT EXISTS summon_volumes_period ON summon_volumes(period_start, period_end);

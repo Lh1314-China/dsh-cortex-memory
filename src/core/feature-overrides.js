@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const OVERRIDE_KEYS = Object.freeze(['llm', 'rerank', 'capture', 'recall', 'reflect', 'growth', 'graph', 'vector', 'autoFacts', 'llmFacts', 'consolidateOnSleep', 'consolidateOnTick', 'tieredRecall']);
+export const OVERRIDE_KEYS = Object.freeze(['llm', 'rerank', 'capture', 'recall', 'reflect', 'growth', 'graph', 'vector', 'vectorAnn', 'vectorAnnExternal', 'attachmentReader', 'autoFacts', 'autoDiary', 'autoDream', 'autoFeeling', 'autoEvolve', 'aiOnlyLife', 'autoGraphCandidates', 'aiEdgeReview', 'webSearch', 'llmFacts', 'consolidateOnSleep', 'consolidateOnTick', 'tieredRecall']);
 const FILE = 'feature-overrides.json';
 const MAX_HISTORY = 20;
 
@@ -32,7 +32,7 @@ export function loadFeatureOverrides(config = {}) {
 export function effectiveFeatures(config = {}) {
   const overrides = loadFeatureOverrides(config);
   const features = { ...(config.features ?? {}) };
-  for (const key of ['llm', 'capture', 'recall', 'reflect', 'growth', 'graph', 'vector', 'autoFacts', 'llmFacts', 'consolidateOnSleep', 'consolidateOnTick', 'tieredRecall']) {
+  for (const key of ['llm', 'capture', 'recall', 'reflect', 'growth', 'graph', 'vector', 'vectorAnn', 'vectorAnnExternal', 'attachmentReader', 'autoFacts', 'autoDiary', 'autoDream', 'autoFeeling', 'autoEvolve', 'aiOnlyLife', 'autoGraphCandidates', 'aiEdgeReview', 'webSearch', 'llmFacts', 'consolidateOnSleep', 'consolidateOnTick', 'tieredRecall']) {
     if (typeof overrides[key] === 'boolean') features[key] = overrides[key];
   }
   if (typeof overrides.rerank === 'boolean') features.rerank = overrides.rerank;

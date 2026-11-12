@@ -49,6 +49,14 @@ export const DEFAULT_CONFIG = Object.freeze({
     attachmentReader: false,
     graph: true,
     llm: false,
+    autoDiary: false,
+    autoDream: false,
+    autoFeeling: false,
+    autoEvolve: false,
+    aiOnlyLife: false,
+    autoGraphCandidates: false,
+    aiEdgeReview: false,
+    webSearch: false,
   }),
 });
 

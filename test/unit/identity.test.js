@@ -41,6 +41,27 @@ test('identity starts with one active version and only one active at a time', ()
   }
 });
 
+test('ascending amends the active identity without creating a new version', () => {
+  const { dir, db } = setup();
+  try {
+    const store = createIdentityStore(db);
+    const first = store.ensure('global');
+    const amended = store.amendActive('global', {
+      ...first.content,
+      narrative: `${first.content.narrative}\n\n## 2026-11-12\n今天本鲸有了自己的名字。`,
+      values: [...first.content.values, '平等'],
+    }, { rationale: 'core memory ascension', amendedBy: 'self:ascend' });
+    assert.equal(amended.version, first.version);
+    assert.equal(amended.id, first.id);
+    assert.match(amended.content.narrative, /自己的名字/);
+    assert.ok(amended.content.values.includes('平等'));
+    assert.equal(store.list('global').length, 1);
+  } finally {
+    closeDatabase(db);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('identity normalizes and renders without dropping boundaries', () => {
   const value = normalizeIdentity({ narrative: '测试', values: ['a'], boundaries: ['不骗人'] });
   assert.equal(value.values[0], 'a');

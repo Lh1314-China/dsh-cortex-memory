@@ -33,12 +33,16 @@ function joinSections(sections, budgetTokens) {
 export function assembleSystemPrompt(cortex, { budgetTokens = 1600, recall = '' } = {}) {
   const snapshot = cortex.self();
   const identity = snapshot.identity;
+  const fit = (text, budget) => {
+    if (!text || !budget || estimateTokens(text) <= budget) return text;
+    return truncate(text, budget);
+  };
   const identityText = identity
-    ? [
+    ? fit([
       `叙事：${identity.content.narrative}`,
       identity.content.values?.length ? `价值：${identity.content.values.join('、')}` : '',
       identity.content.boundaries?.length ? `边界：${identity.content.boundaries.join('、')}` : '',
-    ].filter(Boolean).join('\n')
+    ].filter(Boolean).join('\n'), cortex.config?.identityBudget ?? 360)
     : '';
   const drives = Object.entries(snapshot.self.drives).map(([name, value]) => `${name} ${Math.round(value * 100)}`).join(' / ');
   const selfText = [
@@ -47,9 +51,10 @@ export function assembleSystemPrompt(cortex, { budgetTokens = 1600, recall = '' 
     `情绪：valence ${snapshot.self.mood.valence.toFixed(2)} / arousal ${snapshot.self.mood.arousal.toFixed(2)} / energy ${snapshot.self.mood.energy.toFixed(2)}`,
     snapshot.emotion ? `情感：${snapshot.emotion}` : '',
   ].filter(Boolean).join('\n');
-  const working = snapshot.working?.length
+  const workingText = snapshot.working?.length
     ? snapshot.working.map((item) => `- ${item.pinned ? '[pin] ' : ''}${item.text}`).join('\n')
     : '';
+  const working = fit(workingText, cortex.config?.workingBudget ?? 800);
   const goals = snapshot.goals?.length
     ? snapshot.goals.map((goal) => `- ${goal.title}（${Math.round(goal.progress * 100)}%）`).join('\n')
     : '';

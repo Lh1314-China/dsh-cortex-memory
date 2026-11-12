@@ -1,37 +1,38 @@
-﻿
-## 0.2.0-rc.12 — 2026-11-12
+# Changelog
 
-- Trace UI: added OCR layout selector (auto/single/two-column/handwriting), passed through the extractor boundary.
-- `cortex_forget` / `cortex_get` validate ids before touching SQLite; Node 24 now returns readable sentinels instead of `ERR_INVALID_ARG_TYPE`.
-- CI runs `node --test --test-isolation=none` with explicit test files and a Node version line.
+## 0.3.0 — 2026-11-12
 
-## 0.2.0-rc.13 — 2026-11-12
+### Added
 
-- Layout selection is passed from the Trace UI through `/attachments/extract`.
-- Node 24 CI compatible; id validation before SQLite.
+- Summon cards (L2): left-brain emotion cards and right-brain work cards with trigger words.
+- Summon volumes (L3): side/category/day indexes with representative text.
+- Summon book: independent daily page; read-only by default, owner-gated editing with audit.
+- Runtime summon injection: at most 3 cards / 900 tokens, labelled as untrusted historical references.
+- Explicit card feedback (`helpful` / `ignored`) writes back to source-trace DSR. Injection alone never changes strength.
+- Diagnostics panel: health issues, disputed-fact confirm/dismiss, and candidate-only skill extraction.
+- Graph entity labels use names instead of ids; bounded LLM renaming for clearly broken names with confidence gate and audit.
+
+### Changed
+
+- Scheduler review runs every 90 minutes and generates pending intentions.
+- AI diary is limited to 12:00/22:00; idle hourly writing is a feeling, not a diary.
+- Identity capacity is enforced (L0 default 360 tokens); today's additions are prepended so they survive truncation.
+
+### Compatibility
+
+- Additive SQLite schema; existing 0.2.x databases migrate in place.
+- DSH `>=0.2.1-rc.2 <0.4.0`; Node `>=24`.
+- No API keys, personal paths, or private data are shipped.
+
+## 0.2.2 — 2026-11-12
+
+- Public README and install commands.
+- License metadata and package metadata fixes.
+- No memory-engine behavior change.
 
 ## 0.2.0 — 2026-11-12
 
 - First stable release of the rc line.
-- Trace UI: target trace + layout selector (auto/single/two-column/handwriting); extracts into a derived memory.
-- Windows OCR and Tesseract layout-aware column ordering.
-- Stable npm install no longer requires `@next`.
-- Permission toggles show a confirmation, persist locally, and require a restart; settings copies now state that clearly.
-
-## 0.2.1 — 2026-11-12
-
-- Rewrote the public README: install, stable status, UI extraction, permissions, privacy, compatibility and extractor usage.
-- No memory-engine behavior change.
-
-## 0.2.2 — 2026-11-12
-
-- Fixed the public LICENSE copyright line encoding.
-- Added author/homepage/repository/bugs metadata.
-- Added `dsh plugin ... add` install commands to the README.
-- No memory-engine behavior change.
-
-## 0.2.3 — 2026-11-12
-
-- Dream generation now deduplicates identical dream text inside a 10-minute window.
-- Life UI disables dream/sleep/diary actions while a request is in flight and collapses consecutive duplicate dream rows.
-- Tests: 407/407.
+- Trace UI extraction with layout selection.
+- Windows OCR / Tesseract layout-aware column ordering.
+- Permission confirmations and restart requirement documented.
