@@ -22,20 +22,23 @@ taken; the installed bundle is still the Cortex memory engine.
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory
-npm i dsh-cortex-extractors   # optional OCR/ASR
+npm i dsh-cortex-memory@0.2.2
+npm i dsh-cortex-extractors@0.3.4   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory
-dsh plugin --profile desktop add dsh-cortex-extractors
+dsh plugin --profile desktop add dsh-cortex-memory@0.2.2
+dsh plugin --profile desktop add dsh-cortex-extractors@0.3.4
 ```
 
 Or use the Windows one-click zip from the GitHub Release. The installer
 discovers a desktop DSH installation automatically; `-DshPath` remains available
 for custom installs.
+
+> During the pnpm `minimumReleaseAge` cooldown, use the exact version above.
+> A bare package name may resolve to an older cached version until the cooldown ends.
 
 After installing, restart DSH or reload the plugin. The Cortex panel is in the
 left sidebar by default.
