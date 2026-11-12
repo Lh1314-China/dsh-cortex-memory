@@ -1,4 +1,4 @@
-# DSH Cortex
+﻿# DSH Cortex
 
 A local-first, layered memory engine for DeepSeek Harness.
 
@@ -24,6 +24,13 @@ taken; the installed bundle is still the Cortex memory engine.
 ```powershell
 npm i dsh-cortex-memory
 npm i dsh-cortex-extractors   # optional OCR/ASR
+```
+
+Or let DSH add the bundles:
+
+```powershell
+dsh plugin --profile desktop add dsh-cortex-memory
+dsh plugin --profile desktop add dsh-cortex-extractors
 ```
 
 Or use the Windows one-click zip from the GitHub Release. The installer
@@ -118,3 +125,4 @@ and `--test-isolation=none` to avoid a spurious child-process EPERM.
 ## License
 
 MIT.
+

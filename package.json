@@ -76,5 +76,17 @@
     "self-evolving",
     "sqlite"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "author": {
+    "name": "Lh1314-China",
+    "url": "https://github.com/Lh1314-China"
+  },
+  "homepage": "https://github.com/Lh1314-China/dsh-cortex-memory#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lh1314-China/dsh-cortex-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Lh1314-China/dsh-cortex-memory/issues"
+  }
 }
