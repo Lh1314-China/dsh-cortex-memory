@@ -22,3 +22,10 @@
 
 - Rewrote the public README: install, stable status, UI extraction, permissions, privacy, compatibility and extractor usage.
 - No memory-engine behavior change.
+
+## 0.2.2 — 2026-11-12
+
+- Fixed the public LICENSE copyright line encoding.
+- Added author/homepage/repository/bugs metadata.
+- Added `dsh plugin ... add` install commands to the README.
+- No memory-engine behavior change.

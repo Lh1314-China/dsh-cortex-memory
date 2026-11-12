@@ -9,8 +9,8 @@ core engine.
 
 ## Status
 
-- Stable package: `dsh-cortex-memory@0.2.0`
-- Optional extractor: `dsh-cortex-extractors@0.3.3`
+- Stable package: `dsh-cortex-memory@0.2.2`
+- Optional extractor: `dsh-cortex-extractors@0.3.4`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
 - Tests: 406/406 (main), 12/12 (extractor)
