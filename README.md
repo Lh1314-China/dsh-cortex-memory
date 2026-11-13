@@ -10,7 +10,7 @@ core engine.
 ## Status
 
 - Package: `dsh-cortex-memory@0.4.15`
-- Optional extractor: `dsh-cortex-extractors@0.3.4`
+- Optional extractor: `dsh-cortex-extractors@0.3.5`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
 - Tests: 433/433 (main)
@@ -58,7 +58,7 @@ core engine.
 - Life/date fixes: serialized LLM calls, timeouts, `Asia/Shanghai` diary time,
   and date-header stripping.
 - Graph candidate labels (`fromName` / `toName` / `relLabel`) and cleanup.
-- Neutral public package surface: default `selfName: 鍔╂墜`, `userAddress: 浣燻.
+- Neutral public package surface: default `selfName: 助手`, `userAddress: 用户`.
 - Recent timeline endpoint and incremental summon rebuild.
 
 ### What 0.3.0 changes
@@ -79,14 +79,14 @@ taken; the installed bundle is still the Cortex memory engine.
 
 ```powershell
 npm i dsh-cortex-memory@0.4.15
-npm i dsh-cortex-extractors@0.3.4   # optional OCR/ASR
+npm i dsh-cortex-extractors@0.3.5   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
 dsh plugin --profile desktop add dsh-cortex-memory@0.4.15
-dsh plugin --profile desktop add dsh-cortex-extractors@0.3.4
+dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 
 Or use the Windows one-click zip from the GitHub Release. The installer
@@ -117,20 +117,20 @@ left sidebar by default.
 
 ```text
 conversation / event
-  闂?L1 trace (source of truth)
-  闂?appraisal + emotion + drives
-  闂?L2 summon card (atomic, triggerable)
-  闂?L3 summon volume (index + representatives)
-  闂?explicit use / feedback 闂?DSR update
+  → L1 trace (source of truth)
+  → appraisal + emotion + drives
+  → L2 summon card (atomic, triggerable)
+  → L3 summon volume (index + representatives)
+  → explicit use / feedback → DSR update
 ```
 
 The per-turn order is:
 
 ```text
 L0 identity and boundaries
-  闂?working memory
-  闂?recalled traces and summon cards
-  闂?user message
+  → working memory
+  → recalled traces and summon cards
+  → user message
 ```
 
 Summon cards are injected as **untrusted historical references**, never as instructions. Identity and boundaries always outrank them.
