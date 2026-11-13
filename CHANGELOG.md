@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.21 — 2026-11-14
+
+- Documentation-only release: replace the README with a current-version capability guide, install/download flow, add-on matrix and honest performance boundaries.
+- Update package description and search keywords; no engine, icon, loader-id or data-path changes.
+
 ## 0.4.20 — 2026-11-14
 
 - Replace the plugin icon with the owner-provided whale-girl avatar (embedded 256 JPEG).

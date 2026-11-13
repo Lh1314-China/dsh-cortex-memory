@@ -1,7 +1,7 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.4.20",
-  "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness",
+  "version": "0.4.21",
+  "description": "本地优先的分层记忆引擎：情景/语义/程序记忆、时序事实、DSR 遗忘、混合召回、自我状态、反思、守护与受控进化。",
   "type": "module",
   "main": "./index.js",
   "icon": "./icon.svg",
@@ -67,10 +67,14 @@
     "deepseek-harness",
     "memory",
     "agent-memory",
+    "long-term-memory",
+    "cortex-memory",
+    "local-first",
     "temporal-graph",
     "spaced-repetition",
     "self-evolving",
-    "sqlite"
+    "sqlite",
+    "dsr"
   ],
   "license": "MIT",
   "author": {
