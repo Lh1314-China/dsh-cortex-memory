@@ -1,4 +1,4 @@
-﻿# DSH Cortex
+# DSH Cortex
 
 A local-first, layered memory engine for DeepSeek Harness.
 
@@ -9,14 +9,14 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.4.14`
+- Package: `dsh-cortex-memory@0.4.15`
 - Optional extractor: `dsh-cortex-extractors@0.3.4`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
 - Tests: 433/433 (main)
 - CI: GitHub Actions on Windows, Node 24
 
-### What 0.4.14 changes
+### What 0.4.15 changes
 
 - **Evolution guard is configurable**: `autoActivate`, `maxPerDay`,
   `minIntervalMs`, `canaryTicks` and `rollbackOnError` are now in the Config
@@ -78,14 +78,14 @@ taken; the installed bundle is still the Cortex memory engine.
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.4.14
+npm i dsh-cortex-memory@0.4.15
 npm i dsh-cortex-extractors@0.3.4   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.14
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.15
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.4
 ```
 
@@ -210,6 +210,7 @@ and `--test-isolation=none` to avoid a spurious child-process EPERM.
 ## License
 
 MIT.
+
 
 
 

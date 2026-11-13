@@ -1,0 +1,24 @@
+{
+  "name": "semantic-cn",
+  "kind": "synthetic-controlled",
+  "note": "Not an official LoCoMo/LongMemEval score. Controlled Chinese memories and queries; no real user data.",
+  "at": "2026-11-13T03:53:09.106Z",
+  "memories": 12,
+  "queries": 12,
+  "full": {
+    "n": 12,
+    "recallAt3": 1,
+    "mrrAt3": 0.9166666666666666,
+    "ndcgAt3": 0.9384882922619097,
+    "p50Ms": 1.31,
+    "p95Ms": 4.07
+  },
+  "inject": {
+    "n": 12,
+    "recallAt3": 1,
+    "mrrAt3": 0.9166666666666666,
+    "ndcgAt3": 0.9384882922619097,
+    "p50Ms": 1.11,
+    "p95Ms": 3.34
+  }
+}

@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 ## 0.4.13 鈥?2026-11-13
 
@@ -96,6 +96,7 @@
 - Trace UI extraction with layout selection.
 - Windows OCR / Tesseract layout-aware column ordering.
 - Permission confirmations and restart requirement documented.
+
 
 
 

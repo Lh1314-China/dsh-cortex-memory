@@ -11,7 +11,7 @@
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\examples\setup-cortex-bge.ps1 `
-  -Dsh "<DSH_HOME>\dsh.cmd" `
+  -Dsh "D:\path\to\dsh.cmd" `
   -Profile cortex-bge `
   -Package "C:\path\to\dsh-cortex-memory-0.1.0.tgz"
 ```
@@ -58,7 +58,7 @@ dim: 1024
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\examples\uninstall-cortex.ps1 `
-  -Dsh "<DSH_HOME>\dsh.cmd" `
+  -Dsh "D:\path\to\dsh.cmd" `
   -Profile cortex-bge
 ```
 
@@ -70,4 +70,3 @@ powershell -ExecutionPolicy Bypass -File .\examples\uninstall-cortex.ps1 `
 4. **不删 dataRoot**
 
 如果已经手动移除，脚本会跳过 remove，仍清理残留 patch。
-

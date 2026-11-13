@@ -1,6 +1,6 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness",
   "type": "module",
   "main": "./index.js",
