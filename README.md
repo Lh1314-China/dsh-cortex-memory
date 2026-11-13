@@ -9,12 +9,24 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.4.17`
+- Package: `dsh-cortex-memory@0.4.19`
 - Optional extractor: `dsh-cortex-extractors@0.3.5`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
 - Tests: 437/437 (main)
 - CI: GitHub Actions on Windows, Node 24
+
+### What 0.4.19 changes
+
+- Client bundle id stays `dsh-cortex`; it must not equal the loader row id `dsh-cortex-memory`. 0.4.18 changed both to the same value and caused duplicate factory registration / boot failure.
+- Loader id, patch names and data path are unchanged from 0.4.17.
+- Tests: 437/437.
+
+### What 0.4.18 changes
+
+- Client bundle id now matches the loader id `dsh-cortex-memory`; without this the host could load (health API/tools) while the sidebar panel did not register.
+- Local package patch still loads package name `dsh-cortex`; the public package patch loads `dsh-cortex-memory`. This distinction is intentional.
+- Tests: 437/437.
 
 ### What 0.4.17 changes
 
@@ -103,14 +115,14 @@ The script copies the old root, verifies the copied `cortex.sqlite` size, and le
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.4.17
+npm i dsh-cortex-memory@0.4.19
 npm i dsh-cortex-extractors@0.3.5   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.17
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.19
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 

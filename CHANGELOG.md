@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.19 — 2026-11-13
+
+- Revert client bundle id to `dsh-cortex`. It is intentionally different from loader row id `dsh-cortex-memory`.
+- 0.4.18 set both to `dsh-cortex-memory`, causing duplicate factory registration and web boot failure; 0.4.19 removes that change.
+- Loader id, local/public patch names and `~/.dsh/cortex-memory` data path remain unchanged.
+- Add contract assertion that client id is `dsh-cortex` and not the loader id.
+- Tests: 437/437.
+## 0.4.18 — 2026-11-13
+
+- Fix client bundle id: `dsh-cortex` -> `dsh-cortex-memory`.
+- Host can be active while the sidebar panel is absent if the client module id does not match the loader row; this release aligns them.
+- Local package keeps `patch.name: dsh-cortex`; public package keeps `patch.name: dsh-cortex-memory`.
+- Tests: 437/437.
 ## 0.4.17 — 2026-11-13
 
 - Loader id and bundle row change to `dsh-cortex-memory`; `ctx.provide('cortex')` remains as a compatibility alias.
@@ -109,6 +122,8 @@
 - Trace UI extraction with layout selection.
 - Windows OCR / Tesseract layout-aware column ordering.
 - Permission confirmations and restart requirement documented.
+
+
 
 
 

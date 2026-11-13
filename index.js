@@ -8,7 +8,7 @@ import { createScheduler } from './src/host/scheduler.js';
 import { effectiveFeatures } from './src/core/feature-overrides.js';
 import { createWebSearch } from './src/web/search.js';
 
-export const name = 'dsh-cortex-memory';
+export const name = 'cortex';
 export const inject = ['tools', 'systemPrompt'];
 
 let Schema = null;
@@ -206,3 +206,4 @@ export async function apply(ctx, config = {}) {
 
   ctx.logger?.info?.(`cortex: ready（db=${cortex.config.dbFile}，scope=${cortex.config.scope}）`);
 }
+

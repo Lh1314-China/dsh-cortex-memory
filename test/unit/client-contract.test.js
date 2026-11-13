@@ -10,6 +10,7 @@ const source = readFileSync(file, 'utf8');
 test('client registers the expected panel tabs and playbook actions', () => {
   assert.match(source, /__ModuleLoader__\.load/);
   assert.match(source, /id: 'dsh-cortex'/);
+  assert.doesNotMatch(source, /id: 'dsh-cortex-memory'/);
   for (const tab of ['self', 'search', 'timeline', 'working', 'emotion', 'life', 'graph', 'playbook', 'audit', 'retention', 'health', 'evolution', 'settings']) {
     assert.match(source, new RegExp(`\\['${tab}', t\\('`), `tab ${tab}`);
   }
@@ -27,3 +28,5 @@ test('client keeps keyboard and aria wiring for the panel', () => {
   assert.match(source, /ArrowRight/);
   assert.match(source, /role: 'tabpanel'/);
 });
+
+
