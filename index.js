@@ -8,7 +8,7 @@ import { createScheduler } from './src/host/scheduler.js';
 import { effectiveFeatures } from './src/core/feature-overrides.js';
 import { createWebSearch } from './src/web/search.js';
 
-export const name = 'cortex';
+export const name = 'dsh-cortex-memory';
 export const inject = ['tools', 'systemPrompt'];
 
 let Schema = null;

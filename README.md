@@ -9,12 +9,18 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.4.16`
+- Package: `dsh-cortex-memory@0.4.17`
 - Optional extractor: `dsh-cortex-extractors@0.3.5`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
 - Tests: 437/437 (main)
 - CI: GitHub Actions on Windows, Node 24
+
+### What 0.4.17 changes
+
+- **Loader id is now `dsh-cortex-memory`** (the package patch and profile row). The `cortex` service key remains as a compatibility alias for code that calls `ctx.get('cortex')`.
+- Existing profiles must migrate the `cordis.patch.yml` row from `cortex` to `dsh-cortex-memory`; the migration script backs up the profile and verifies exactly one target row.
+- Data root is already `~/.dsh/cortex-memory`; legacy `~/.dsh/cortex` is copied, never moved.
 
 ### What 0.4.16 changes
 
@@ -97,14 +103,14 @@ The script copies the old root, verifies the copied `cortex.sqlite` size, and le
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.4.16
+npm i dsh-cortex-memory@0.4.17
 npm i dsh-cortex-extractors@0.3.5   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.16
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.17
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 

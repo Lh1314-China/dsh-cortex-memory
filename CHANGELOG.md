@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.17 — 2026-11-13
+
+- Loader id and bundle row change to `dsh-cortex-memory`; `ctx.provide('cortex')` remains as a compatibility alias.
+- Existing profile rows must migrate from `cortex` to `dsh-cortex-memory`; a migration script backs up the profile and verifies exactly one target row.
+- Data root remains `DSH_HOME/cortex-memory`; legacy data is copied, never moved.
+- Tests: 437/437.
 ## 0.4.16 — 2026-11-13
 
 - Default data root moves to `DSH_HOME/cortex-memory` (desktop) and `DSH_HOME/cortex-memory/profiles/<profile>` for other profiles.
@@ -103,6 +109,7 @@
 - Trace UI extraction with layout selection.
 - Windows OCR / Tesseract layout-aware column ordering.
 - Permission confirmations and restart requirement documented.
+
 
 
 
