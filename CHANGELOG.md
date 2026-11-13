@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.20 — 2026-11-14
+
+- Replace the plugin icon with the owner-provided whale-girl avatar (embedded 256 JPEG).
+- Keep the sidebar icon offline: no remote image URL.
+- No engine, loader-id or data-path changes.
+
 ## 0.4.19 — 2026-11-13
 
 - Revert client bundle id to `dsh-cortex`. It is intentionally different from loader row id `dsh-cortex-memory`.
