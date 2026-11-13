@@ -20,7 +20,7 @@ try {
 }
 
 export const Config = Schema ? Schema.object({
-  dataRoot: Schema.string().description('Cortex 数据目录（默认 DSH_HOME/cortex）'),
+  dataRoot: Schema.string().description('Cortex 数据目录（默认 DSH_HOME/cortex-memory；旧库由迁移脚本复制）'),
   dbFile: Schema.string().description('SQLite 文件；默认 dataRoot/cortex.sqlite'),
   scope: Schema.string().default('global').description('默认 scope'),
   persona: Schema.object({

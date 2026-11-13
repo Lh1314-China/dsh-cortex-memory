@@ -9,12 +9,18 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.4.15`
+- Package: `dsh-cortex-memory@0.4.16`
 - Optional extractor: `dsh-cortex-extractors@0.3.5`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
-- Tests: 433/433 (main)
+- Tests: 437/437 (main)
 - CI: GitHub Actions on Windows, Node 24
+
+### What 0.4.16 changes
+
+- **Public data path is now `~/.dsh/cortex-memory`**. The old `~/.dsh/cortex` directory is never moved or deleted; the oneclick/upgrade script copies it, verifies it, and keeps a backup.
+- **No loader-id change in 0.4.16**: the bundle row remains `cortex` for compatibility. Renaming it to `cortex-memory` is reserved for a migration-scripted release.
+- README extractor version corrected to 0.3.5 and corrupted characters repaired.
 
 ### What 0.4.15 changes
 
@@ -75,17 +81,30 @@ core engine.
 The npm package is named `dsh-cortex-memory` because `dsh-cortex` was already
 taken; the installed bundle is still the Cortex memory engine.
 
+## Data path migration
+
+0.4.16 defaults to `DSH_HOME/cortex-memory` (or `DSH_HOME/cortex-memory/profiles/<profile>`).
+The old `DSH_HOME/cortex` directory is never moved or deleted.
+
+Before starting 0.4.16 with existing memories, close DSH and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\migrate-cortex-path.ps1
+```
+
+The script copies the old root, verifies the copied `cortex.sqlite` size, and leaves the old root as rollback.
+
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.4.15
+npm i dsh-cortex-memory@0.4.16
 npm i dsh-cortex-extractors@0.3.5   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.15
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.16
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 

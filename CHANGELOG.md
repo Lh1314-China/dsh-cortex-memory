@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.4.13 鈥?2026-11-13
+## 0.4.16 — 2026-11-13
+
+- Default data root moves to `DSH_HOME/cortex-memory` (desktop) and `DSH_HOME/cortex-memory/profiles/<profile>` for other profiles.
+- Legacy `DSH_HOME/cortex` is never moved or deleted. Migration scripts copy it, keep a backup, and verify the copy before DSH opens the new root.
+- Loader id stays `cortex` in this release; a later migration-scripted release will rename it.
+- README extractor version corrected to 0.3.5; mojibake repaired.
+
+## 0.4.13 — 2026-11-13
 
 ### Added
 - `evolution` guard in Config schema (`autoActivate`, `maxPerDay`, `minIntervalMs`, `canaryTicks`, `rollbackOnError`).
@@ -14,7 +21,7 @@
 - Canary ticks are persisted, not just kept in memory.
 - Schema version bumped to 7 for the additive `canary_json` column.
 
-## 0.4.12 鈥?2026-11-13
+## 0.4.12 — 2026-11-13
 
 ### Fixed
 - `promptBudget` is normalized instead of being silently dropped and falling back to 1600.
@@ -30,12 +37,12 @@
 - `gated` count in the retrieval trace.
 - Regression tests for the prompt gate, importance exposure, identity L0, per-session recall, light/deep guardian, and configurable `promptBudget`.
 
-## 0.4.11 鈥?2026-11-12
+## 0.4.11 — 2026-11-12
 
 - Life/date fixes, graph candidate labels, neutral public package surface.
 - Recent timeline endpoint and incremental summon rebuild.
 
-## 0.4.0 鈥?2026-11-12
+## 0.4.0 — 2026-11-12
 
 ### Fixed
 - Prompt-only injection gate; full search/API/CLI remain available.
@@ -47,15 +54,15 @@
 - Tests and docs are included in the package; `npm test` works after install.
 
 ### Added
-- `persona.selfName` / `persona.userAddress`; neutral public defaults (`鍔╂墜` / `浣?.
+- `persona.selfName` / `persona.userAddress`; neutral public defaults (`助手` / `用户`).
 - `injectionGate`, `recentMinMatch`, `allowRestoreOutsideRoot` config.
 
 ### Compatibility
 - Additive config only; no schema migration.
 - Existing 0.3.x databases open in place.
-- Local profiles can restore the 鏈哺 / 涓讳汉 persona through config.
+- Local profiles can restore the 本鲸 / 主人 persona through config.
 
-## 0.3.1 鈥?026-11-12
+## 0.3.1 — 026-11-12
 
 - AI diary entries no longer append a 閳ユ粌寮懓鍐ｂ偓?footer; web sources still inform the model but are not stored in the diary body.
 - Manual dream generation timeout raised from 4s to 20s; `aiOnlyLife` still fails closed instead of falling back to a template.
@@ -96,6 +103,7 @@
 - Trace UI extraction with layout selection.
 - Windows OCR / Tesseract layout-aware column ordering.
 - Permission confirmations and restart requirement documented.
+
 
 
 

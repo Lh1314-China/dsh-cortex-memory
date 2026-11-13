@@ -25,7 +25,7 @@ export function readOverrides(dataRoot) {
 }
 
 export function loadFeatureOverrides(config = {}) {
-  const dataRoot = config.dataRoot ?? path.join(process.env.DSH_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '.', '.dsh'), 'cortex');
+  const dataRoot = config.dataRoot ?? path.join(process.env.DSH_HOME || path.join(process.env.USERPROFILE || process.env.HOME || '.', '.dsh'), 'cortex-memory');
   return readOverrides(dataRoot).current;
 }
 

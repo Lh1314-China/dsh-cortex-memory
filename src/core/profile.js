@@ -26,7 +26,14 @@ export function detectProfileName({ argv = process.argv, env = process.env } = {
 export function profileDataRoot({ argv = process.argv, env = process.env } = {}) {
   const profile = detectProfileName({ argv, env });
   const home = homeFromEnv(env);
-  // desktop is the historical default; never silently point it at an empty DB.
+  // Keep the public bundle identity separate from legacy `cortex` data.
+  if (!profile || profile === 'desktop') return path.join(home, 'cortex-memory');
+  return path.join(home, 'cortex-memory', 'profiles', profile);
+}
+
+export function legacyProfileDataRoot({ argv = process.argv, env = process.env } = {}) {
+  const profile = detectProfileName({ argv, env });
+  const home = homeFromEnv(env);
   if (!profile || profile === 'desktop') return path.join(home, 'cortex');
   return path.join(home, 'cortex', 'profiles', profile);
 }

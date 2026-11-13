@@ -4,7 +4,7 @@ import { clamp } from './time.js';
 import { profileDataRoot } from './profile.js';
 
 const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
-const DEFAULT_ROOT = process.env.CORTEX_HOME || path.join(DSH_HOME, 'cortex');
+const DEFAULT_ROOT = process.env.CORTEX_HOME || path.join(DSH_HOME, 'cortex-memory');
 
 export const DEFAULT_CONFIG = Object.freeze({
   dataRoot: DEFAULT_ROOT,
