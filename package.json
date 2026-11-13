@@ -1,7 +1,7 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.4.11",
-  "description": "Local-first layered memory engine for DeepSeek Harness",
+  "version": "0.4.14",
+  "description": "A layered, temporal, self-developing memory engine for DeepSeek Harness",
   "type": "module",
   "main": "./index.js",
   "icon": "./icon.svg",
@@ -20,17 +20,23 @@
     "index.js",
     "client.js",
     "src",
+    "bench",
+    "bin",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
     "README.md",
+    "examples",
     "LICENSE",
-    "bin"
+    "test",
+    "CHANGELOG.md",
+    "docs"
   ],
   "scripts": {
-    "test:unit": "node --test test/unit/",
+    "test:unit": "node --test test/unit/*.test.js",
     "bench": "node bench/run.js",
-    "check": "node --check index.js && node --check client.js"
+    "check": "node --check index.js && node --check client.js",
+    "test": "node --test test/unit/*.test.js test/integration/*.test.js"
   },
   "engines": {
     "node": ">=24",

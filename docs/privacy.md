@@ -24,7 +24,9 @@ The exact paths are shown in the Settings tab. This data stays on the machine un
 
 ## What is not stored
 
-- API keys, tokens or passwords
+- API keys inside `cortex.sqlite` (embedding/rerank keys live in
+  `model-config.json` with best-effort mode `0600`, so they stay on disk but
+  outside the memory database)
 - raw model files
 - the contents of arbitrary local files that were not explicitly passed to an extraction tool
 - a copy of a deleted trace's body (delete cascades; the ledger keeps a content hash)

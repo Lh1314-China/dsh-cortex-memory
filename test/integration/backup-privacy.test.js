@@ -55,7 +55,7 @@ test('guardian backup validates, restores to an offline path and refuses the liv
       assert.equal(Number(restoredDb.prepare('SELECT COUNT(*) AS c FROM traces').get().c), 1);
       assert.equal(Number(restoredDb.prepare('SELECT COUNT(*) AS c FROM facts').get().c), 1);
       assert.equal(restoredDb.prepare('SELECT content FROM traces LIMIT 1').get().content, '备份前的白饭承诺：用户会买白饭。');
-      assert.equal(restoredDb.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '6');
+      assert.equal(restoredDb.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value, '7');
     } finally {
       restoredDb.close();
     }

@@ -92,7 +92,7 @@ dsh plugin --profile desktop remove dsh-cortex
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\examples\uninstall-cortex.ps1 `
-  -Dsh "D:\path\to\dsh.cmd" -Profile <profile>
+  -Dsh "<DSH_HOME>\dsh.cmd" -Profile <profile>
 ```
 
 脚本只删 `- id: cortex` 段，保留其他 patch，并跑一次 `--dump-config`；不删 dataRoot。已手动移除时也会跳过 remove、继续清 patch。
@@ -142,3 +142,4 @@ dsh --profile <profile> --dump-config > $null
 - 零运行时 npm 依赖；SQLite 用 Node 内置。
 - Windows 路径手写 `C:\...` 即可；包内没有 shell 脚本。
 - 不修改全局 patch，不覆盖系统提示，不碰 shiori。
+

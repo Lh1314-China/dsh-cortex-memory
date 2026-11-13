@@ -259,7 +259,8 @@ CREATE TABLE IF NOT EXISTS policies (
   metrics_json TEXT,
   status TEXT NOT NULL DEFAULT 'candidate',
   created_at TEXT NOT NULL,
-  activated_at TEXT
+  activated_at TEXT,
+  canary_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS audit (

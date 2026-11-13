@@ -83,7 +83,7 @@ function candidateFromTrace(trace, fusion, intent, now, decay, weights = null, q
   return {
     id: trace.id,
     type: 'trace',
-    layer: trace.kind === 'reflection' ? 'L5' : 'L2',
+    layer: trace.kind === 'identity' ? 'L0' : trace.kind === 'reflection' ? 'L5' : 'L2',
     title: trace.title || trace.kind,
     snippet: snippet(trace),
     text,
@@ -152,10 +152,12 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     k: 60,
     lambda: config.mmrLambda ?? 0.35,
     mu: config.costPenalty ?? 0.08,
+    recentMinMatch: config.recentMinMatch ?? 0.12,
+    recentImportanceFloor: config.recentImportanceFloor ?? 0.8,
     decay: config.dsr?.decay ?? -0.5,
   };
 
-  function searchSources(query, { scopeId = 'global', limit = 12, now = Date.now(), includeArchived = false, weights = null, filters = null, vectorHits = null } = {}, intent = 'fact') {
+  function searchSources(query, { scopeId = 'global', limit = 12, now = Date.now(), includeArchived = false, weights = null, filters = null, vectorHits = null, gate = 'none' } = {}, intent = 'fact') {
     const queryTokens = tokens(query);
     const sourceTrace = [];
     const lists = [];
@@ -231,16 +233,37 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     const fused = weightedRrf(lists, { k: defaults.k });
     const maxFusion = Math.max(1e-9, ...[...fused.values()].map((entry) => entry.score));
     const candidates = [];
+    const fallbacks = [];
+    let gated = 0;
     for (const [id, entry] of fused) {
       const trace = traces.get(id);
       if (!trace || trace.state === 'archived' && !includeArchived) continue;
       if (filters && !matchesFilters(trace, filters)) continue;
-      candidates.push(candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights, queryTokens));
+      const candidate = candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights, queryTokens);
+      // Prompt-injection gate: only weaken candidates that entered solely via
+      // the recency list or the soft FTS fallback. Strong sources still pass.
+      // High importance is allowed to bypass the match floor, preserving the
+      // 0.4.11 behaviour for identity-grade memories.
+      const strongSource = (entry.sources ?? []).some((source) => ['fts', 'graph', 'vector', 'vector-ann', 'facts'].includes(source.name));
+      if (gate === 'inject' && !strongSource
+          && candidate.match < defaults.recentMinMatch
+          && candidate.importance < defaults.recentImportanceFloor) {
+        fallbacks.push(candidate);
+        gated += 1;
+        continue;
+      }
+      candidates.push(candidate);
+    }
+    // Nothing survived the gate: keep one important recent memory so a non-empty
+    // store never injects an empty block, but never flood the prompt.
+    if (gate === 'inject' && candidates.length === 0 && fallbacks.length) {
+      fallbacks.sort((a, b) => b.importance - a.importance || b.recency - a.recency);
+      candidates.push(fallbacks[0]);
     }
     for (const list of lists) {
       sourceTrace.push({ source: list.name, ok: true, count: list.items.length });
     }
-    return { candidates, sourceTrace, ftsCount, recentCount };
+    return { candidates, sourceTrace, ftsCount, recentCount, gated };
   }
 
   function search(query, {
@@ -251,6 +274,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     includeArchived = false,
     filters = null,
     vectorHits = null,
+    gate = 'none',
   } = {}) {
     const started = Date.now();
     const intent = classifyIntent(query);
@@ -261,7 +285,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     const effectiveBudget = activePolicy?.budget != null
       ? Math.max(64, Math.min(20000, Number(activePolicy.budget)))
       : budget;
-    const sources = searchSources(query, { scopeId, limit, now, includeArchived, weights: policyWeights, filters, vectorHits }, intent);
+    const sources = searchSources(query, { scopeId, limit, now, includeArchived, weights: policyWeights, filters, vectorHits, gate }, intent);
     const portfolio = selectPortfolio(sources.candidates, {
       budget: effectiveBudget,
       limit,
@@ -295,6 +319,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       trace: {
         elapsedMs: Date.now() - started,
         candidates: sources.candidates.length,
+        gated: sources.gated ?? 0,
         selected: items.length,
         dropped: portfolio.dropped.length,
         sources: sources.sourceTrace,

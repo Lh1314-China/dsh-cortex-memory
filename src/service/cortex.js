@@ -339,6 +339,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
           traceId: result.trace?.id ?? null,
           eventId: result.event?.id ?? null,
           recordedAt: result.trace?.recordedAt ?? null,
+          persona: config.persona,
         });
         if (config.features?.autoGraphCandidates === true || config.features?.graphCandidateAutoFacts === true) {
           const queued = [];
@@ -1455,12 +1456,12 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     },
     flushLlmFacts,
     recallTiered: ({ query, limit = 20, permBudget = 700, hotBudget = 900, coldBudget = 400, scopeId = config.scope, includeArchived = false } = {}) => {
-      const result = search(query, { limit, budget: permBudget + hotBudget + coldBudget, scopeId, includeArchived, noBudget: true });
+      const result = search(query, { limit, budget: permBudget + hotBudget + coldBudget, scopeId, includeArchived, gate: config.injectionGate === false ? 'none' : 'inject', noBudget: true });
       const selection = selectTiers(result.items, { budgets: { perm: permBudget, hot: hotBudget, cold: coldBudget } });
       return { query, result, selection, text: renderTiers(selection) };
     },
     recallTieredAsync: async ({ query, limit = 20, permBudget = 700, hotBudget = 900, coldBudget = 400, scopeId = config.scope, includeArchived = false } = {}) => {
-      const result = await searchAsync(query, { limit, budget: permBudget + hotBudget + coldBudget, scopeId, includeArchived, noBudget: true });
+      const result = await searchAsync(query, { limit, budget: permBudget + hotBudget + coldBudget, scopeId, includeArchived, gate: config.injectionGate === false ? 'none' : 'inject', noBudget: true });
       const selection = selectTiers(result.items, { budgets: { perm: permBudget, hot: hotBudget, cold: coldBudget } });
       return { query, result, selection, text: renderTiers(selection) };
     },

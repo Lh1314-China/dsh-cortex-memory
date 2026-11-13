@@ -37,6 +37,10 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
     return String(session?.id ?? 'unknown');
   }
 
+  function recallKeyOf(session) {
+    return config.recallSharing === true ? 'shared' : keyOf(session);
+  }
+
   function turnOf(session, fallback = 0) {
     return Number(currentTurns.get(keyOf(session)) ?? fallback ?? 0);
   }
@@ -49,21 +53,12 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
         budget: config.contextBudget ?? 1200,
         limit: config.recallLimit ?? 6,
         scopeId: config.scope,
+        gate: config.injectionGate === false ? 'none' : 'inject',
         noBudget: true,
       });
       let recallBlock = '';
       if (result?.items?.length) {
-        let items = result.items;
-        if (config.injectionGate !== false) {
-          const strongSources = new Set(['fts', 'vector', 'graph']);
-          const minMatch = Number(config.recentMinMatch ?? 0.12);
-          const gated = items.filter((item) => {
-            const sources = new Set((item.sources ?? []).map((source) => source.name));
-            const strong = [...sources].some((name) => strongSources.has(name));
-            return strong || Number(item.match ?? 0) >= minMatch || Number(item.importance ?? 0) >= 0.8;
-          });
-          items = gated.length ? gated : [items.slice().sort((a, b) => Number(b.importance ?? 0) - Number(a.importance ?? 0))[0]];
-        }
+        const items = result.items;
         const lines = items.map((item) => `- [${item.layer}] ${item.title}：${item.snippet}`);
         const tiered = config.features?.tieredRecall !== false
           ? renderTiers(selectTiers(items, {
@@ -81,10 +76,10 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
         : { block: '' };
       const block = [recallBlock, summon.block].filter(Boolean).join('\n\n').slice(0, config.recallMaxChars ?? 2200);
       if (!block) {
-        recalls.delete(keyOf(session));
+        recalls.delete(recallKeyOf(session));
         return null;
       }
-      recalls.set(keyOf(session), block);
+      recalls.set(recallKeyOf(session), block);
       return block;
     } catch (error) {
       logger?.warn?.(`cortex prefetch failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -95,6 +90,7 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
   function recallText(context) {
     const sessionId = String(context?.session?.id ?? context?.agent?.id ?? context?.sessionId ?? '');
     if (sessionId && recalls.has(sessionId)) return recalls.get(sessionId);
+    if (config.recallSharing === true) return recalls.get('shared') ?? '';
     return '';
   }
 
@@ -176,7 +172,7 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
         if (config.autonomyOnTurnEnd !== false && typeof cortex.autonomy?.tick === 'function') {
           try { cortex.autonomy.tick({ at: event.time ?? Date.now(), max: 1 }); } catch { /* fail open */ }
         }
-        recalls.delete(keyOf(session));
+        recalls.delete(recallKeyOf(session));
         currentTurns.delete(keyOf(session));
       }
     } catch (error) {

@@ -3,16 +3,20 @@ import { integrityCheck } from '../store/database.js';
 const TRACE_STATES = new Set(['active', 'archived', 'superseded']);
 const FACT_STATES = new Set(['active', 'disputed', 'invalidated']);
 
-export function checkInvariants({ db, events, traces, selfStore = null, identityStore = null } = {}) {
+export function checkInvariants({ db, events, traces, selfStore = null, identityStore = null, deep = true } = {}) {
   if (!db || !events || !traces) throw new Error('invariants need db, events and traces');
   const issues = [];
   const add = (code, message, detail = null) => issues.push({ code, message, detail });
 
-  const chain = events.verifyChain();
-  if (!chain.ok) add('EVENT_CHAIN', `事件链断裂：${chain.reason}`, { at: chain.at });
+  let chain = { ok: true, skipped: true };
+  let integrity = 'skipped';
+  if (deep) {
+    chain = events.verifyChain();
+    if (!chain.ok) add('EVENT_CHAIN', `事件链断裂：${chain.reason}`, { at: chain.at });
 
-  const integrity = integrityCheck(db);
-  if (integrity !== 'ok') add('SQLITE_INTEGRITY', `SQLite integrity_check: ${integrity}`);
+    integrity = integrityCheck(db);
+    if (integrity !== 'ok') add('SQLITE_INTEGRITY', `SQLite integrity_check: ${integrity}`);
+  }
 
   const badTraceState = Number(db.prepare('SELECT COUNT(*) AS c FROM traces WHERE state NOT IN (?, ?, ?)').get(...TRACE_STATES).c);
   if (badTraceState > 0) add('TRACE_STATE', `${badTraceState} 条 trace 状态非法`);

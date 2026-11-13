@@ -13,6 +13,7 @@ function rowToPolicy(row) {
     status: row.status,
     createdAt: row.created_at,
     activatedAt: row.activated_at,
+    canary: row.canary_json ? JSON.parse(row.canary_json) : null,
   };
 }
 
@@ -72,8 +73,26 @@ export function createPolicyRepository(db) {
   function deactivate(kind) {
     const current = active(kind);
     if (!current) return null;
-    db.prepare("UPDATE policies SET status = 'candidate', activated_at = NULL WHERE id = ?").run(current.id);
+    db.prepare("UPDATE policies SET status = 'candidate', activated_at = NULL, canary_json = NULL WHERE id = ?").run(current.id);
     return get(current.id);
+  }
+
+  function retire(id) {
+    const target = get(id);
+    if (!target) return null;
+    db.prepare("UPDATE policies SET status = 'superseded', activated_at = NULL, canary_json = NULL WHERE id = ?").run(id);
+    return get(id);
+  }
+
+  function setCanary(id, canary) {
+    const policy = get(id);
+    if (!policy) throw new Error(`policy not found: ${id}`);
+    db.prepare('UPDATE policies SET canary_json = ? WHERE id = ?').run(canary == null ? null : stableStringify(canary), id);
+    return get(id);
+  }
+
+  function listCanaries() {
+    return db.prepare("SELECT * FROM policies WHERE status = 'active' AND canary_json IS NOT NULL ORDER BY activated_at DESC").all().map(rowToPolicy);
   }
 
   function updateMetrics(id, metrics) {
@@ -83,5 +102,5 @@ export function createPolicyRepository(db) {
     return get(id);
   }
 
-  return { get, list, active, create, activate, rollback, deactivate, updateMetrics };
+  return { get, list, active, create, activate, rollback, deactivate, retire, setCanary, listCanaries, updateMetrics };
 }

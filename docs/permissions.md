@@ -5,7 +5,11 @@ Cortex is local-first. The defaults are intentionally conservative.
 ## Local API
 
 - The API is loopback-only by default.
-- Requests carry a local token; cross-origin and unsafe POSTs are rejected.
+- There is **no bearer token**. A request is accepted only when the peer is
+  loopback, `Sec-Fetch-Site` is absent or `same-origin`, Host and Origin agree,
+  and writes carry `x-cortex: 1`.
+- Any local process that can reach the port can call it; do not expose the
+  port through a proxy or port-forward.
 - `POST /permissions` requires `confirm: true`; a permission change writes a local override and takes effect after a DSH restart.
 - `POST /permissions/rollback` removes the override and also takes effect after restart.
 
@@ -46,4 +50,4 @@ Feature flags and metrics on the Settings page are a read-only snapshot. Permiss
 
 - It does not read arbitrary files just because they are on disk.
 - It does not send memories to a model unless the corresponding permission and provider are configured.
-- It does not store API keys or passwords in memory.
+- It does not store API keys in `cortex.sqlite`; optional model keys live in `model-config.json` with mode `0600`.

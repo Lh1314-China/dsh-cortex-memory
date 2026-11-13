@@ -12,11 +12,24 @@ export const DEFAULT_CONFIG = Object.freeze({
   scope: 'global',
   persona: Object.freeze({ selfName: '助手', userAddress: '你' }),
   contextBudget: 2200,
+  promptBudget: 1600,
   readOnlyScopes: Object.freeze([]),
   scopeWriteGrants: Object.freeze([]),
   identityBudget: 360,
   workingBudget: 800,
   recallTimeoutMs: 1200,
+  recentMinMatch: 0.12,
+  recentImportanceFloor: 0.8,
+  injectionGate: true,
+  recallSharing: false,
+  evolution: Object.freeze({
+    autoActivate: true,
+    maxPerDay: 4,
+    minIntervalMs: 3600000,
+    canaryTicks: 3,
+    rollbackOnError: true,
+  }),
+  allowRestoreOutsideRoot: false,
   ftsLimit: 40,
   vectorEnabled: false,
   vectorAnnMin: 20000,
@@ -81,6 +94,7 @@ export function normalizeConfig(raw = {}) {
   const compressionInput = input.compression && typeof input.compression === 'object' ? input.compression : {};
   const featuresInput = input.features && typeof input.features === 'object' ? input.features : {};
   const personaInput = input.persona && typeof input.persona === 'object' ? input.persona : {};
+  const evolutionInput = input.evolution && typeof input.evolution === 'object' ? input.evolution : {};
   const scope = typeof input.scope === 'string' && input.scope.trim() ? input.scope.trim() : DEFAULT_CONFIG.scope;
 
   return Object.freeze({
@@ -119,9 +133,22 @@ export function normalizeConfig(raw = {}) {
       return out;
     })()),
     contextBudget: numeric(input.contextBudget, DEFAULT_CONFIG.contextBudget, 256, 20000),
+    promptBudget: numeric(input.promptBudget, DEFAULT_CONFIG.promptBudget, 256, 8000),
     identityBudget: numeric(input.identityBudget, DEFAULT_CONFIG.identityBudget, 64, 4000),
     workingBudget: numeric(input.workingBudget, DEFAULT_CONFIG.workingBudget, 128, 8000),
     recallTimeoutMs: numeric(input.recallTimeoutMs, DEFAULT_CONFIG.recallTimeoutMs, 100, 5000),
+    recentMinMatch: numeric(input.recentMinMatch, DEFAULT_CONFIG.recentMinMatch, 0, 1),
+    recentImportanceFloor: numeric(input.recentImportanceFloor, DEFAULT_CONFIG.recentImportanceFloor, 0, 1),
+    injectionGate: input.injectionGate !== false,
+    recallSharing: input.recallSharing === true,
+    evolution: Object.freeze({
+      autoActivate: evolutionInput.autoActivate !== false,
+      maxPerDay: numeric(evolutionInput.maxPerDay, DEFAULT_CONFIG.evolution.maxPerDay, 0, 96),
+      minIntervalMs: numeric(evolutionInput.minIntervalMs, DEFAULT_CONFIG.evolution.minIntervalMs, 0, 86_400_000),
+      canaryTicks: numeric(evolutionInput.canaryTicks, DEFAULT_CONFIG.evolution.canaryTicks, 0, 100),
+      rollbackOnError: evolutionInput.rollbackOnError !== false,
+    }),
+    allowRestoreOutsideRoot: input.allowRestoreOutsideRoot === true,
     ftsLimit: numeric(input.ftsLimit, DEFAULT_CONFIG.ftsLimit, 1, 200),
     vectorEnabled: input.vectorEnabled === true,
     llmEnabled: input.llmEnabled === true,

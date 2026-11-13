@@ -397,7 +397,7 @@ test('search budget exhaustion returns blocked traces and scheduler.runOnce surv
       assert.ok(report.steps.retention.candidates <= 20);
       assert.ok(report.steps.guardian);
       assert.equal(report.steps.guardian.ok, true);
-      assert.ok(['ok', 'light'].includes(report.steps.guardian.integrity));
+      assert.ok(['ok', 'light', 'skipped'].includes(report.steps.guardian.integrity));
       assert.deepEqual(report.steps.guardian.issues, []);
     }
 
@@ -605,7 +605,7 @@ test('backup of a 1000-trace DB validates and restores to a temporary path', (t)
       );
       assert.equal(
         snapshot.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get().value,
-        '6',
+        '7',
       );
     } finally {
       snapshot.close();

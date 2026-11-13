@@ -9,7 +9,7 @@ import { ftsText } from '../memory/tokenizer.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_FILE = path.join(HERE, 'schema.sql');
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 export const FTS_INDEX_VERSION = 2;
 
 function ensureTraceColumns(db) {
@@ -25,6 +25,13 @@ function ensureSummonColumns(db) {
   const columns = db.prepare('PRAGMA table_info(summon_cards)').all();
   if (!columns.some((column) => column.name === 'manual_json')) {
     db.exec("ALTER TABLE summon_cards ADD COLUMN manual_json TEXT NOT NULL DEFAULT '{}'");
+  }
+}
+
+function ensurePolicyColumns(db) {
+  const columns = db.prepare('PRAGMA table_info(policies)').all();
+  if (!columns.some((column) => column.name === 'canary_json')) {
+    db.exec('ALTER TABLE policies ADD COLUMN canary_json TEXT');
   }
 }
 
@@ -86,6 +93,7 @@ export function migrate(db, { version = SCHEMA_VERSION } = {}) {
     ensureTraceColumns(db);
     ensureFactsColumns(db);
     ensureSummonColumns(db);
+    ensurePolicyColumns(db);
     const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
     if (!row) {
       db.prepare('INSERT INTO meta(key, value, updated_at) VALUES (?, ?, ?)').run('schema_version', String(version), nowIso());

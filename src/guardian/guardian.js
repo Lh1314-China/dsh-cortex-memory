@@ -39,23 +39,10 @@ export function createGuardian({ db, config = {}, events, traces, selfStore = nu
   }
 
   function check({ deep = true } = {}) {
-    if (deep !== true) {
-      return {
-        ok: true,
-        score: 100,
-        issues: [],
-        integrity: 'light',
-        light: true,
-        at: nowIso(),
-        dbBytes: (() => {
-          try { return config.dbFile && config.dbFile !== ':memory:' ? fs.statSync(config.dbFile).size : 0; } catch { return 0; }
-        })(),
-      };
-    }
-    const invariants = checkInvariants({ db, events, traces, selfStore, identityStore });
+    const invariants = checkInvariants({ db, events, traces, selfStore, identityStore, deep });
     return {
       ...invariants,
-      light: false,
+      light: deep !== true,
       at: nowIso(),
       dbBytes: (() => {
         try { return config.dbFile && config.dbFile !== ':memory:' ? fs.statSync(config.dbFile).size : 0; } catch { return 0; }

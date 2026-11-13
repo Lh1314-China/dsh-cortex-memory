@@ -10,12 +10,6 @@ const RULES = [
 const NEGATED_TAIL = /[不没别未]\s*$/;
 
 const STOP_SUBJECTS = new Set(['他', '她', '它', '这', '那', '今天', '昨天', '明天']);
-const SUBJECT_ALIASES = new Map([
-  ['我', '用户'],
-  ['自己', '用户'],
-  ['我们', '用户'],
-  ['你', '助手'],
-]);
 
 function clean(value) {
   return String(value ?? '').trim().replace(/^(?:今天|昨天|明天|刚才|然后|所以|但是|而且)/, '').trim();
@@ -29,11 +23,15 @@ function plausibleName(value, max = 16) {
   return true;
 }
 
-export function extractFactCandidates(text) {
+export function extractFactCandidates(text, persona = {}) {
   const value = String(text ?? '');
   // Assistant replies and copied notes are often markdown-heavy; those are
   // not clean fact sources and produce sentence-fragment entities.
   if (/```|`[^`]*`|\*\*|^\s*[-*]\s|\|.*\|/m.test(value)) return [];
+  const selfName = typeof persona?.selfName === 'string' && persona.selfName.trim() ? persona.selfName.trim().slice(0, 24) : '助手';
+  const userAddress = typeof persona?.userAddress === 'string' && persona.userAddress.trim() ? persona.userAddress.trim().slice(0, 24) : '你';
+  const selfAliases = new Set(['你', '本鲸', selfName]);
+  const userAliases = new Set(['我', '自己', '我们', '咱', '主人', '用户', '您', userAddress]);
   const out = [];
   const seen = new Set();
   for (const rule of RULES) {
@@ -41,7 +39,9 @@ export function extractFactCandidates(text) {
     let match;
     while ((match = rule.pattern.exec(value)) !== null) {
       const rawSubject = clean(match[1]);
-      const subject = SUBJECT_ALIASES.get(rawSubject) ?? rawSubject;
+      let subject = rawSubject;
+      if (selfAliases.has(rawSubject)) subject = selfName;
+      else if (userAliases.has(rawSubject)) subject = userAddress;
       const object = clean(match[2]);
       if (!subject || !object || subject.length < 1 || object.length < 1) continue;
       if (STOP_SUBJECTS.has(rawSubject)) continue;
@@ -61,8 +61,8 @@ export function extractFactCandidates(text) {
 export function createFactExtractor({ entities, facts } = {}) {
   if (!entities || !facts) throw new Error('fact extractor needs entities and facts');
 
-  function extract({ scopeId = 'global', text, traceId = null, eventId = null, recordedAt = null } = {}) {
-    const candidates = extractFactCandidates(text);
+  function extract({ scopeId = 'global', text, traceId = null, eventId = null, recordedAt = null, persona = null } = {}) {
+    const candidates = extractFactCandidates(text, persona ?? {});
     const resolved = [];
     for (const candidate of candidates) {
       try {

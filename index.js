@@ -6,6 +6,7 @@ import { assembleSystemPrompt } from './src/prompt/assemble.js';
 import { createLlmAdapter } from './src/llm/adapter.js';
 import { createScheduler } from './src/host/scheduler.js';
 import { effectiveFeatures } from './src/core/feature-overrides.js';
+import { createWebSearch } from './src/web/search.js';
 
 export const name = 'cortex';
 export const inject = ['tools', 'systemPrompt'];
@@ -42,7 +43,20 @@ export const Config = Schema ? Schema.object({
   schedulerIntervalMs: Schema.natural().default(60000).description('心跳间隔毫秒'),
   injectionGate: Schema.boolean().default(true).description('只过滤注入 prompt 的弱相关候选；cortex_search 仍返回全量'),
   recentMinMatch: Schema.number().default(0.12).description('注入层近期候选最低匹配度'),
+  recentImportanceFloor: Schema.number().default(0.8).description('注入层允许重要度豁免的最低重要度；默认保持 0.4.11 行为'),
+  recallSharing: Schema.boolean().default(false).description('允许所有会话共享同一份召回块；默认按 session 隔离'),
+  evolution: Schema.object({
+    autoActivate: Schema.boolean().default(true).description('允许自我进化在护栏内自动激活候选策略'),
+    maxPerDay: Schema.natural().default(4).description('每天自动激活上限'),
+    minIntervalMs: Schema.natural().default(3600000).description('两次自动激活的最小间隔毫秒'),
+    canaryTicks: Schema.natural().default(3).description('候选策略观察多少个健康心跳后才算稳定'),
+    rollbackOnError: Schema.boolean().default(true).description('观察期内自检失败则自动回滚'),
+  }).description('自我进化的护栏（保留自主性，只限制爆炸半径）'),
   allowRestoreOutsideRoot: Schema.boolean().default(false).description('允许 guard 恢复到 dataRoot 外；默认禁止'),
+  webSearchProvider: Schema.string().default('wikipedia').description('无宿主 web 服务时的兜底：wikipedia | searxng | none'),
+  webSearchEndpoint: Schema.string().default('http://127.0.0.1:8080').description('SearXNG endpoint（provider=searxng 时使用）'),
+  webSearchLanguage: Schema.string().default('zh').description('联网检索语言'),
+  webSearchMaxResults: Schema.natural().default(3).description('每次联网检索返回条数上限'),
   maxCallsPerHour: Schema.natural().default(120).description('检索调用预算（宿主 prefetch 不计入）'),
   rerankEnabled: Schema.boolean().default(false).description('QA 可选 HTTP rerank（默认关）'),
   rerankBaseUrl: Schema.string().default('').description('rerank 服务根地址，例如 http://127.0.0.1:9000/v1'),
@@ -115,6 +129,15 @@ export async function apply(ctx, config = {}) {
     try {
       const web = ctx.get?.('web') ?? null;
       if (web && typeof web.search === 'function') webSearch = (request) => web.search(request);
+      else if (config.features?.webSearch === true && config.webSearchProvider !== 'none') {
+        const fallback = createWebSearch({
+          provider: config.webSearchProvider ?? 'wikipedia',
+          endpoint: config.webSearchEndpoint ?? 'http://127.0.0.1:8080',
+          language: config.webSearchLanguage ?? 'zh',
+          maxResults: config.webSearchMaxResults ?? 3,
+        });
+        webSearch = (request) => fallback.search(request);
+      }
     } catch {
       webSearch = null;
     }

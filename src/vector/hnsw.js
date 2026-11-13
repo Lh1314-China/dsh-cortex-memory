@@ -1,11 +1,11 @@
 /**
  * Small dependency-free HNSW index for Cortex.
  *
- * This is a candidate replacement for the single-layer NSW in ann.js. It is
- * intentionally not wired into the production vector index until a benchmark
- * shows acceptable recall. The implementation uses simple sorted frontiers
- * (not a binary heap) because it is easier to audit; this is a benchmark
- * candidate, not a final large-corpus engine.
+ * This is the default ANN engine in `src/vector/index.js` (`annEngine: 'hnsw'`);
+ * the older single-layer NSW implementation remains selectable as `'nsw'`.
+ * The implementation uses simple sorted frontiers (not a binary heap) because
+ * it is easier to audit; run `bench/hnsw-bench.mjs` before changing parameters
+ * for a large corpus.
  */
 function mulberry32(seed) {
   let state = seed >>> 0;

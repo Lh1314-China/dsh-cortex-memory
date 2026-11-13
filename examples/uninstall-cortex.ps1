@@ -89,3 +89,4 @@ if (-not $KeepPatch) {
 
 Write-Host "profile left in place: $profilePath"
 Write-Host "cortex data was NOT deleted: $configuredDataRoot"
+

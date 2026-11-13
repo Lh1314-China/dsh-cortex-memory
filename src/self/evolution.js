@@ -34,6 +34,28 @@ export function createEvolutionEngine({
   let dayKey = '';
   let dayCount = 0;
 
+  // Rehydrate canaries after a process restart. Without this, an active
+  // policy that was still inside its observation window would never roll back.
+  for (const policy of policies.listCanaries?.() ?? []) {
+    const canary = policy.canary;
+    if (!canary || typeof canary !== 'object') continue;
+    canaries.set(policy.id, {
+      kind: policy.kind,
+      previousId: canary.previousId ?? null,
+      ticks: Number(canary.ticks) || 0,
+      activatedAt: Number(canary.activatedAt) || Date.now(),
+    });
+  }
+
+  function localDay(value) {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function persistCanary(id, canary) {
+    try { policies.setCanary?.(id, canary); } catch { /* persistence must not break evolution */ }
+  }
+
   function propose({ kind, config, rationale = '', metrics = null, scopeId = 'global' } = {}) {
     const policy = policies.create({ kind, config, rationale, metrics });
     audit?.record?.({
@@ -136,7 +158,7 @@ export function createEvolutionEngine({
     if (guardConfig.autoActivate !== true) {
       return { ...optimized, activated: [], deferred: 'auto-activate-off', guard: { ...guardConfig } };
     }
-    const today = nowIso().slice(0, 10);
+    const today = localDay(Date.now());
     if (today !== dayKey) { dayKey = today; dayCount = 0; }
     const activated = [];
     const errors = [];
@@ -153,7 +175,7 @@ export function createEvolutionEngine({
           ? evaluateQuality({ scopeId, phase: 'after', baseline })
           : null;
         if (quality && quality.ok === false) {
-          const target = previous?.id ? policies.rollback(policy.kind, previous.id) : policies.deactivate(policy.kind);
+          const target = previous?.id ? policies.rollback(policy.kind, previous.id) : policies.retire(policy.id);
           audit?.record?.({
             actor: 'self:autoEvolve',
             action: 'policy.autoevolve.quality-rollback',
@@ -164,12 +186,14 @@ export function createEvolutionEngine({
           errors.push({ id: proposal.id, error: 'quality-guard', quality });
           continue;
         }
-        canaries.set(policy.id, {
+        const canary = {
           kind: policy.kind,
           previousId: previous?.id ?? null,
           ticks: 0,
           activatedAt: Date.now(),
-        });
+        };
+        canaries.set(policy.id, canary);
+        persistCanary(policy.id, canary);
         lastActivatedAt = Date.now();
         dayCount += 1;
         activated.push(policy);
@@ -189,7 +213,7 @@ export function createEvolutionEngine({
     if (failed) {
       for (const [id, canary] of [...canaries.entries()]) {
         try {
-          const target = canary.previousId ? policies.rollback(canary.kind, canary.previousId) : policies.deactivate(canary.kind);
+          const target = canary.previousId ? policies.rollback(canary.kind, canary.previousId) : policies.retire(id);
           audit?.record?.({
             actor: 'self:autoRollback',
             action: 'policy.autoevolve.rollback',
@@ -199,6 +223,7 @@ export function createEvolutionEngine({
           });
           rolledBack.push({ id, kind: canary.kind, to: target?.id ?? null });
           canaries.delete(id);
+          persistCanary(id, null);
         } catch (error) {
           rolledBack.push({ id, kind: canary.kind, error: error instanceof Error ? error.message : String(error) });
         }
@@ -209,6 +234,7 @@ export function createEvolutionEngine({
       canary.ticks += 1;
       if (canary.ticks >= guardConfig.canaryTicks) {
         canaries.delete(id);
+        persistCanary(id, null);
         audit?.record?.({
           actor: 'self:canary',
           action: 'policy.autoevolve.promote',
@@ -218,6 +244,7 @@ export function createEvolutionEngine({
         });
       } else {
         canaries.set(id, canary);
+        persistCanary(id, canary);
       }
     }
     return { rolledBack, pending: canaries.size };

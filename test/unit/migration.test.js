@@ -30,7 +30,7 @@ test('migration adds facts.superseded_at and backfills invalidated rows', () => 
     const row = db.prepare('SELECT superseded_at FROM facts WHERE id = ?').get('f_old');
     assert.equal(row.superseded_at, '2026-02-01');
     const version = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
-    assert.equal(version.value, '6');
+    assert.equal(version.value, '7');
   } finally {
     db.close();
     rmSync(dir, { recursive: true, force: true });

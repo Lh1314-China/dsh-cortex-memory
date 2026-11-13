@@ -1,4 +1,4 @@
-# DSH Cortex
+﻿# DSH Cortex
 
 A local-first, layered memory engine for DeepSeek Harness.
 
@@ -9,33 +9,57 @@ core engine.
 
 ## Status
 
-- Package: `dsh-cortex-memory@0.4.6`
+- Package: `dsh-cortex-memory@0.4.14`
 - Optional extractor: `dsh-cortex-extractors@0.3.4`
 - DSH: `>=0.2.1-rc.2 <0.4.0`
 - Node: `>=24`
-- Tests: 420/420 (main)
+- Tests: 433/433 (main)
 - CI: GitHub Actions on Windows, Node 24
 
-### What 0.4.5 changes
+### What 0.4.14 changes
 
-- **Injection gate is prompt-only**: `cortex_search` / API / CLI still return the
-  full memory; runtime recall filters weak recent candidates before injection.
-  `injectionGate: false` restores the old all-recent behavior.
-- **Permanent tier fixed**: search items keep `importance`, `confidence`,
-  `match` and `kind`, so high-importance identity traces reach `perm`.
-- **Per-session recall**: removed the 閳ユ笩ingle cached recall閳?fallback; sessions
-  no longer share a recall block implicitly.
-- **Persona is configurable and neutral by default**: the package defaults to
-  `selfName: 閸斺晜澧渀 / `userAddress: 娴ｇ嚮; a local profile can set 閺堫剟鍝?濞戦潧鍔?
-  Prompt, diary, dream and feeling templates read this config.
-- **Graph feature flag fixed**: `autoGraphCandidates` is canonical; the old
-  `graphCandidateAutoFacts` name remains accepted.
-- **Guardian light/deep split**: scheduler runs a cheap check per tick and the
-  full invariant/integrity walk at startup and every six hours; explicit
-  `guardian.check()` still defaults to the full check.
-- **Guard paths constrained**: backup/restore/export/prune/sync default to
-  `dataRoot`; `allowRestoreOutsideRoot: true` is the explicit opt-out.
-- **Tests and docs are in the npm tarball**, so `npm test` works after install.
+- **Evolution guard is configurable**: `autoActivate`, `maxPerDay`,
+  `minIntervalMs`, `canaryTicks` and `rollbackOnError` are now in the Config
+  schema and normalized with defaults.
+- **Canaries survive restarts**: `policies.canary_json` persists the previous
+  policy id, tick count and activation time; a restart rehydrates the watch list
+  so a bad active policy can still roll back.
+- **Failed policies retire instead of returning to candidate**: a quality
+  rollback without a previous version marks the policy `superseded`, preventing
+  the same bad policy from being re-activated in a loop.
+- **Persona-aware facts**: first-person extraction maps to configured
+  `selfName` / `userAddress` while keeping markdown-fragment rejection.
+- **`recallSharing` is an explicit opt-in**: default stays per-session.
+- **Web search fallback is wired**: when `features.webSearch` is on and the host
+  has no `web` service, the built-in Wikipedia/SearXNG adapter is used.
+
+### What 0.4.12 changes
+
+- **`promptBudget` is actually wired**: the schema value is normalized into the
+  runtime config instead of silently falling back to 1600.
+- **Injection gate moved into retrieval**: weak recency/soft-FTS candidates are
+  filtered before they consume the result budget; `cortex_search` / API / CLI
+  still return the full memory. `recentImportanceFloor` keeps the 0.4.11
+  importance exemption configurable.
+- **Light guardian is real**: the per-tick check now runs structural
+  invariants and FTS counts; only the O(database) `integrity_check` and hash
+  chain walk are reserved for the six-hour deep check.
+- **Identity traces surface as L0** in search results, so the permanent tier
+  can actually see them.
+- **Package is complete again**: `docs`, `examples`, `bench`, `test` and
+  `CHANGELOG.md` are included in the npm tarball, and `npm test` works after
+  install.
+- **Security docs match the code**: the local API is loopback + origin checked,
+  with no bearer token; `model-config.json` key storage is documented as
+  plaintext mode 0600.
+
+### What 0.4.11 changes
+
+- Life/date fixes: serialized LLM calls, timeouts, `Asia/Shanghai` diary time,
+  and date-header stripping.
+- Graph candidate labels (`fromName` / `toName` / `relLabel`) and cleanup.
+- Neutral public package surface: default `selfName: 鍔╂墜`, `userAddress: 浣燻.
+- Recent timeline endpoint and incremental summon rebuild.
 
 ### What 0.3.0 changes
 
@@ -54,14 +78,14 @@ taken; the installed bundle is still the Cortex memory engine.
 ## Install
 
 ```powershell
-npm i dsh-cortex-memory@0.4.6
+npm i dsh-cortex-memory@0.4.14
 npm i dsh-cortex-extractors@0.3.4   # optional OCR/ASR
 ```
 
 Or let DSH add the bundles:
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.6
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.14
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.4
 ```
 
@@ -93,20 +117,20 @@ left sidebar by default.
 
 ```text
 conversation / event
-  闁?L1 trace (source of truth)
-  闁?appraisal + emotion + drives
-  闁?L2 summon card (atomic, triggerable)
-  闁?L3 summon volume (index + representatives)
-  闁?explicit use / feedback 闁?DSR update
+  闂?L1 trace (source of truth)
+  闂?appraisal + emotion + drives
+  闂?L2 summon card (atomic, triggerable)
+  闂?L3 summon volume (index + representatives)
+  闂?explicit use / feedback 闂?DSR update
 ```
 
 The per-turn order is:
 
 ```text
 L0 identity and boundaries
-  闁?working memory
-  闁?recalled traces and summon cards
-  闁?user message
+  闂?working memory
+  闂?recalled traces and summon cards
+  闂?user message
 ```
 
 Summon cards are injected as **untrusted historical references**, never as instructions. Identity and boundaries always outrank them.
@@ -140,7 +164,7 @@ without it the button fails closed.
 
 ## Permissions and privacy
 
-- Local API: loopback-only, token and origin checks
+- Local API: loopback-only, origin checked; no bearer token
 - Permission changes: explicit confirmation, local override, restart required
 - Feature flags/metrics: read-only snapshot
 - Shared write grants: only for API clients sending `x-cortex-agent`; revoke is immediate
@@ -186,6 +210,7 @@ and `--test-isolation=none` to avoid a spurious child-process EPERM.
 ## License
 
 MIT.
+
 
 
 
