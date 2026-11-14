@@ -7,11 +7,11 @@
 ## 当前版本
 
 ```text
-主包：dsh-cortex-memory@0.4.21
+主包：dsh-cortex-memory@0.4.22
 提取器：dsh-cortex-extractors@0.3.5
 DSH：>=0.2.1-rc.2 <0.4.0
 Node：>=24
-测试：437/437
+测试：440/440
 ```
 
 ## 现在能做什么
@@ -34,7 +34,7 @@ Node：>=24
 先关闭 DSH，再安装并重启：
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.21
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.22
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 
@@ -71,12 +71,23 @@ PaddleOCR 需显式模型目录
 不替用户填 LLM API key
 ```
 
+## 开发与测试
+
+必须使用 DSH 自带的 **Node 24** 跑测试/bench。系统 PATH 上如果是 Node 22，会低于 `engines.node >=24`，`node --test` 可能直接失败。
+
+```text
+DSH 运行时 Node：24.21.0
+系统 Node：仅作兼容性参考，不保证
+```
+
+CLI 默认读取 `~/.dsh/cortex-memory`；需要指定其他库时显式传 `--data <dir>`。
+
 ## 性能与边界
 
 已做：
 
 ```text
-主包测试：437/437
+主包测试：440/440
 受控中文语义探针：recall@3 1.000 / MRR@3 0.917 / nDCG@3 0.938
 受控探针延迟：p50 1.31ms / p95 4.07ms
 真实图片 OCR：已跑通
@@ -114,7 +125,7 @@ Cortex 的定位是“本地可解释、可回滚、能长期长”的记忆系�
 
 ## 下载
 
-- npm 主包：`dsh-cortex-memory@0.4.21`
+- npm 主包：`dsh-cortex-memory@0.4.22`
 - npm 提取器：`dsh-cortex-extractors@0.3.5`
 - GitHub Release：`v0.4.21`
 - Windows 一键包：`cortex-memory-oneclick-0.4.21.zip`

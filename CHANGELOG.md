@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.22 — 2026-11-14
+
+- Fix CLI default data root: use profileDataRoot (cortex-memory) instead of legacy ~/.dsh/cortex.
+- Add CLI root regression tests for default, --data and CORTEX_HOME.
+- Document that tests/bench require the DSH bundled Node 24; system Node 22 is below engines.
+- No loader-id, data-path or UI changes.
+
 ## 0.4.21 — 2026-11-14
 
 - Documentation-only release: replace the README with a current-version capability guide, install/download flow, add-on matrix and honest performance boundaries.

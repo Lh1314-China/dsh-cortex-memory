@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createCortex } from '../src/service/cortex.js';
+import { profileDataRoot } from '../src/core/profile.js';
 import { createShioriImporter } from '../src/adapters/shiori.js';
 import { exportMarkdown } from '../src/adapters/markdown.js';
 import { importMarkdown } from '../src/adapters/markdown-import.js';
@@ -26,7 +27,7 @@ function parse(argv) {
 function usage() {
   console.log(`dsh-cortex CLI (source only)
 
-  --data <dir>      cortex data directory (default ~/.dsh/cortex)
+  --data <dir>      cortex data directory (default ~/.dsh/cortex-memory)
 
 Commands:
   write --text <text> [--kind <kind>] [--importance 0.5]
@@ -41,10 +42,14 @@ Commands:
 `);
 }
 
+export function resolveDataRoot(args = {}, env = process.env) {
+  return path.resolve(args.data ?? env.CORTEX_HOME ?? profileDataRoot({ env }));
+}
+
 function main() {
   const args = parse(process.argv.slice(2));
   const command = args._[0];
-  const dataRoot = path.resolve(args.data ?? path.join(os.homedir(), '.dsh', 'cortex'));
+  const dataRoot = resolveDataRoot(args);
   if (!command || command === 'help' || args.help) { usage(); return; }
 
   if (command === 'bench') {
@@ -93,4 +98,4 @@ function main() {
   }
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();
