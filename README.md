@@ -133,3 +133,11 @@ Cortex 的定位是“本地可解释、可回滚、能长期长”的记忆系�
 - Windows 一键包：`cortex-memory-oneclick-0.4.147.zip`
 
 安装后重启 DSH，左侧出现「Cortex 记忆」入口。
+
+## 许可与声明
+
+- **MIT**，见 [LICENSE](LICENSE)。
+- 数据只在本机 SQLite（`~/.dsh/cortex-memory`），不上传；远程 LLM / 向量 / 重排默认关闭，
+  需要时在设置里显式开启。
+- 提取器是可选依赖，默认不下载模型；Whisper / PaddleOCR 的模型需自备。
+- 核心引擎没有外部模型依赖；Node `>=24` 是硬要求（`node:sqlite`）。
