@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.147 — 2026-11-19
+
+Second privacy pass: real-life wording out of the public text, a neutral icon and a smaller tarball.
+
+### Changed
+- **Real-life wording removed from CHANGELOG, source comments and fixtures.**
+  Quoted fragments from private conversations are gone; examples are abstract
+  ("a long truncated title") instead of copied text. Review attribution and
+  live-store counts are generalized, so this changelog no longer reads like a
+  private work log.
+- **Fixtures neutralized.** The health-theme, ocean-themed and character-name
+  fixtures are replaced with neutral topics; the transcript fixtures no longer
+  mirror anyone's real life.
+- **Neutral icon.** The embedded portrait is replaced with a plain node-graph
+  logo, saving about 32 KB twice (`icon.svg` and the sidebar icon in `client.js`).
+- **Tarball excludes `test/`** (`package.json.files`): smaller package, and the
+  largest audit surface moves out of the shipped artifact. Tests stay in the
+  repository and in CI.
+- Template diary/feeling wording no longer uses a water/whale metaphor.
+
+### Verified
+- Unit: 520/520, twice.
+- Integration: 126/126.
+- Package scan: no names, local paths, credentials, real quotes or journal text.
+
 ## 0.4.146 — 2026-11-19
 
 First public release since 0.4.22: the same engine, a neutral public surface.
@@ -9,8 +34,10 @@ First public release since 0.4.22: the same engine, a neutral public surface.
   neutral (助手 / 你); a new optional `persona.description` config carries a custom
   self-description for LLM prompts. The migration script that rewrote local
   identity boundaries is gone — `bin/repair.mjs` covers the same data step.
-- **Test corpus and benches are neutral.** Fixtures use generic names and foods;
-  no local names, nicknames or journal text remain in the tarball.
+- **Test corpus and benches are neutralized in this pass.** Fixtures use generic
+  names and foods; persona defaults and local nicknames are out of the package.
+  (0.4.147 is the second pass that removes the remaining real-life wording from
+  this changelog and a few fixtures.)
 - **README states the real shipped numbers**: version 0.4.146, 520/520 unit tests,
   DSH `>=0.2.1-rc.2 <0.5.0`.
 - `src/engines/narrative.js` strips the configured `persona.selfName` speaker
@@ -45,7 +72,7 @@ The quoted seed topic still came from the captured title.
 
 ### Fixed
 - **The seed topic reads content too.** `cleanTitle(seed.title || …)` still preferred the
-  40-char captured title, so a topic ended mid-sentence ("…我顺着豆包的线索挖"). It now
+  40-char captured title, so a topic ended mid-sentence ("…某段被截断的长标题"). It now
   takes `seed.content` first (quote marker and speaker prefix stripped), cuts at 60 chars on a
   punctuation boundary, and only falls back to the title when content is empty.
 - Carries 0.4.143's fix: the "> " quote marker is stripped from both body clauses and the
@@ -62,7 +89,7 @@ A quoted turn left a "> " marker in the paragraph topic.
 
 ### Fixed
 - **The quote marker is stripped from thread text and the seed topic.** A turn captured from
-  a quoted reply read as 「一段关于「> （尾尖…）…」的经历」; `clean()` and `cleanTitle()` now
+  a quoted reply read as 「一段关于「> （某括号…）…」的经历」; `clean()` and `cleanTitle()` now
   drop a leading "> " before the speaker prefix, so it never reaches the paragraph.
 
 ### Verified
@@ -76,7 +103,7 @@ The paragraphs were still cutting capture's 40-char titles in half.
 
 ### Fixed
 - **Thread text reads `content`, not `title`.** Capture stores a short title that stops
-  mid-parenthesis ("…验收（豆包装：desk") while the content holds the whole turn, so the
+  mid-parenthesis ("…验收（工具名：desk") while the content holds the whole turn, so the
   paragraph kept a stump even after the sentence-splitting fix. `clean()` now takes the
   content first, strips capture's "用户：/助手：" speaker prefix, and falls back to the title.
   The 90-char truncation lands on a punctuation boundary and never inside an open bracket.
@@ -93,13 +120,13 @@ Thread paragraphs: the last three rough edges seen in the live sample.
 
 ### Fixed
 - **Long titles are cut at punctuation, not mid-bracket.** `truncate(90)` produced tails like
-  "…验收（豆包装：desk". The cut now drops an unclosed bracket tail first, then falls back to
+  "…验收（工具名：desk". The cut now drops an unclosed bracket tail first, then falls back to
   the last ，；。：、 inside the budget.
 - **Markdown emphasis is stripped from thread text and from the seed topic.** `**…**` and
   backticks no longer leak into the paragraph or the quoted seed title.
 - **A sentence ending in an English dot is no longer treated as a fragment.** `clean()` keeps
   the dot it split at, while the fragment filter rejected every `/\.$/` — so a complete
-  sentence like "人类观察日记." was dropped. The dot rule now only catches digit-dot stumps
+  sentence like "项目观察日志." was dropped. The dot rule now only catches digit-dot stumps
   ("dsh-cortex 0.").
 
 ### Verified
@@ -160,7 +187,7 @@ The last truncation edge in the narrative pool.
 
 ### Fixed
 - **The 24h pass no longer caps at 300 rows.** A busy day already reaches ~320 active traces
-  in 24h (the live store: 315), so `around(24h)` with `limit 300` silently dropped the newest
+  in 24h (a production store: 315), so `around(24h)` with `limit 300` silently dropped the newest
   neighbours — exactly the ones a thread about "tonight" needs. Each pass now carries
   headroom above its own traffic: 24h → 600 rows, 72h → 1200, 7 days → 2000.
 - Live check after 0.4.137: the first two threads woven at 14:04:10 UTC had bullets from
@@ -294,7 +321,7 @@ Two idempotence-gate holes found by self-review right after 0.4.132 shipped.
 
 ## 0.4.132 — 2026-11-18
 
-Closes the four gaps 0.4.131 exposed on its first day in the live store.
+Closes the four gaps 0.4.131 exposed on its first day in a production store.
 
 ### Fixed
 - **A dry run is recorded as `preview`, not `degraded`/`applied`.** 0.4.131 made preview rows
@@ -326,7 +353,7 @@ Consolidation stops asking the one question it can never answer differently.
 ### Fixed
 - **Candidate selection ranks the other end of the store.** 0.4.116→0.4.130 sorted active
   traces by importance descending, so every run handed the model the batch its own prompt
-  protects (99% of the live store is >= 0.7 and the top slice is all 1.0) and the only
+  protects (99% of a production store is >= 0.7 and the top slice is all 1.0) and the only
   possible answer was keep. Candidates now rank: no summary cites the trace yet → not shown
   to the model in the last 24h → lowest importance, oldest first. Asked traces sink instead
   of disappearing, so a fully asked pool rotates back over the stale end.
@@ -337,7 +364,7 @@ Consolidation stops asking the one question it can never answer differently.
   decisions were all keep used to burn a fresh LLM call every 30 minutes on an identical
   input. A rejected batch is still retried — that was the model's own bad output.
 - **`health` compares FTS rows per scope.** It counted the global traces against the whole
-  FTS index, so any second scope (`agency` in the live store) produced a permanent FTS_DRIFT
+  FTS index, so any second scope (`agency` in a production store) produced a permanent FTS_DRIFT
   warning for exactly those rows.
 - **`maintain()` no longer closes a dispute while both facts are `disputed`.** `disputed` is
   not "not active"; the old condition resolved the dispute and left the facts unqueryable
@@ -412,7 +439,7 @@ the 0.4.116→0.4.128 chain. No new features.
   reach the tail — 851 non-reflection traces exceed 20 windows × 40. `backfillEpisodes`
   now accepts `since` (the previous batch's `until`), the tool exposes it, and the ceiling
   is raised to 64.
-- **Same-millisecond windows made the 0.5 coverage bar fragile.** The live store's first
+- **Same-millisecond windows made the 0.5 coverage bar fragile.** A production store's first
   window contains 51 traces sharing one timestamp (bulk import) while reflect samples 24,
   so coverage = 24/51 ≈ 0.47 — below the bar, meaning a re-run would write a duplicate.
   Resume (`since`) removes that path; the coverage bar stays as a second guard.
@@ -528,7 +555,7 @@ the 0.4.116→0.4.128 chain. No new features.
   `sourceIds` stays within the existing 24-source budget (`maxSources` clamp 1–40 is
   respected by construction).
 
-### Verified on the live store (read-only copy)
+### Verified on a production store (read-only copy)
 - `windowSize 40, maxWindows 6` → planned 6 windows, covering 1970-01-01 → 2026-11-12
   (the first 240 traces). To reach the compressible subset's ~60% the plan needs roughly
   20–24 windows, matching the reviewer's estimate.
@@ -569,7 +596,7 @@ the 0.4.116→0.4.128 chain. No new features.
 - The preview threshold is a parameter (`coverageThreshold`, clamped 0.2–0.9) instead of a
   hardcoded 0.35, and is echoed back in the report.
 
-### Verified on the live store (read-only copy)
+### Verified on a production store (read-only copy)
 - active 945 · summaryCovered 423 · **factCovered 67** · both 52 · pool 67 · strongPool 52
 - r p50 0.022 / p90 0.537, spread 0.515 · **`usable: true`**
 - First time the gate opened: fixing the fact fields lifted fact coverage from 6 to 67 rows.
@@ -596,7 +623,7 @@ the 0.4.116→0.4.128 chain. No new features.
 - `reason` is evaluated as `no_signal → empty_pool → flat`; the tool default is now 5000
   (it was still 500, silently truncating).
 
-### Verified on the live store
+### Verified on a production store
 - active 942 · summaryCovered 423 · factCovered 6 · both 5 · pool 6 · strongPool 5
 - r p50 0.02 / p90 0.048, spread 0.028 → **`reason: flat`, `usable: false`**
 - So the pool is no longer structurally empty, but the signal is still too thin: the next
@@ -624,7 +651,7 @@ the 0.4.116→0.4.128 chain. No new features.
   `scanned`, so the 500-row truncation cannot hide the store size; the protection line
   is now the same `max(0.9, min(0.95, p75))` as consolidation.
 
-### Verified on the live store (read-only copy)
+### Verified on a production store (read-only copy)
 - active 940 · skipped 293 protected / 179 recent · scored 461 · 5 summaries
 - r p50 **0.041** / p75 0.059 / p90 0.088, spread 0.047 · best row **0.33**
 - **`reason: flat`** — with the honest scorer the current summaries really do cover very
@@ -645,7 +672,7 @@ the 0.4.116→0.4.128 chain. No new features.
   accessed ones (`last_access_at` within 30 days) are skipped, then the r distribution
   (p50/p75/p90) and the would-be cut list are reported. It writes nothing.
 
-### Verified on the live store (read-only copy via `VACUUM INTO`)
+### Verified on a production store (read-only copy via `VACUUM INTO`)
 - 939 active · skipped 293 protected / 178 recent · 461 scored · 5 summaries
 - r p50 0.472 / p75 0.481 / p90 0.494; **spread 0.013 < 0.05 → `usable: false`, pool 0**
 - Conclusion: the coverage signal is not usable yet. Per the design, 0.4.117 (gray-zone
@@ -708,7 +735,7 @@ the 0.4.116→0.4.128 chain. No new features.
 ## 0.4.113 — 2026-11-16
 
 ### Changed
-- **Dedupe may merge traces that sit on the protection line.** The live store has 75% of
+- **Dedupe may merge traces that sit on the protection line.** A production store has 75% of
   active traces at importance ≥ 0.95, so "two protected members" is the normal case and
   the old rule dropped every group — dedupe could not merge a single pair. Since dedupe
   has already proved the members are near-duplicates (Jaccard ≥ threshold) and
@@ -798,7 +825,7 @@ the 0.4.116→0.4.128 chain. No new features.
 ### Fixed
 - **The per-tick path is no longer a per-minute LLM call.** `features.consolidateOnTick`
   was silently `true` in `feature-overrides.json` since 11-12 (the profile yml never
-  mentioned it), so the scheduler ran a full consolidation every tick — 1921 `no-llm`
+  mentioned it), so the scheduler ran a full consolidation every tick — hundreds of `no-llm`
   rows are that history, not a broken adapter. The tick path now honours
   `consolidateTraceGapMinutes` (default 30) and reports `too-soon` instead.
 - `lastRealConsolidationAt` joins `dream_runs` so the audit lookup is scoped; with
@@ -946,7 +973,7 @@ the 0.4.116→0.4.128 chain. No new features.
   consolidation records `llm-empty:<reason>`. When the slim retry already ran and
   still came back empty the label is `llm-empty-retry:<reason>`, so "retried and
   still empty" is no longer indistinguishable from "empty on the first try".
-  (Both P2s from 豆包's 0.4.101 review.)
+  (Both P2s from the 0.4.101 review.)
 - `health` matches the `llm-empty%` family and reports the reason buckets, so one
   glance shows whether the fix is about prompt size, purpose, or wiring.
 
@@ -958,7 +985,7 @@ the 0.4.116→0.4.128 chain. No new features.
 ## 0.4.101 — 2026-11-16
 
 ### Changed
-- **Consolidation retries once with a slimmer prompt.** The live store's payload
+- **Consolidation retries once with a slimmer prompt.** A production store's payload
   averages ~5k characters; when the first call comes back empty and the payload
   exceeds 4000 chars, it retries with the top 10 items and 220-char contents. A
   successful retry is recorded as `llm-retry` in the model column, so the extra
@@ -976,7 +1003,7 @@ the 0.4.116→0.4.128 chain. No new features.
 ### Fixed
 - **`labelEntities` still returned the old `no-llm` skip label.** It now returns
   `no-llm-adapter`, matching `consolidation.run`, so one word no longer covers two
-  different failures. (P3 from 豆包's 0.4.98 review; the historical 1921 rows stay
+  different failures. (P3 from the 0.4.98 review; the historical rows stay
   as they are.)
 
 ### Verified
@@ -1006,7 +1033,7 @@ the 0.4.116→0.4.128 chain. No new features.
 
 ### Fixed
 - **`no-llm` was two different failures under one label.** A missing adapter and an
-  adapter that answered nothing both recorded `no-llm`, so the 1914 rows gave no
+  adapter that answered nothing both recorded `no-llm`, so the unexpected rows gave no
   clue which one to fix. They are now `no-llm-adapter` and `llm-empty`, and
   `health` warns `LLM_EMPTY` when ≥5 empty answers pile up within 6 hours.
 
@@ -1026,7 +1053,7 @@ the 0.4.116→0.4.128 chain. No new features.
 ### Fixed
 - **Why consolidation never ran: the LLM feature was off.** The live profile had
   `features.llm` unset, so the adapter was `null` and every consolidation tick
-  recorded `no-llm` (1914 rows in `dream_runs`); the same flag gates sleep
+  recorded `no-llm` (hundreds of rows in `dream_runs`); the same flag gates sleep
   consolidation. The profile patch now sets `features.llm: true` and
   `consolidateOnSleep: true` (backup: `cordis.patch.yml.bak-noisefix-*`), and
   `health` raises `LLM_DISABLED` when the flag is off so this can never be silent
@@ -1078,7 +1105,7 @@ the 0.4.116→0.4.128 chain. No new features.
   when it changed nothing; changed passes behave exactly as before.
 
 ### Why
-- The live store still holds only the 08:24:56Z row (9 keys, no `ms`): no passing
+- A production store still holds only the 08:24:56Z row (9 keys, no `ms`): no passing
   `maintain` has actually changed anything since 0.4.89, and the "过期意图 1 条" in
   the 0.4.93 install was `repair`, not `maintain`. Without this change the first
   real timing sample could stay missing for days.
@@ -1096,7 +1123,7 @@ the 0.4.116→0.4.128 chain. No new features.
   fast pass within minutes and the warning effectively never fired — defeating the
   whole point of adding it in 0.4.86. It now evaluates the newest pass *and* the
   last pass that changed anything, warns on the slowest, and reports that pass's
-  timestamp alongside its duration. (Found by 豆包 against the live store.)
+  timestamp alongside its duration. (Found by review against a production store.)
 
 ### Verified
 - `maintain-duration.test.js` (7 cases): a fake 8500ms audit row followed by a fast
@@ -1147,7 +1174,7 @@ the 0.4.116→0.4.128 chain. No new features.
   has run for hours".
 - `health` exposes `maintainLastChanged` (that audit row) for tooling, and
   `maintainReport()` carries `passAt` from `detail.at` so the comparison uses the
-  pass's own timestamp rather than the row's write time. (Suggestion from 豆包.)
+  pass's own timestamp rather than the row's write time. (Review suggestion.)
 
 ### Verified
 - `maintain-duration.test.js` (5 cases): a 6-hour-old row with `working: 7` plus a
@@ -1162,7 +1189,7 @@ the 0.4.116→0.4.128 chain. No new features.
   row predated `ms`, `health` kept that row's counts and borrowed the latest
   pass's duration — a combination no single run produced. `lastMaintain` is now a
   full report snapshot and `health` falls back to it wholesale (counts and duration
-  from the same pass). (Review finding from 豆包.)
+  from the same pass). (Review finding.)
 
 ### Note
 - The displayed "上次维护" time still comes from the audit row's write time rather
@@ -1184,7 +1211,7 @@ the 0.4.116→0.4.128 chain. No new features.
   no row existed — i.e. the warning worked on idle passes and failed exactly when
   maintenance did real work. Timing is now computed before the audit write, and
   `health` merges `ms` from the in-memory pass when the row lacks it.
-  (Found by 豆包 against the live store: the single `maintain.run` row had keys
+  (Found by review against a production store: the single `maintain.run` row had keys
   `aliases/at/disputes/errors/goalRounds/intentions/playbook/summaries/working`
   and no `ms`.)
 - `maintainSlowMs` is config (default 2000) instead of a hardcoded threshold.
@@ -1241,7 +1268,7 @@ the 0.4.116→0.4.128 chain. No new features.
 - **Sampling is stratified instead of pure top-k.** 60% of the source budget is
   filled by score, then the remaining slots are taken from the rest of the ranked
   list with a stride, so one loud strand of the day cannot occupy every slot.
-  (Suggested by 豆包 after measuring the live store: max pairwise jaccard is 0.37,
+  (Suggested by review after measuring a production store: max pairwise jaccard is 0.37,
   so the near-duplicate filter is a no-op there and the only real levers left are
   the caps and the sampling strategy.)
 - The composed `一句话` line now uses the first two **distinct** bullets (two
@@ -1307,7 +1334,7 @@ the 0.4.116→0.4.128 chain. No new features.
   the stored source ids to prove it.
 - The dense-day follow-up thresholds moved into config:
   `reflectFollowUpMin` (default 150) and `reflectFollowUpGapHours` (default 6).
-  (Review finding from 豆包.)
+  (Review finding.)
 
 ### Verified
 - `reflect-phrasing.test.js`: first-person heading, `·` bullets with no
@@ -1328,7 +1355,7 @@ the 0.4.116→0.4.128 chain. No new features.
 - `reflect({ since, segment })`: explicit window start, default behaviour
   unchanged.
 - Extracted `isPerm()` in the tier code — the 0.8 threshold was duplicated three
-  times (review finding from 豆包).
+  times (review finding).
 
 ### Verified
 - `auto-reflect.test.js`: 60 traces → episode 1; +7h with 160 new traces →
@@ -1344,7 +1371,7 @@ the 0.4.116→0.4.128 chain. No new features.
   *all* candidates, so 8 candidates with 6 of them at importance ≥ 0.8 produced 2
   cold rows and 0 hot ones. The cut now ranks inside the non-perm pool only
   (`relativeTotal = candidates − permCount`), and still requires ≥ 4 non-perm
-  candidates before splitting. (Review finding from 豆包.)
+  candidates before splitting. (Review finding.)
 
 ### Verified
 - `tiers-gist.test.js`: 6 perm + 2 mid → 0 cold, 2 hot; 2 perm + 6 mid → 2 cold,
@@ -1395,7 +1422,7 @@ the 0.4.116→0.4.128 chain. No new features.
   lowest quarter of the current turn's candidates to `cold` (relative cut, at
   least 4 candidates), while keeping the absolute cutoff for genuinely small
   importance values. Fewer than 4 candidates means no relative split, so a tiny
-  recall never gets pushed into index-only. (Reported by 豆包.)
+  recall never gets pushed into index-only. (Reported during review.)
 
 ### Verified
 - `tiers-gist.test.js` adds: 8 candidates all at 0.6 → the last 2 land in cold
@@ -1425,7 +1452,7 @@ the 0.4.116→0.4.128 chain. No new features.
   `共享实体` were unreachable branches). Now anything below 0.4 importance goes
   to `cold`, where the reason tells the reader whether fetching is worth it and
   the 120-char gist does not eat hot budget. Mid-importance hits stay hot.
-  (Review finding from 豆包.)
+  (Review finding.)
 
 ### Verified
 - `tiers-gist.test.js` adds: importance 0.2 + vector → cold with `语义相近` and
@@ -1496,7 +1523,7 @@ the 0.4.116→0.4.128 chain. No new features.
   provenance survives. Dry runs report the clusters. Conservative on purpose.
 - The human-readable report now prints the dedupe line.
 
-### Measured on the live store
+### Measured on a production store
 - Pairwise episode similarity is 0.388 / 0.594 / 0.708 with overlap 0.553 / 0.627
   / 0.927 — the three old summaries share their **opening sentence** but not
   their bodies, so nothing is a true duplicate: `clusters: 0`. They stay; only
@@ -1531,7 +1558,7 @@ the 0.4.116→0.4.128 chain. No new features.
   period, then (with `--apply`) writes the value and marks the row
   `extractive-v2-recomputed`. Dry runs report `candidates / changed / sample`
   without touching a row. Deliberately *not* part of `maintain()`: this is a data
-  change and runs only through the repair backup gate. (Requested by 豆包.)
+  change and runs only through the repair backup gate. (Requested during review.)
 
 ### Verified
 - `coverage-rewrite.test.js`: 2 important + 2 trivial traces, v1 summary covering
@@ -1561,7 +1588,7 @@ the 0.4.116→0.4.128 chain. No new features.
   it sits ~24h before the run; comparing it against `now - 24h` only matched at
   the instant of writing. The anchor is now the summary's own `createdAt` (with
   `periodEnd` as fallback), so "one episode per 24h window" actually holds.
-  (Review finding from 豆包; the previous test passed only because its traces
+  (Review finding; the previous test passed only because its traces
   were all clustered at T0.)
 
 ### Verified
@@ -1578,7 +1605,7 @@ the 0.4.116→0.4.128 chain. No new features.
   roughly four overlapping episode summaries a day (the stored history already
   had near-duplicate rows). `maybeAutoReflect` now also skips when an existing
   episode summary starts inside that window (`skipped: 'covered'`). (Review
-  finding from 豆包.)
+  finding.)
 
 ### Verified
 - `auto-reflect.test.js` gains "same window, 7 hours later → covered";
@@ -1592,7 +1619,7 @@ the 0.4.116→0.4.128 chain. No new features.
   changed from "share of traces sampled" to "share of importance sampled", so
   old rows are not comparable with new ones; new summaries now carry
   `model: 'extractive-v2-weighted'` instead of a schema migration. (Review
-  finding P2 from 豆包.)
+  finding P2.)
 
 ### Verified
 - `reflect-coverage.test.js` asserts the marker is set. Suite: 378/378, twice.
@@ -1620,7 +1647,7 @@ the 0.4.116→0.4.128 chain. No new features.
   returns the newest 200 audit rows *overall* — with hundreds of `dream.run`
   rows a day, "24 hours" really meant about five hours. It now runs
   `SELECT COUNT(*) FROM audit WHERE action='trace.revive' AND at >= ?`, so the
-  cap is the full day as intended. (Review finding from 豆包.)
+  cap is the full day as intended. (Review finding.)
 
 ### Verified
 - `test/unit/revive-on-read.test.js` gains a regression case: 3 revives, then
@@ -1678,7 +1705,7 @@ the 0.4.116→0.4.128 chain. No new features.
   class, so it never matched the literal `[`. Those rows stayed active and kept
   showing up in recall even though the capture filter was correct. The reminder
   and goal-complete patterns now use `LIKE`; 3 stale rows were archived on the
-  live store (backed up first).
+  production store (backed up first).
 
 
 ## 0.4.59 — 2026-11-15
@@ -1701,7 +1728,7 @@ the 0.4.116→0.4.128 chain. No new features.
 - **Assistant-side captures no longer get the title "会话 N".** Turns whose user
   part was pure injected context were titled only by the turn number; the title
   now falls back to the assistant line (with the persona name stripped). On the
-  live store `repair.mjs` derived titles for 15 of 16 such traces.
+  production store `repair.mjs` derived titles for 15 of 16 such traces.
 
 ### Verified
 - `capture-filter.test.js`: persona-prefixed title derived; `会话 N` only when
@@ -1716,7 +1743,7 @@ the 0.4.116→0.4.128 chain. No new features.
   harness automation, but they were captured like speech and then resurfaced in
   every recall block. They are now dropped at capture (`stripInjected` /
   `isInjectedNoise`), and `repair.mjs` archives the copies already stored
-  (4 rows on the live store, backed up first).
+  (4 rows on a production store, backed up first).
 
 ### Verified
 - `capture-filter.test.js` covers both shapes. Suite: 369/369, twice.
@@ -1777,7 +1804,7 @@ the 0.4.116→0.4.128 chain. No new features.
 
 ### Fixed
 - Gist rendering no longer silently hard-truncates the raw text when the first
-  sentence is shorter than 24 chars: it takes the next sentence too (豆包
+  sentence is shorter than 24 chars: it takes the next sentence too (review
   review, 0.4.50 交接备注).
 
 ### Verified
@@ -2034,7 +2061,7 @@ the 0.4.116→0.4.128 chain. No new features.
 ### Added
 - `bin/repair.mjs`: one-shot, idempotent offline repair for an existing store.
   Dry-run by default; `--apply` takes a `VACUUM INTO` backup first. It archives
-  goal-round traces (105 on the live store) and any remaining injected-context
+  goal-round traces (105 on a production store) and any remaining injected-context
   traces, collapses duplicate summaries, expires stale intentions, retires
   fragment playbook rules, closes both-invalidated disputes, and merges alias
   targets when `--user-address` is given. Supersedes `migrate-0.4.23.mjs`.

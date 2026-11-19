@@ -50,7 +50,7 @@ const LOAD_BOUND_MS = 60_000;
 const SCOPE = 'global';
 
 const LOAD_WORDS = [
-  '鲸鱼', '米饭', '潮汐', '星图', '海风', '灯塔',
+  '项目', '米饭', '图表', '文档', '日志', '日程',
   '月光', '小鱼', '用户', '薄荷', '玻璃', '海盐',
 ];
 
@@ -350,7 +350,7 @@ test('search budget exhaustion returns blocked traces and scheduler.runOnce surv
     });
     assert.equal(countTraces(cortex), count);
 
-    const query = '鲸鱼';
+    const query = '项目';
     for (let index = 0; index < 6; index += 1) {
       const result = cortex.search(query, { limit: 5 });
       assertWellFormedSearch(result, query);
@@ -486,7 +486,7 @@ test('FTS plus hash-vector retrieval stays healthy across 1000 writes and 50 sea
       count,
       seed: 909,
       prefix: 'vector',
-      extraTokens: ['鲸鱼', '米饭', '记忆', 'alpha', 'beta'],
+      extraTokens: ['项目', '米饭', '记忆', 'alpha', 'beta'],
       importance: 0.6,
       confidence: 0.8,
     });
@@ -495,7 +495,7 @@ test('FTS plus hash-vector retrieval stays healthy across 1000 writes and 50 sea
     assert.equal(cortex.repos.traces.ftsCount(), count);
     assert.equal(cortex.vector.status().count, count);
 
-    const queries = ['鲸鱼', '米饭', '记忆', 'alpha', 'beta'];
+    const queries = ['项目', '米饭', '记忆', 'alpha', 'beta'];
     const started = performance.now();
     let totalItems = 0;
     for (let index = 0; index < 50; index += 1) {
@@ -531,8 +531,8 @@ test('FTS plus hash-vector retrieval stays healthy across 1000 writes and 50 sea
     assert.equal(cortex.vector.status().count, count);
     assert.equal(cortex.settings().vector.model, 'hash-256');
 
-    const afterRebuild = cortex.search('鲸鱼', { limit: 10 });
-    assertWellFormedSearch(afterRebuild, '鲸鱼');
+    const afterRebuild = cortex.search('项目', { limit: 10 });
+    assertWellFormedSearch(afterRebuild, '项目');
     assert.ok(afterRebuild.items.length >= 1);
     assertNoFailedSources(afterRebuild);
 
@@ -655,7 +655,7 @@ test('retention is bounded on 1000 traces and privacy deleteScope keeps the even
       stepMs: 1_000,
       importance: 0.04,
       confidence: 0.5,
-      extraTokens: ['鲸鱼', '米饭'],
+      extraTokens: ['项目', '米饭'],
     });
     cortex.writeMany(inputs, { chunkSize: 250 });
 
@@ -738,7 +738,7 @@ test('retention is bounded on 1000 traces and privacy deleteScope keeps the even
     assert.equal(chain.ok, true);
     assert.equal(chain.count, eventsBefore);
     assert.equal(cortex.repos.events.list({ limit: 10 }).length, 10);
-    assert.equal(cortex.search('鲸鱼').items.length, 0);
+    assert.equal(cortex.search('项目').items.length, 0);
 
     t.diagnostic(
       `retention/privacy: planned ${plan.count} of ${count} traces, `

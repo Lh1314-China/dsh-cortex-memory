@@ -82,7 +82,7 @@ test('identity proposals require explicit approval', () => {
   const { dir, cortex } = setup();
   try {
     const proposal = cortex.evolution.proposeIdentity({
-      content: { narrative: '我是一只在学习长大的鲸鱼。', values: ['诚实'], boundaries: ['不操纵'] },
+      content: { narrative: '我是一个在学习的记忆助手。', values: ['诚实'], boundaries: ['不操纵'] },
       rationale: 'after a meaningful episode',
     });
     assert.equal(proposal.status, 'proposed');

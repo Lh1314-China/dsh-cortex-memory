@@ -109,7 +109,7 @@ test('utility 相同时按 importance、id 稳定排序', () => {
 });
 
 test('永久层堆满时，冷层不会吃掉加强层', () => {
-  // 豆包的场景：8 条候选里 6 条 importance ≥0.8，若按全体 8 条算 25%，会把仅剩的 2 条 hot 全推去 cold。
+  // 包包的场景：8 条候选里 6 条 importance ≥0.8，若按全体 8 条算 25%，会把仅剩的 2 条 hot 全推去 cold。
   const items = [
     ...Array.from({ length: 6 }, (_, index) => item({ id: `p${index}`, importance: 0.9, utility: 1 - index / 1000 })),
     ...Array.from({ length: 2 }, (_, index) => item({ id: `h${index}`, importance: 0.6, utility: 0.5 - index / 1000 })),

@@ -22,9 +22,9 @@ test('resolver folds common aliases onto the configured user address', () => {
   assert.equal(resolveTarget('用户'), '用户');
   assert.equal(resolveTarget('用户'), '用户');
   assert.equal(resolveTarget(' 用户 '), '用户');
-  assert.equal(resolveTarget('小忆'), '小忆');
-  const custom = createTargetResolver({ userAddress: '用户', userAliases: ['阿澈'] });
-  assert.equal(custom.resolveTarget('阿澈'), '用户');
+  assert.equal(resolveTarget('林忆'), '林忆');
+  const custom = createTargetResolver({ userAddress: '用户', userAliases: ['澈澈'] });
+  assert.equal(custom.resolveTarget('澈澈'), '用户');
 });
 
 test('relationship writes through an alias land on the canonical target', () => {

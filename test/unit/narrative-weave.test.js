@@ -112,7 +112,7 @@ test('长标题在标点处截断，不留半个括号', () => {
   }
 });
 
-test('说话人前缀挡住引用标记时，「用户：> 」也要一起剥掉', () => {
+test('说话类前缀挡住引用标记时，「用户：> 」也要一起剥掉', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-weave-quote-'));
   const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite') } });
   try {
@@ -123,7 +123,7 @@ test('说话人前缀挡住引用标记时，「用户：> 」也要一起剥掉
     const result = cortex.engines.narrative.buildThread({ seedTraceId: seed.id, at: now });
     assert.equal(result.skipped, false);
     assert.doesNotMatch(result.summary.content, />\s/, '「用户：> 」这种叠在一起的前缀也要剥干净');
-    assert.doesNotMatch(result.summary.content, /用户：/, '说话人前缀不该留下');
+    assert.doesNotMatch(result.summary.content, /用户：/, '说话类前缀不该留下');
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });
@@ -136,13 +136,13 @@ test('种子标题里的星号标记被清掉，结尾英文句号不算残片',
   try {
     const now = Date.parse('2026-11-18T22:45:00+08:00');
     cortex.write({ text: '用户：种子这一句。', kind: 'utterance', title: '**测试**：预期得纠正一下.', importance: 0.6, explicit: true, now });
-    cortex.write({ text: '> 用户：人类观察日记.', kind: 'utterance', title: '人类观察日记.', explicit: true, now: now - 1_800_000 });
+    cortex.write({ text: '> 用户：类类观察日记.', kind: 'utterance', title: '类类观察日记.', explicit: true, now: now - 1_800_000 });
     const seed = cortex.repos.traces.list({ scopeId: 'global', state: 'active', limit: 10 }).find((trace) => trace.title.includes('测试'));
     const result = cortex.engines.narrative.buildThread({ seedTraceId: seed.id, at: now });
     assert.equal(result.skipped, false);
     assert.doesNotMatch(result.summary.content, /\*\*/, '种子标题不该带星号');
     assert.doesNotMatch(result.summary.content, />\s/, '不该带引用标记');
-    assert.match(result.summary.content, /人类观察日记/, '以英文句号结尾的完整句子不该被丢');
+    assert.match(result.summary.content, /类类观察日记/, '以英文句号结尾的完整句子不该被丢');
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });

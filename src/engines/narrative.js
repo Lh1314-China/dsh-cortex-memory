@@ -96,7 +96,7 @@ export function createNarrativeEngine({ traces, summaries, selfName = '助手', 
       if (boundary >= 20) slice = slice.slice(0, boundary);
       return slice.trim();
     };
-    // Capture stores a 40-char title (it stops mid-parenthesis: "…验收（豆包装：desk")
+    // Capture stores a 40-char title (it stops mid-parenthesis: "…验收（工具名：desk")
     // while the content holds the whole turn. Read the content first and strip the
     // speaker prefix ("用户：" / the assistant's own name) capture writes in front of it.
     const speakerPrefix = ['用户', '助手', '系统', selfName, 'user', 'assistant']
@@ -161,7 +161,7 @@ export function createNarrativeEngine({ traces, summaries, selfName = '助手', 
       : '只留下了这一个种子，附近还没别的痕迹。';
     const seedTopic = cleanTitle(trimAtBoundary(String(seed.content || seed.title || '').replace(/\s+/g, ' ').trim(), 60))
       || sentence(seed.content, 40);
-    const content = `一段关于「${seedTopic}」的经历：${body}`;
+    const content = `一段关于…${seedTopic}」的经历：${body}`;
     const summary = summaries.insert({
       scopeId,
       level: 'thread',

@@ -21,17 +21,17 @@ test('search keeps full memory while prompt injection gates weak matches', () =>
   const ctx = setup();
   try {
     ctx.cortex.write({ text: '用户说会买米饭，这是一条承诺。', title: '米饭承诺', importance: 0.5, explicit: true });
-    ctx.cortex.write({ text: '今天颈椎有点疼，和吃饭无关。', title: '颈椎', importance: 0.5, explicit: true });
+    ctx.cortex.write({ text: '今天数据有点乱，和吃饭无关。', title: '数据', importance: 0.5, explicit: true });
     ctx.cortex.write({ text: '插件更新了一条无关的日志。', title: '日志', importance: 0.5, explicit: true });
 
     const full = ctx.cortex.search('米饭 承诺', { limit: 5 });
     assert.ok(full.items.some((item) => item.title === '米饭承诺'));
-    assert.ok(full.items.some((item) => item.title === '颈椎'));
+    assert.ok(full.items.some((item) => item.title === '数据'));
     assert.equal(full.trace.gated, 0);
 
     const tiered = ctx.cortex.recallTiered({ query: '米饭 承诺' });
     assert.ok(tiered.result.items.some((item) => item.title === '米饭承诺'));
-    assert.equal(tiered.result.items.some((item) => item.title === '颈椎'), false);
+    assert.equal(tiered.result.items.some((item) => item.title === '数据'), false);
     assert.equal(tiered.result.items.some((item) => item.title === '日志'), false);
     assert.ok(tiered.result.trace.gated >= 1);
   } finally {

@@ -134,8 +134,8 @@ export function createLifeEngine({
     if (!text) {
       if (features?.aiOnlyLife === true) throw new Error('AI 日记生成失败：模型未返回内容；没有回退模板。');
       text = pieces.length
-        ? `今天${selfName}一直在想${pieces.slice(0, 3).join('，')}。有些话还没说完，先留在水里。`
-        : `今天很安静，${selfName}把没有说完的话留在水里。`;
+        ? `今天${selfName}一直在想${pieces.slice(0, 3).join('，')}。有些话还没说完，先记在这里。`
+        : `今天很安静，${selfName}把没有说完的话记在这里。`;
     }
     const entry = diaryWrite({
       text,

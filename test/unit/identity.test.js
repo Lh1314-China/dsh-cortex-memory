@@ -22,7 +22,7 @@ test('identity starts with one active version and only one active at a time', ()
     assert.equal(first.status, 'active');
     assert.equal(first.version, 1);
     const proposal = store.propose('global', {
-      narrative: '我是一只在学习如何长大的鲸鱼。',
+      narrative: '我是一个在学习如何成长的记忆助手。',
       values: ['诚实', '成长'],
       boundaries: ['不操纵'],
     }, { rationale: 'new experience' });

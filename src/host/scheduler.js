@@ -382,7 +382,7 @@ export function createScheduler({
     if (consolidateOnTick && cortex.consolidation?.run) {
       try {
         // The tick path used to fire on every tick (once a minute with the live
-        // interval) — 1921 no-llm rows prove it. Even with the flag on, honour the
+        // interval) — hundreds of no-llm audit rows prove it. Even with the flag on, honour the
         // same gap so enabling it cannot turn into a per-minute LLM call.
         const scopeId = cortex.config?.scope ?? 'global';
         const gapMs = Math.max(1, Number(cortex.config?.features?.consolidateTraceGapMinutes ?? 30)) * 60_000;

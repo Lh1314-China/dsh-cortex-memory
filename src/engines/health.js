@@ -300,7 +300,7 @@ export function createHealthEngine({
     } catch { /* ignore */ }
     if (config?.features?.llm !== true) {
       // Without this the consolidation/dream path silently records no-llm on every
-      // tick (1914 rows in the live store) and the memory layer never solidifies.
+      // tick (observed in a busy production store) and the memory layer never solidifies.
       add('warn', 'LLM_DISABLED', 'LLM 功能未开启（features.llm=false）：巩固/做梦只会空转，记得在 profile 配置里打开', { feature: 'llm' });
     }
     const slowMs = Number.isFinite(Number(config?.maintainSlowMs)) ? Number(config.maintainSlowMs) : 2000;

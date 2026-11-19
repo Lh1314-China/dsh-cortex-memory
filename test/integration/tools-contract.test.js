@@ -910,17 +910,17 @@ test('cortex_emotion: detect, record, affect, events and lexicon', async () => {
     assert.equal(await call(tools.cortex_emotion, { action: 'affect' }), '（情感库还没有形成态度）');
     assert.equal(await call(tools.cortex_emotion, { action: 'events' }), '（没有情绪事件）');
 
-    text = await call(tools.cortex_emotion, { action: 'record', text: '助手很开心，也很喜欢阿澈。', target: '阿澈' });
+    text = await call(tools.cortex_emotion, { action: 'record', text: '助手很开心，也很喜欢澈澈。', target: '澈澈' });
     assert.match(text, /^已记情绪事件 emo_/);
-    assert.match(text, /喜、爱 → 阿澈/);
-    text = await call(tools.cortex_emotion, { action: 'record', text: '助手有点难过。', target: '阿澈' });
+    assert.match(text, /喜、爱 → 澈澈/);
+    text = await call(tools.cortex_emotion, { action: 'record', text: '助手有点难过。', target: '澈澈' });
     assert.match(text, /^已记情绪事件 emo_/);
 
     text = await call(tools.cortex_emotion, { action: 'affect' });
-    assert.equal(text, '阿澈：又喜又爱（2 次）');
+    assert.equal(text, '澈澈：又喜又爱（2 次）');
     text = await call(tools.cortex_emotion, { action: 'events', limit: 1 });
     assert.equal(text.split('\n').length, 1);
-    assert.match(text, /阿澈/);
+    assert.match(text, /澈澈/);
     assert.match(text, /助手/);
     text = await call(tools.cortex_emotion, { action: 'events', limit: 10 });
     assert.match(text, /助手很开心/);
@@ -928,7 +928,7 @@ test('cortex_emotion: detect, record, affect, events and lexicon', async () => {
 
     const eventCount = cortex.emotion.events({ limit: 10 }).length;
     assert.equal(eventCount, 2);
-    text = await call(tools.cortex_emotion, { action: 'record', text: '今天只是普通的一天。', target: '阿澈' });
+    text = await call(tools.cortex_emotion, { action: 'record', text: '今天只是普通的一天。', target: '澈澈' });
     assert.equal(text, '没有命中情绪词。');
     assert.equal(cortex.emotion.events({ limit: 10 }).length, eventCount);
   } finally {
