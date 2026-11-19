@@ -14,6 +14,15 @@ Node：>=24
 测试：520/520
 ```
 
+## 前提
+
+- **Node `>=24`**：引擎用 `node:sqlite`，低版本会直接起不来。
+- **DSH `>=0.2.1-rc.2 <0.5.0`**：见 `package.json` 的 `dsh.compatibility`。
+- 一个 profile 同时只能挂一个 host id 为 `dsh-cortex-memory` 的插件
+  （旧版 id 是 `cortex`，升级要做一次迁移）。
+- 提取器是可选的；OCR / ASR 引擎与模型需自备，插件不自动下载。
+- 装完重启 DSH 才会加载。远程 LLM / 向量 / 重排默认关闭，需要时在设置里显式开启。
+
 ## 现在能做什么
 
 | 能力 | 说明 |
