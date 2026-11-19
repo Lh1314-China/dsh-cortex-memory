@@ -146,7 +146,7 @@ test('GET contract: every read route returns the documented status and envelope'
     const activeGoal = cortex.goals.add({ title: '完成 API 契约测试', priority: 0.9 });
     const doneGoal = cortex.goals.add({ title: '旧的完成项', priority: 0.3 });
     cortex.goals.complete(doneGoal.id);
-    cortex.emotion.record({ text: '助手很喜欢用户，也很心疼用户。', target: '用户' });
+    cortex.emotion.record({ text: '助手很喜欢用户，也很心疼用户。', target: '你' });
     cortex.life.diaryWrite({ text: '今天补契约测试。', mood: '踏实' });
     await cortex.life.dreamGenerate();
     await cortex.life.sleep({ windowDays: 1 });
@@ -304,7 +304,7 @@ test('GET contract: every read route returns the documented status and envelope'
         assert.equal(typeof data.text, 'string');
         assert.ok(Array.isArray(data.targets));
         assert.ok(Array.isArray(data.events));
-        assert.ok(data.targets.some((target) => target.target === '用户'));
+        assert.ok(data.targets.some((target) => target.target === '你'));
         assert.ok(data.events.length >= 1);
         assert.equal(typeof data.events[0].emotions, 'object');
         assert.ok(Array.isArray(data.events[0].emotions));
@@ -1074,22 +1074,22 @@ test('POST /emotion/record detects emotions, updates affect, and tolerates neutr
 
     const recorded = await post(handler, '/emotion/record', {
       text: '助手很喜欢用户，也很心疼用户。',
-      target: '用户',
+      target: '你',
     });
     const recordData = expectData(recorded, 'emotion record');
     assert.ok(Array.isArray(recordData.emotions));
     assert.ok(recordData.emotions.length >= 1);
     assert.equal(typeof recordData.event, 'object');
-    assert.equal(recordData.event.target, '用户');
+    assert.equal(recordData.event.target, '你');
     assert.equal(typeof recordData.target, 'object');
-    assert.equal(recordData.target.name, '用户');
+    assert.equal(recordData.target.name, '你');
     assert.equal(typeof recordData.target.attitude, 'string');
     assertInteger(recordData.target.count, 'emotion.count', { min: 1 });
     assertIso(recordData.event.at, 'emotion.event.at');
 
     const defaultTarget = await post(handler, '/emotion/record', { text: '用户今天很开心。' });
     const defaultData = expectData(defaultTarget, 'emotion default target');
-    assert.equal(defaultData.event.target, '用户');
+    assert.equal(defaultData.event.target, '你');
 
     const neutral = await post(handler, '/emotion/record', { text: '今天是星期三。' });
     const neutralData = expectData(neutral, 'emotion neutral');
@@ -1104,7 +1104,7 @@ test('POST /emotion/record detects emotions, updates affect, and tolerates neutr
     assert.equal(emptyData.text, '');
 
     const status = expectData(await invokeApi(handler, { route: '/emotion' }), 'emotion status');
-    assert.ok(status.targets.some((target) => target.target === '用户'));
+    assert.ok(status.targets.some((target) => target.target === '你'));
     assert.ok(status.events.length >= 2);
   } finally {
     cleanup(context);

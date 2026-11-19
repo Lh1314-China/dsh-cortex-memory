@@ -37,6 +37,7 @@ const TOOL_NAMES = [
   'cortex_goal',
   'cortex_guard',
   'cortex_health',
+  'cortex_inhibition',
   'cortex_life',
   'cortex_reflect',
   'cortex_search',
@@ -48,7 +49,7 @@ const TOOL_NAMES = [
 ];
 
 const ACTION_ENUMS = {
-  cortex_consolidate: ['run', 'list'],
+  cortex_consolidate: ['run', 'list', 'dedupe', 'preview', 'backfill'],
   cortex_playbook: ['add', 'list', 'vote', 'retire', 'render', 'suggest', 'approve'],
   cortex_tick: ['run', 'status'],
   cortex_digest: ['daily'],
@@ -59,6 +60,7 @@ const ACTION_ENUMS = {
   cortex_emotion: ['generate', 'detect', 'record', 'affect', 'events', 'lexicon'],
   cortex_evolve: ['status', 'optimize', 'propose', 'approve', 'rollback'],
   cortex_guard: ['check', 'backup', 'validate', 'restore', 'repair', 'export', 'sync'],
+  cortex_inhibition: ['list', 'clear'],
 };
 
 const REQUIRED_FIELDS = {
@@ -73,6 +75,7 @@ const REQUIRED_FIELDS = {
   cortex_emotion: ['action'],
   cortex_evolve: ['action'],
   cortex_guard: ['action'],
+  cortex_inhibition: ['action'],
   cortex_search: ['query'],
   cortex_as_of: ['subject'],
   cortex_timeline: ['aroundId'],
@@ -140,12 +143,12 @@ function idOf(text, prefix) {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-test('tool registry exposes exactly the 21 documented tools', () => {
+test('tool registry exposes exactly the 22 documented tools', () => {
   const harness = makeHarness();
   try {
     const names = Object.keys(harness.tools).sort();
     assert.deepEqual(names, TOOL_NAMES.slice().sort());
-    assert.equal(names.length, 21);
+    assert.equal(names.length, 22);
     assert.equal(new Set(names).size, names.length);
     for (const name of names) {
       assert.equal(harness.tools[name].name, name);
@@ -636,7 +639,7 @@ test('cortex_reflect: needs two traces, creates a reflection, skips duplicates a
     await call(tools.cortex_write, { text: '反思契约第二条：助手会等用户。', explicit: true });
 
     const first = await call(tools.cortex_reflect, {});
-    assert.match(first, /^这段时间里，记住了：/);
+    assert.match(first, /^这段时间里，我记下了：/);
     assert.match(first, /来源 2 条 · 覆盖率 100% · 反思痕迹 trc_/);
     const reflectionId = idOf(first, 'trc');
     assert.equal(cortex.get(reflectionId).kind, 'reflection');
@@ -649,7 +652,7 @@ test('cortex_reflect: needs two traces, creates a reflection, skips duplicates a
     assert.match(again, /^未整理：already-reflected/);
 
     const forced = await call(tools.cortex_reflect, { windowDays: 2, force: true });
-    assert.match(forced, /^这段时间里，记住了：/);
+    assert.match(forced, /^这段时间里，我记下了：/);
     assert.match(forced, /来源 2 条 · 覆盖率 100% · 反思痕迹 trc_/);
     assert.equal(cortex.repos.summaries.list('global', { level: 'episode' }).length, 2);
   } finally {
@@ -677,7 +680,7 @@ test('cortex_self: snapshot fields, relationship/calibration feedback and read-o
     const eventsBefore = cortex.repos.events.count();
     const tracesBefore = cortex.repos.traces.count();
     text = await call(tools.cortex_self, {});
-    assert.match(text, /关系：用户 信任 \d+% \/ 在乎 \d+%/);
+    assert.match(text, /关系：你 信任 \d+% \/ 在乎 \d+%/);
     assert.match(text, /校准：n=1 brier=0\.040 ece=\d+\.\d{3}/);
     assert.equal(cortex.repos.events.count(), eventsBefore);
     assert.equal(cortex.repos.traces.count(), tracesBefore);
@@ -687,7 +690,9 @@ test('cortex_self: snapshot fields, relationship/calibration feedback and read-o
 });
 
 test('cortex_health: clean audits, concrete counts, FTS drift detection and read-only reporting', async () => {
-  const harness = makeHarness();
+  // features.llm is off in a bare harness, and health correctly warns about that.
+  // Turn it on so "clean" means "no issues", which is what this contract checks.
+  const harness = makeHarness({ features: { llm: true } });
   const { cortex, tools } = harness;
   const base = Date.now();
   try {

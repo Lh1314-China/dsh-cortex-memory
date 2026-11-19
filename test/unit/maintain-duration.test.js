@@ -145,11 +145,14 @@ test('慢维护被后续安静趟盖住时，仍要报 SLOW_MAINTAIN', () => {
 
 test('慢维护即使没有变更也要落审计行（否则护栏永远没样本）', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cortex-maintain-slowrow-'));
-  const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), maintainSlowMs: 0 } });
+  // A fast CI runner can finish maintain inside one Date.now() tick (elapsed = 0).
+  // Use a negative threshold so "this pass is slow" holds by construction, and
+  // assert the number is finite instead of strictly positive.
+  const cortex = createCortex({ config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), maintainSlowMs: -1 } });
   try {
     const now = Date.now();
     const report = cortex.maintain({ now });
-    assert.ok(report.ms > 0, '阈值设 0 时每趟都算慢');
+    assert.ok(Number.isFinite(report.ms) && report.ms >= 0, '阈值低于任何耗时时每趟都算慢');
     const row = cortex.repos.audit.list({ targetType: 'scope', targetId: 'global', limit: 1 })[0];
     assert.ok(row, '慢趟应写审计行');
     assert.ok(Number.isFinite(row.detail?.ms), '审计 detail 应带 ms');

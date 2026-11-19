@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createScheduler } from '../../src/host/scheduler.js';
 
-const NOW = Date.parse('2026-11-18T10:00:00+08:00');
+// Local wall-clock 10:00, not a fixed UTC instant: the scheduler compares
+// `getHours()` in the host's local timezone, so a literal "+08:00" timestamp
+// reads as 02:00 on a UTC CI runner and the deep pass silently never fires.
+const NOW = new Date(2026, 10, 18, 10, 0, 0).getTime();
 
 function fakeCortex({ config = {} } = {}) {
   const runs = [];

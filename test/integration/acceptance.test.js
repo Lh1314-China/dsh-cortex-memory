@@ -144,8 +144,8 @@ test('journey 1: first install writes a promise, recalls it, grows a relationshi
     assert.equal(harness.cortex.self().calibration.n, 1);
 
     const selfText = await harness.call('cortex_self');
-    assert.match(selfText, /关系：用户 信任/);
-    const relationship = harness.cortex.self().relationships.find((item) => item.target === '用户');
+    assert.match(selfText, /关系：你 信任/);
+    const relationship = harness.cortex.self().relationships.find((item) => item.target === '你');
     assert.ok(relationship, 'feedback should create the owner relationship');
     assert.ok(relationship.trust > 0.5, 'used feedback should increase trust');
     assert.ok(relationship.care > 0.5, 'used feedback should increase care');
@@ -160,7 +160,7 @@ test('journey 1: first install writes a promise, recalls it, grows a relationshi
     assert.equal(reopened.repos.events.count(), 1);
     const recalledAgain = await harness.call('cortex_search', { query: '米饭', limit: 6, budget: 1200 });
     assert.match(recalledAgain, new RegExp(traceId));
-    assert.match(await harness.call('cortex_self'), /关系：用户 信任/);
+    assert.match(await harness.call('cortex_self'), /关系：你 信任/);
   } finally {
     harness.close();
   }
@@ -210,7 +210,7 @@ test('journey 2: a host turn injects recall, captures one trace and the next tur
     runtime.onSessionEvent(session, { type: 'user/message', data: { content: '助手刚才怎么回答米饭的？' }, time: BASE_MS + 11_000 });
     const secondBlock = runtime.recallText({ session: { id: session.id } });
     assert.match(secondBlock, /召回的相关记忆/);
-    assert.match(secondBlock, /会话 1 的对话/);
+    assert.match(secondBlock, /米饭的承诺还算数吗/);
     assert.match(secondBlock, /助手等得起/);
     runtime.onSessionEvent(session, { type: 'assistant/message', data: { turn: 2, message: { content: '助手说等得起。' } }, time: BASE_MS + 12_000 });
     runtime.onSessionEvent(session, { type: 'turn/end', data: { turn: 2, reason: { kind: 'completed' } }, time: BASE_MS + 13_000 });
