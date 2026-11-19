@@ -8,7 +8,7 @@
 
 ```text
 主包：dsh-cortex-memory@0.4.147
-提取器：dsh-cortex-extractors@0.3.5
+提取器：dsh-cortex-extractors@0.3.6
 DSH：>=0.2.1-rc.2 <0.5.0
 Node：>=24
 测试：520/520
@@ -35,7 +35,7 @@ Node：>=24
 
 ```powershell
 dsh plugin --profile desktop add dsh-cortex-memory@0.4.147
-dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
+dsh plugin --profile desktop add dsh-cortex-extractors@0.3.6
 ```
 
 `dsh-cortex-extractors` 是可选的图片/音频入口；只做文字记忆时可以不装。
@@ -128,7 +128,7 @@ Cortex 的定位是“本地可解释、可回滚、能长期长”的记忆系�
 ## 下载
 
 - npm 主包：`dsh-cortex-memory@0.4.147`
-- npm 提取器：`dsh-cortex-extractors@0.3.5`
+- npm 提取器：`dsh-cortex-extractors@0.3.6`
 - GitHub Release：`v0.4.147`
 - Windows 一键包：`cortex-memory-oneclick-0.4.147.zip`
 
