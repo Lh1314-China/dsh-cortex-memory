@@ -93,9 +93,9 @@ test('persona config is neutral by default and overrides self/user names', () =>
   const neutral = normalizeConfig({});
   assert.equal(neutral.persona.selfName, '助手');
   assert.equal(neutral.persona.userAddress, '你');
-  const custom = normalizeConfig({ persona: { selfName: '汐儿', userAddress: '涵儿' } });
-  assert.equal(custom.persona.selfName, '汐儿');
-  assert.equal(custom.persona.userAddress, '涵儿');
-  const facts = extractFactCandidates('我喜欢安静', { selfName: '汐儿', userAddress: '涵儿' });
-  assert.equal(facts[0].subject, '涵儿');
+  const custom = normalizeConfig({ persona: { selfName: '助手', userAddress: '用户' } });
+  assert.equal(custom.persona.selfName, '助手');
+  assert.equal(custom.persona.userAddress, '用户');
+  const facts = extractFactCandidates('我喜欢安静', { selfName: '助手', userAddress: '用户' });
+  assert.equal(facts[0].subject, '用户');
 });

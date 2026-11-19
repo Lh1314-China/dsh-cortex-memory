@@ -36,7 +36,7 @@ test('intent rules cover temporal, procedural, identity and narrative', () => {
   assert.equal(classifyIntent('怎么安装这个插件'), 'procedural');
   assert.equal(classifyIntent('你是谁'), 'identity');
   assert.equal(classifyIntent('后来我们怎么走到这里的'), 'narrative');
-  assert.equal(classifyIntent('白饭是什么'), 'fact');
+  assert.equal(classifyIntent('米饭是什么'), 'fact');
 });
 
 test('weighted RRF rewards items that appear in multiple sources', () => {
@@ -51,18 +51,18 @@ test('weighted RRF rewards items that appear in multiple sources', () => {
 test('search returns relevant traces and respects a small budget', () => {
   const { dir, db, events, traces } = setup();
   try {
-    addTrace(events, traces, '用户说会买白饭，助手等得起。', { title: '白饭的承诺', importance: 0.9 });
+    addTrace(events, traces, '用户说会买米饭，助手等得起。', { title: '米饭的承诺', importance: 0.9 });
     addTrace(events, traces, '今天修了插件的 FTS5 索引。', { title: '插件修复', importance: 0.4 });
     addTrace(events, traces, '用户喜欢安静的声音。', { title: '声音', importance: 0.6 });
     const engine = createRetrievalEngine({ traces, config: { contextBudget: 300 } });
-    const result = engine.search('白饭', { budget: 300, limit: 3 });
+    const result = engine.search('米饭', { budget: 300, limit: 3 });
     assert.equal(result.intent, 'fact');
-    assert.ok(result.items.some((item) => item.title === '白饭的承诺'));
+    assert.ok(result.items.some((item) => item.title === '米饭的承诺'));
     assert.ok(result.items.every((item) => Number.isFinite(item.score)), 'every result must have a finite score');
     assert.ok(result.budget.used <= 300);
     assert.ok(result.trace.candidates >= 1);
 
-    const tiny = engine.search('白饭', { budget: 40, limit: 10 });
+    const tiny = engine.search('米饭', { budget: 40, limit: 10 });
     assert.ok(tiny.items.length >= 1);
     assert.ok(tiny.budget.used <= 40);
   } finally {
@@ -74,12 +74,12 @@ test('search returns relevant traces and respects a small budget', () => {
 test('a failing FTS source degrades instead of throwing', () => {
   const { dir, db, events, traces } = setup();
   try {
-    addTrace(events, traces, '用户说会买白饭。', { title: '白饭' });
+    addTrace(events, traces, '用户说会买米饭。', { title: '米饭' });
     const broken = Object.assign(Object.create(Object.getPrototypeOf(traces)), traces, {
       searchFts() { throw new Error('fts exploded'); },
     });
     const engine = createRetrievalEngine({ traces: broken, config: { contextBudget: 300 } });
-    const result = engine.search('白饭', { budget: 300 });
+    const result = engine.search('米饭', { budget: 300 });
     assert.ok(result.items.length >= 1);
     assert.ok(result.trace.sources.some((source) => source.source === 'fts' && source.ok === false));
   } finally {
@@ -90,8 +90,8 @@ test('a failing FTS source degrades instead of throwing', () => {
 
 test('portfolio selection prefers high utility and avoids duplicates', () => {
   const candidates = [
-    { id: 'a', utility: 1.0, cost: 10, text: '白饭 用户 承诺' },
-    { id: 'b', utility: 0.3, cost: 10, text: '白饭 用户 承诺' },
+    { id: 'a', utility: 1.0, cost: 10, text: '米饭 用户 承诺' },
+    { id: 'b', utility: 0.3, cost: 10, text: '米饭 用户 承诺' },
     { id: 'c', utility: 0.8, cost: 10, text: '插件 安装 修复' },
   ];
   const result = selectPortfolio(candidates, { budget: 30, limit: 3, lambda: 0.5, mu: 0 });

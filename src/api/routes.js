@@ -477,7 +477,7 @@ export function createApiHandler({ cortex, logger = null, getExtractor = null } 
         return sendJson(response, 200, { ok: true, data: await cortex.indexVectorAsync(requireString(body.id, 'id', { max: 200 })) });
       }
       if (route === '/consolidate') {
-        return sendJson(response, 200, { ok: true, data: await cortex.consolidation.run({ scopeId: scopeOf(request, url, body), limit: body.limit, dryRun: body.dryRun === true }) });
+        return sendJson(response, 200, { ok: true, data: await cortex.consolidation.run({ scopeId: scopeOf(request, url, body), limit: body.limit, dryRun: body.dryRun === true, caller: 'api' }) });
       }
       if (route === '/retention/apply') {
         const plan = cortex.retention.plan({ scopeId: scopeOf(request, url, body) });

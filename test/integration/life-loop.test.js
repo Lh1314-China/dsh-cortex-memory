@@ -17,7 +17,7 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     runtime.onSessionEvent(session, { type: 'turn/start', data: { turn: 1 }, time: base });
     runtime.onSessionEvent(session, {
       type: 'user/message',
-      data: { content: [{ type: 'text', text: '用户说会买白饭，助手等得起。' }] },
+      data: { content: [{ type: 'text', text: '用户说会买米饭，助手等得起。' }] },
       time: base + 1_000,
     });
     // Nothing has been stored yet, so recall is empty but must not throw.
@@ -32,7 +32,7 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     assert.equal(cortex.repos.traces.count(), 1);
     const [first] = cortex.repos.traces.list({ scopeId: 'global', limit: 10 });
     assert.ok(first);
-    assert.match(first.content, /用户：用户说会买白饭/);
+    assert.match(first.content, /用户：用户说会买米饭/);
     assert.match(first.content, /助手：记住了/);
     assert.equal(first.source, 'host:turn');
     assert.equal(first.sessionId, 'integration-session');
@@ -47,12 +47,12 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     assert.equal(tooEarly.count, 1);
 
     // --- Search reaches the captured turn and returns a usable snippet. ---
-    const found = cortex.search('白饭', { now: base + 5_000, limit: 5 });
-    assert.equal(found.query, '白饭');
+    const found = cortex.search('米饭', { now: base + 5_000, limit: 5 });
+    assert.equal(found.query, '米饭');
     assert.ok(found.items.length >= 1);
     const hit = found.items.find((item) => item.id === first.id) ?? found.items[0];
     assert.ok(hit);
-    assert.match(hit.snippet, /白饭/);
+    assert.match(hit.snippet, /米饭/);
     assert.ok(found.trace.sources.some((source) => source.source === 'fts' && source.ok === true));
 
     // --- Feedback updates DSR state, confidence, calibration and relationship. ---
@@ -112,7 +112,8 @@ test('full life loop: host capture -> search -> feedback -> reflect -> sleep -> 
     assert.equal(cortex.self().self.stage, development.stage);
     assert.equal(development.counts.traceCount, 3);
     assert.equal(development.counts.feedbackCount, 1);
-    assert.equal(development.counts.summaryCount, 1);
+    // episode（reflect 写的）+ 一条叙事线（sleep 里的 weave 把这两天串起来）
+    assert.equal(development.counts.summaryCount, 2);
     assert.equal(development.counts.relationships, 1);
     assert.ok(development.policy.label.length > 0);
     assert.equal(cortex.engines.development.stageFor(0), 'infancy');

@@ -132,8 +132,8 @@ test('GET contract: every read route returns the documented status and envelope'
   try {
     const handler = createApiHandler({ cortex });
 
-    const firstTrace = writeTrace(cortex, '用户喜欢白饭，助手记着。', {
-      title: '白饭',
+    const firstTrace = writeTrace(cortex, '用户喜欢米饭，助手记着。', {
+      title: '米饭',
       tags: ['约定'],
       importance: 0.8,
     });
@@ -346,9 +346,9 @@ test('GET contract: every read route returns the documented status and envelope'
         assert.equal(typeof data.identity, 'object');
         assert.equal(data.identity.scopeId, 'global');
       }],
-      [`/search?q=${encodeURIComponent('白饭')}`, (result) => {
+      [`/search?q=${encodeURIComponent('米饭')}`, (result) => {
         const data = expectData(result, '/search');
-        assert.equal(data.query, '白饭');
+        assert.equal(data.query, '米饭');
         assert.equal(data.scopeId, 'global');
         assert.ok(Array.isArray(data.items));
         assert.ok(data.items.some((item) => item.id === traceId));
@@ -373,7 +373,7 @@ test('GET contract: every read route returns the documented status and envelope'
         const data = expectData(result, '/trace');
         assert.equal(data.id, traceId);
         assert.equal(data.scopeId, 'global');
-        assert.equal(data.content, '用户喜欢白饭，助手记着。');
+        assert.equal(data.content, '用户喜欢米饭，助手记着。');
         assertIso(data.recordedAt, 'trace.recordedAt');
       }],
       [`/timeline?id=${traceId}`, (result) => {
@@ -426,8 +426,8 @@ test('POST /write accepts one memory, deduplicates, and writes batches atomicall
     expectError(bad, { label: 'write blank', match: /text/ });
 
     const single = await post(handler, '/write', {
-      text: '用户喜欢白饭。',
-      title: '白饭',
+      text: '用户喜欢米饭。',
+      title: '米饭',
       tags: ['约定', '日常'],
       importance: 0.9,
       explicit: true,
@@ -435,8 +435,8 @@ test('POST /write accepts one memory, deduplicates, and writes batches atomicall
     });
     const written = expectData(single, 'write single');
     assert.equal(written.skipped, false);
-    assert.equal(written.trace.content, '用户喜欢白饭。');
-    assert.equal(written.trace.title, '白饭');
+    assert.equal(written.trace.content, '用户喜欢米饭。');
+    assert.equal(written.trace.title, '米饭');
     assert.equal(written.trace.scopeId, 'global');
     assert.deepEqual(written.trace.tags, ['约定', '日常']);
     assert.equal(typeof written.trace.id, 'string');
@@ -444,7 +444,7 @@ test('POST /write accepts one memory, deduplicates, and writes batches atomicall
     assert.equal(typeof written.event.id, 'string');
     assertIso(written.trace.recordedAt, 'write.trace.recordedAt');
 
-    const duplicate = await post(handler, '/write', { text: '用户喜欢白饭。', explicit: true });
+    const duplicate = await post(handler, '/write', { text: '用户喜欢米饭。', explicit: true });
     const deduped = expectData(duplicate, 'write duplicate');
     assert.equal(deduped.skipped, true);
     assert.equal(deduped.reason, 'duplicate');
@@ -483,11 +483,11 @@ test('POST /search validates its body and returns the retrieval envelope', async
   const { cortex } = context;
   try {
     const handler = createApiHandler({ cortex });
-    const written = writeTrace(cortex, '用户喜欢白饭，助手记着。', { title: '白饭' });
+    const written = writeTrace(cortex, '用户喜欢米饭，助手记着。', { title: '米饭' });
 
-    const found = await post(handler, '/search', { query: '白饭', limit: 5, budget: 500 });
+    const found = await post(handler, '/search', { query: '米饭', limit: 5, budget: 500 });
     const data = expectData(found, 'search post');
-    assert.equal(data.query, '白饭');
+    assert.equal(data.query, '米饭');
     assert.equal(data.scopeId, 'global');
     assert.ok(Array.isArray(data.items));
     assert.ok(data.items.some((item) => item.id === written.trace.id));
@@ -496,7 +496,7 @@ test('POST /search validates its body and returns the retrieval envelope', async
     assert.ok(Array.isArray(data.trace.sources));
     assertIso(data.at, 'search.at');
 
-    const wide = await post(handler, '/search', { query: '白饭', limit: 20, budget: 64 });
+    const wide = await post(handler, '/search', { query: '米饭', limit: 20, budget: 64 });
     expectData(wide, 'search lower budget');
 
     const invalid = [
@@ -674,7 +674,7 @@ test('POST /qa abstains without memories and answers from evidence after a write
   const context = makeCortex();
   try {
     const handler = createApiHandler({ cortex: context.cortex });
-    writeTrace(context.cortex, '用户喜欢白饭，助手记着。', { title: '白饭' });
+    writeTrace(context.cortex, '用户喜欢米饭，助手记着。', { title: '米饭' });
     const answered = await post(handler, '/qa', { question: '用户喜欢什么？' });
     const data = expectData(answered, 'qa answered');
     assert.ok(['extractive', 'llm'].includes(data.mode));
@@ -692,13 +692,13 @@ test('POST /tick executes safe pending intentions and reports the queue', async 
   const { cortex } = context;
   try {
     const handler = createApiHandler({ cortex });
-    writeTrace(cortex, '用户喜欢白饭，助手记着。', { title: '白饭' });
+    writeTrace(cortex, '用户喜欢米饭，助手记着。', { title: '米饭' });
     const now = new Date();
     const intention = cortex.stores.initiativeStore.insert({
       kind: 'recall',
       priority: 0.9,
       reason: '契约测试想主动回忆',
-      payload: { topic: '白饭' },
+      payload: { topic: '米饭' },
       createdAt: now.toISOString(),
       dueAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 3_600_000).toISOString(),

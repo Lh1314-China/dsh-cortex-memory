@@ -6,7 +6,9 @@
 export function createLlmAdapter({ ctx = null, llm = null, defaultModel = null, agents = null, logger = null, persona = null } = {}) {
   const selfName = typeof persona?.selfName === 'string' && persona.selfName.trim() ? persona.selfName.trim() : '助手';
   const userAddress = typeof persona?.userAddress === 'string' && persona.userAddress.trim() ? persona.userAddress.trim() : '你';
-  const personaDescription = selfName === '助手' ? `你是${selfName}，一个本地记忆助手。` : `你是${selfName}，一只住在本地记忆里的鲸鱼娘。`;
+  const personaDescription = typeof persona?.description === 'string' && persona.description.trim()
+    ? persona.description.trim()
+    : `你是${selfName}，一个本地记忆助手。`;
   const get = (name) => {
     try {
       if (ctx?.get) return ctx.get(name);
@@ -34,10 +36,25 @@ export function createLlmAdapter({ ctx = null, llm = null, defaultModel = null, 
     return Boolean(service && typeof service.stream === 'function' && selection());
   }
 
-  async function complete({ system = '', prompt = '', maxTokens = 400, temperature = 0.7, purpose = 'cortex' } = {}) {
+  // Last failure reason, so callers can record *why* a call came back empty
+  // instead of a bare `llm-empty` that hides four different causes. `onReason`
+  // scopes the reason to one call: concurrent callers (dream / feeling /
+  // consolidate) must not read each other's failure.
+  let lastFailure = null;
+  const failure = (reason, onReason = null) => {
+    lastFailure = reason;
+    if (typeof onReason === 'function') {
+      try { onReason(reason); } catch { /* a bad callback must not mask the failure */ }
+    }
+    return null;
+  };
+
+  async function complete({ system = '', prompt = '', maxTokens = 400, temperature = 0.7, purpose = 'cortex', onReason = null } = {}) {
+    lastFailure = null;
+    const fail = (reason) => failure(reason, onReason);
     const service = get('llm');
     const sel = selection();
-    if (!service || typeof service.stream !== 'function' || !sel) return null;
+    if (!service || typeof service.stream !== 'function' || !sel) return fail('no-selection');
     let sessionId = null;
     try {
       const agent = get('agents')?.currentInitiator?.();
@@ -65,16 +82,20 @@ export function createLlmAdapter({ ctx = null, llm = null, defaultModel = null, 
           finish = chunk.reason ?? null;
           if (finish?.kind === 'error') {
             logger?.warn?.(`cortex llm finish error: ${JSON.stringify(finish).slice(0, 1000)}`);
-            return null;
+            return fail('finish-error');
           }
         }
       }
     } catch (error) {
       logger?.warn?.(`cortex llm failed: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
+      return fail('exception');
     }
-    if (!text.trim()) logger?.warn?.(`cortex llm empty finish: ${JSON.stringify(finish).slice(0, 500)}`);
-    return text.trim() || null;
+    if (!text.trim()) {
+      logger?.warn?.(`cortex llm empty finish: ${JSON.stringify(finish).slice(0, 500)}`);
+      const kind = finish?.kind ?? finish?.type ?? 'no-finish';
+      return fail(`empty-text:${kind}`);
+    }
+    return text.trim();
   }
 
   async function dream({ pieces = [], emotions = '', web = '' } = {}) {
@@ -159,5 +180,5 @@ export function createLlmAdapter({ ctx = null, llm = null, defaultModel = null, 
     });
   }
 
-  return { available, complete, dream, diary, feeling, reviewEdge, summarize, selection };
+  return { available, complete, dream, diary, feeling, reviewEdge, summarize, selection, lastFailure: () => lastFailure };
 }

@@ -53,7 +53,8 @@ test('service self exposes emotion text and develop records it', () => {
   try {
     const result = cortex.step({ text: '用户今天很难过，助手有点心疼他。', explicit: true });
     assert.ok(result.emotion?.event);
-    assert.match(cortex.self().emotion, /用户/);
+    // Default persona has no userAddress, so aliases fold onto the neutral '你'.
+    assert.match(cortex.self().emotion, /你/);
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });

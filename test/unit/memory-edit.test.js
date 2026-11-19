@@ -57,17 +57,17 @@ test('summon cards are built for left/right brain and can be edited after unlock
 test('manual card edits survive a rebuild and cards can be matched by a specific phrase', () => {
   const { dir, cortex } = setup();
   try {
-    cortex.write({ text: '白饭约定：以后要一起买白饭。', title: '白饭约定', kind: 'decision', explicit: true, importance: 0.95 });
+    cortex.write({ text: '米饭约定：以后要一起买米饭。', title: '米饭约定', kind: 'decision', explicit: true, importance: 0.95 });
     cortex.rebuildSummonBook();
     const first = cortex.summonBook({ date: new Date().toLocaleDateString('en-CA') });
-    const card = first.right.find((item) => item.title.includes('白饭')) ?? first.right[0];
+    const card = first.right.find((item) => item.title.includes('米饭')) ?? first.right[0];
     assert.ok(card);
     cortex.setMemoryEdit(true);
-    cortex.updateSummonCard({ id: card.id, title: '用户改过的白饭卡' });
+    cortex.updateSummonCard({ id: card.id, title: '用户改过的米饭卡' });
     cortex.rebuildSummonBook();
     const second = cortex.summonBook({ date: new Date().toLocaleDateString('en-CA') });
-    assert.equal(second.right.find((item) => item.id === card.id).title, '用户改过的白饭卡');
-    const match = cortex.matchSummonCards({ text: '你还记得白饭约定吗？' });
+    assert.equal(second.right.find((item) => item.id === card.id).title, '用户改过的米饭卡');
+    const match = cortex.matchSummonCards({ text: '你还记得米饭约定吗？' });
     assert.ok(match.cards.length >= 1);
     assert.match(match.block, /召唤卡/);
     const feedback = cortex.feedbackSummonCard({ id: card.id, signal: 'helpful' });

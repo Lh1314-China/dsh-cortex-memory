@@ -100,15 +100,15 @@ test('low coherence with no recent consolidation proposes a consolidation', () =
 test('a recall query is returned alongside the write', () => {
   const { dir, db, develop } = setup();
   try {
-    develop.step({ text: '用户说会买白饭。', explicit: true, now: Date.parse('2026-11-11T11:00:00+08:00') });
+    develop.step({ text: '用户说会买米饭。', explicit: true, now: Date.parse('2026-11-11T11:00:00+08:00') });
     const result = develop.step({
-      text: '今天又想到白饭了。',
+      text: '今天又想到米饭了。',
       explicit: true,
       now: Date.parse('2026-11-11T12:00:00+08:00'),
-      recallQuery: '白饭',
+      recallQuery: '米饭',
       recallBudget: 300,
     });
-    assert.ok(result.recall.items.some((item) => item.snippet.includes('白饭')));
+    assert.ok(result.recall.items.some((item) => item.snippet.includes('米饭')));
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 # Windows 安装与回滚
 
-> 目标：和本鲸一样的 Windows DSH 用户，能从 tgz 直接安装，不需要编译、不需要原生依赖。
+> 目标：和本项目一样的 Windows DSH 用户，能从 tgz 直接安装，不需要编译、不需要原生依赖。
 > 前提：**Node >= 24**（`node:sqlite` 内置）、DSH `>=0.2.1-rc.2 <0.4.0`、Windows 10/11。
 
 ## 1. 先备份
@@ -21,7 +21,7 @@ npm pack
 # 产出 dsh-cortex-0.2.0-dev.1.tgz
 ```
 
-如果用本鲸打好的包，直接用 `dist/dsh-cortex-0.2.0-dev.1.tgz`。包是纯 JS + SQL，无 `node_modules` 依赖。
+如果用本项目打好的包，直接用 `dist/dsh-cortex-0.2.0-dev.1.tgz`。包是纯 JS + SQL，无 `node_modules` 依赖。
 
 ## 3. 安装到 desktop profile
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.4.22",
+  "version": "0.4.146",
   "description": "本地优先的分层记忆引擎：情景/语义/程序记忆、时序事实、DSR 遗忘、混合召回、自我状态、反思、守护与受控进化。",
   "type": "module",
   "main": "./index.js",
@@ -40,7 +40,7 @@
   },
   "engines": {
     "node": ">=24",
-    "dsh": ">=0.2.1-rc.2 <0.4.0"
+    "dsh": ">=0.2.1-rc.2 <0.5.0"
   },
   "dsh": {
     "manifestVersion": 1,
@@ -53,7 +53,7 @@
       "inject": []
     },
     "compatibility": {
-      "dsh": ">=0.2.1-rc.2 <0.4.0",
+      "dsh": ">=0.2.1-rc.2 <0.5.0",
       "node": ">=24",
       "profiles": [
         "desktop",

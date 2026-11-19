@@ -30,44 +30,75 @@ function rowToRelationship(row) {
   };
 }
 
-export function createRelationshipStore(db) {
+// Trust and care move asymmetrically: a good interaction adds a fraction of the
+// remaining room (so the hundredth kindness matters less than the first), while a
+// disappointment takes a bigger bite (losses weigh more than gains). Both stay
+// inside 0..1.
+const LOSS_WEIGHT = 1.6;
+
+export function nextBonded(value, delta) {
+  const current = clamp(value, 0, 1);
+  const amount = Number(delta) || 0;
+  if (!amount) return current;
+  if (amount > 0) {
+    const k = Math.min(1, amount);
+    return clamp(current + (1 - current) * k, 0, 1);
+  }
+  const k = Math.min(1, Math.abs(amount) * LOSS_WEIGHT);
+  return clamp(current - current * k, 0, 1);
+}
+
+export function nextGrow(value, delta) {
+  const current = clamp(value, 0, 1);
+  const k = Math.min(1, Math.abs(Number(delta) || 0));
+  return clamp(current + (1 - current) * k, 0, 1);
+}
+
+export function createRelationshipStore(db, { resolveTarget = null } = {}) {
+  const targetOf = typeof resolveTarget === 'function' ? resolveTarget : (value) => String(value ?? '').trim();
+
   function get(scopeId, target) {
-    return rowToRelationship(db.prepare('SELECT * FROM relationships WHERE scope_id = ? AND target = ?').get(scopeId, target));
+    return rowToRelationship(db.prepare('SELECT * FROM relationships WHERE scope_id = ? AND target = ?').get(scopeId, targetOf(target)));
   }
 
   function ensure(scopeId = 'global', target = '用户') {
-    const current = get(scopeId, target);
+    const name = targetOf(target);
+    const current = get(scopeId, name);
     if (current) return current;
     const id = makeId('rel');
     const now = nowIso();
     db.prepare(`
       INSERT INTO relationships(id, scope_id, target, trust, care, familiarity, expectations_json, boundaries_json, recent_json, updated_at)
       VALUES (?, ?, ?, 0.5, 0.5, 0, '[]', '[]', '[]', ?)
-    `).run(id, scopeId, target, now);
-    return get(scopeId, target);
+    `).run(id, scopeId, name, now);
+    return get(scopeId, name);
   }
 
   function update(scopeId, target, patch = {}) {
-    const current = ensure(scopeId, target);
-    const next = normalizeRelationship({ ...current, ...patch, target });
+    const name = targetOf(target);
+    const current = ensure(scopeId, name);
+    const next = normalizeRelationship({ ...current, ...patch, target: name });
     db.prepare(`
       UPDATE relationships SET trust = ?, care = ?, familiarity = ?, expectations_json = ?, boundaries_json = ?, recent_json = ?, updated_at = ?
       WHERE scope_id = ? AND target = ?
     `).run(
       next.trust, next.care, next.familiarity,
       JSON.stringify(next.expectations), JSON.stringify(next.boundaries), JSON.stringify(next.recent),
-      nowIso(), scopeId, target,
+      nowIso(), scopeId, name,
     );
-    return get(scopeId, target);
+    return get(scopeId, name);
   }
 
   function applyDelta(scopeId, target, delta = {}, { event = null, at = nowIso() } = {}) {
-    const current = ensure(scopeId, target);
+    const name = targetOf(target);
+    const current = ensure(scopeId, name);
     const recent = [...(current.recent ?? []), ...(event ? [{ at, event: String(event).slice(0, 300) }] : [])].slice(-30);
     return update(scopeId, target, {
-      trust: current.trust + Number(delta.trustDelta || 0),
-      care: current.care + Number(delta.careDelta || 0),
-      familiarity: current.familiarity + Number(delta.familiarityDelta || 0.01),
+      trust: nextBonded(current.trust, Number(delta.trustDelta || 0)),
+      care: nextBonded(current.care, Number(delta.careDelta || 0)),
+      // Familiarity only grows, and saturates: it is the count of shared time,
+      // not a score you can lose.
+      familiarity: nextGrow(current.familiarity, Math.abs(Number(delta.familiarityDelta || 0.01))),
       recent,
     });
   }

@@ -15,15 +15,15 @@ test('migrate rebuilds an old bigram-only FTS index once', () => {
     migrate(db);
     const events = createEventRepository(db);
     const traces = createTraceRepository(db);
-    const event = events.append({ kind: 'utterance', payload: { text: '白饭' } });
+    const event = events.append({ kind: 'utterance', payload: { text: '米饭' } });
     const trace = traces.insert({
       eventId: event.id,
-      content: '用户说会买白饭。',
-      title: '白饭的承诺',
+      content: '用户说会买米饭。',
+      title: '米饭的承诺',
     });
     // Simulate a database written by the old tokenizer: bigram-only FTS.
     db.exec('DELETE FROM traces_fts_index');
-    db.prepare('INSERT INTO traces_fts_index(trace_id, text) VALUES (?, ?)').run(trace.id, ftsText('白饭的承诺 用户说会买白饭。'));
+    db.prepare('INSERT INTO traces_fts_index(trace_id, text) VALUES (?, ?)').run(trace.id, ftsText('米饭的承诺 用户说会买米饭。'));
     db.prepare('DELETE FROM meta WHERE key = ?').run('fts_index_version');
     closeDatabase(db);
 
@@ -33,8 +33,8 @@ test('migrate rebuilds an old bigram-only FTS index once', () => {
     assert.equal(result.ftsRebuilt, true);
     assert.equal(getMeta(db, 'fts_index_version'), String(FTS_INDEX_VERSION));
     const repo = createTraceRepository(db);
-    assert.equal(repo.searchFts('米饭').length, 0);
-    assert.equal(repo.searchFts('米饭', { soft: true }).length, 1);
+    assert.equal(repo.searchFts('饭团').length, 0);
+    assert.equal(repo.searchFts('饭团', { soft: true }).length, 1);
     closeDatabase(db);
   } finally {
     rmSync(dir, { recursive: true, force: true });

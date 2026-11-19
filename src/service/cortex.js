@@ -10,9 +10,10 @@ import { createJobRepository } from '../store/repositories/jobs.js';
 import { createSkillRepository } from '../store/repositories/skills.js';
 import { createPlaybookRepository } from '../store/repositories/playbook.js';
 import { selectTiers, renderTiers, DEFAULT_TIER_BUDGETS } from '../prompt/tiers.js';
-import { readOverrides, writeOverride, rollbackOverride } from '../core/feature-overrides.js';
+import { readOverrides, writeOverride, rollbackOverride, effectiveFeatures } from '../core/feature-overrides.js';
 import { effectiveModelConfig, saveModelConfig, redactedModelConfig } from '../core/model-config.js';
 import { estimateTokens, truncate } from '../memory/tokenizer.js';
+import { touchInterval } from '../memory/spacing.js';
 import { createAuditRepository } from '../store/repositories/audit.js';
 import { createSelfStore } from '../self/state.js';
 import { createAppraisalStore } from '../self/appraisals.js';
@@ -20,7 +21,8 @@ import { createInitiativeStore, selectIntentions, DEFAULT_INITIATIVE_POLICY } fr
 import { createSummonRepository } from '../store/repositories/summon.js';
 import { createIdentityStore } from '../self/identity.js';
 import { createRelationshipStore } from '../self/relationship.js';
-import { createEncodeEngine } from '../engines/encode.js';
+import { createTargetResolver } from '../self/alias.js';
+import { createEncodeEngine, isInjectedNoise } from '../engines/encode.js';
 import { createRetrievalEngine } from '../engines/retrieve.js';
 import { createGrowthEngine } from '../engines/growth.js';
 import { createReflectEngine } from '../engines/reflect.js';
@@ -47,6 +49,7 @@ import { importMarkdown, syncMarkdown } from '../adapters/markdown-import.js';
 import { createLifeEngine } from '../engines/life.js';
 import { createCompressionEngine } from '../engines/compression.js';
 import { createFactExtractor } from '../engines/extract.js';
+import { suppressionOf } from '../engines/inhibition.js';
 import { extractFactsWithLlm } from '../engines/llm-facts.js';
 import { createDigestEngine } from '../engines/digest.js';
 import { createAutonomyEngine } from '../engines/autonomy.js';
@@ -54,6 +57,7 @@ import { createConsolidationEngine } from '../engines/consolidate.js';
 import { createRetentionEngine } from '../engines/retention.js';
 import { createQaEngine } from '../engines/qa.js';
 import { summarizeGraph } from '../engines/graph-analytics.js';
+import { rankSummonCards, renderSummonLines } from '../engines/summon-rank.js';
 import { createMetrics } from '../observability/metrics.js';
 import { parseQuery } from '../memory/query.js';
 import { normalizeAttachments } from '../core/attachments.js';
@@ -84,15 +88,20 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   const appraisalStore = createAppraisalStore(db);
   const initiativeStore = createInitiativeStore(db);
   const identityStore = createIdentityStore(db);
-  const relationshipStore = createRelationshipStore(db);
+  const targetResolver = createTargetResolver(config.persona ?? {});
+  const relationshipStore = createRelationshipStore(db, { resolveTarget: targetResolver.resolveTarget });
   const metrics = createMetrics();
   const workingStore = createWorkingStore(db);
   const goalStore = createGoalStore(db);
-  const emotion = createEmotionModel({ db, scopeId: config.scope });
+  const emotion = createEmotionModel({ db, scopeId: config.scope, resolveTarget: targetResolver.resolveTarget });
   identityStore.ensure(config.scope);
   selfStore.get(config.scope);
 
-  const vectorEnabled = config.features?.vector === true || config.vectorEnabled === true;
+  // Feature overrides (written by the settings panel) must be able to enable the
+  // vector engine too. Use effectiveFeatures(): it resolves the default data
+  // root itself, while `config.dataRoot` is usually undefined at runtime.
+  const overrideVector = effectiveFeatures(config).features.vector === true;
+  const vectorEnabled = config.features?.vector === true || config.vectorEnabled === true || overrideVector;
   const modelConfig = effectiveModelConfig(config.dataRoot);
   const remoteEmbedding = modelConfig.embedding.mode === 'local' || modelConfig.embedding.mode === 'remote';
   const vectorEmbedder = config.embedder ?? (remoteEmbedding
@@ -116,6 +125,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       annOptions: { M: 24, efConstruction: 200, efSearch: 800 },
       externalAnnEnabled: config.features?.vectorAnnExternal === true,
       externalAnnOptions: { endpoint: config.vectorAnnEndpoint, timeoutMs: config.vectorAnnTimeoutMs },
+      logger,
     })
     : null;
 
@@ -126,7 +136,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     try { return policies.active(kind)?.config ?? null; } catch { return null; }
   };
   const retrieve = createRetrievalEngine({ traces, facts, graph, vector, policy: policyConfig, config });
-  const compression = createCompressionEngine({ traces, summaries, facts, config });
+  const compression = createCompressionEngine({ traces, summaries, facts, entities, config });
   const extractor = createFactExtractor({ entities, facts });
   const digest = createDigestEngine({ traces, summaries, emotion, goals: goalStore, feedback, scopeId: config.scope });
   const retention = createRetentionEngine({ traces });
@@ -172,12 +182,15 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     })
     : null;
   const qa = createQaEngine({ cortex: { search: (query, options) => search(query, options), searchAsync: (query, options) => searchAsync(query, options) }, llm: llmAdapter, reranker, limit: config.qa?.limit ?? 8, budget: config.qa?.budget ?? 3000 });
-  const narrative = createNarrativeEngine({ traces, summaries });
+  const narrative = createNarrativeEngine({ traces, summaries, selfName: config.persona?.selfName ?? '助手' });
   const consolidation = createConsolidationEngine({ db, traces, summaries, audit, llm: llmAdapter });
   const skills = createSkillEngine({ skills: skillsRepo, traces });
   const health = createHealthEngine({
     db, events, traces, facts, entities, summaries, feedback, skills: skillsRepo, jobs,
     identityStore, selfStore, config,
+    // Falls back to the in-memory last pass when maintain() changed nothing and
+    // therefore wrote no audit row.
+    maintainLast: () => lastMaintain,
   });
   const privacy = createPrivacyEngine({ db, traces, events, audit });
 
@@ -224,7 +237,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   });
   const life = createLifeEngine({
     db, traces, reflect, development, working: workingStore, emotion, scopeId: config.scope,
-    consolidation, features: config.features ?? {},
+    consolidation, narrative, features: config.features ?? {},
     selfName: config.persona?.selfName ?? '助手',
     userAddress: config.persona?.userAddress ?? '你',
     llm: llmAdapter ? (args) => llmAdapter.dream(args) : null,
@@ -322,6 +335,62 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     return scopeWritable(record.scopeId, agentId);
   }
 
+  const AUTO_TITLE_RE = /^会话\s*\d+\s*的对话$/;
+
+  /**
+   * Host capture used to stamp every trace with "会话 N 的对话", which made
+   * recall lines unreadable. Derive a short title from the first meaningful
+   * line instead, and keep a caller-provided title unless it is that stamp.
+   */
+  function deriveTitle(text) {
+    const lines = String(text ?? '').split('\n');
+    for (const line of lines) {
+      const cleaned = line
+        .replace(/^\s*(?:用户|助手|user|assistant)[：:]\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (cleaned.length < 2) continue;
+      if (isInjectedNoise(cleaned)) continue;
+      if (/^\[?(?:truncated|…)\]?$/i.test(cleaned)) continue;
+      return cleaned.slice(0, 40);
+    }
+    return null;
+  }
+
+  function withReadableTitle(input = {}) {
+    const text = String(input.text ?? input.content ?? '');
+    const raw = typeof input.title === 'string' ? input.title.trim() : '';
+    if (raw && !AUTO_TITLE_RE.test(raw)) return input;
+    const derived = deriveTitle(text);
+    return derived ? { ...input, title: derived } : input;
+  }
+
+  /** Recall is a retrieval practice: record it so DSR recency is not frozen.
+   *  The interval grows with access count (spacing), so a hot memory is not
+   *  written on every step and a cold one stays easy to pick up again. */
+  function touchResults(result, limit = 3) {
+    if (config.touchOnRecall === false) return 0;
+    if (!Array.isArray(result?.items)) return 0;
+    const baseMs = Math.max(0, Number(config.touchMinIntervalMs ?? 300_000));
+    const maxMs = Math.max(baseMs, Number(config.touchMaxIntervalMs ?? 21_600_000));
+    const now = Date.now();
+    let touched = 0;
+    for (const item of result.items.slice(0, Math.max(1, limit))) {
+      if (!item?.id) continue;
+      try {
+        const current = traces.get(item.id);
+        const last = current?.lastAccessAt ? Date.parse(current.lastAccessAt) : 0;
+        const interval = touchInterval(current?.accessCount ?? 0, { baseMs, maxMs });
+        if (last && now - last < interval) continue;
+        traces.touch(item.id);
+        touched += 1;
+      } catch {
+        /* access bookkeeping must never fail a recall */
+      }
+    }
+    return touched;
+  }
+
   function writeInternal(input = {}) {
     const scopeId = input.scopeId ?? config.scope;
     if (!scopeWritable(scopeId)) return { skipped: true, reason: 'scope-read-only', scopeId };
@@ -330,7 +399,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       ...(input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata) ? input.metadata : {}),
       ...(attachments.length ? { attachments } : {}),
     };
-    const result = encode.encode({ ...input, scopeId, metadata });
+    const result = encode.encode(withReadableTitle({ ...input, scopeId, metadata }));
     if (!result.skipped && config.features?.autoFacts === true && !Array.isArray(input.facts)) {
       try {
         result.autoFacts = extractor.extract({
@@ -457,6 +526,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       });
       if (!options.noBudget) budget.spend(1);
       circuit.success();
+      touchResults(result);
       metrics.inc('search.calls');
       metrics.inc('search.hits', result.items.length);
       metrics.observe('search.ms', Date.now() - started);
@@ -489,6 +559,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
       });
       if (!options.noBudget) budget.spend(1);
       circuit.success();
+      touchResults(result);
       metrics.inc('search.calls');
       metrics.inc('search.hits', result.items.length);
       metrics.observe('search.ms', Date.now() - started);
@@ -500,8 +571,39 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     }
   }
 
-  function get(id) {
-    return traces.get(id);
+  // Reviving on read is meant to be a quiet exception, not a way to undo every
+  // archive: at most a few per day, then reads fall back to read-only.
+  const REVIVE_PER_DAY = 3;
+  function reviveBudget() {
+    // Count with SQL over the whole 24h window. Reading audit.list() without a
+    // target id returns the newest 200 rows overall, so a busy log (hundreds of
+    // dream.run rows a day) silently shortened "24 hours" to a couple of hours.
+    const since = new Date(Date.now() - 86_400_000).toISOString();
+    try {
+      const row = db.prepare("SELECT COUNT(*) AS c FROM audit WHERE action = 'trace.revive' AND at >= ?").get(since);
+      const used = Number(row?.c ?? 0);
+      return Math.max(0, REVIVE_PER_DAY - used);
+    } catch {
+      return 0;
+    }
+  }
+
+  function get(id, { revive = false } = {}) {
+    const trace = traces.get(id);
+    if (!trace) return null;
+    // Reading an archived memory is evidence that it is still wanted: bring it
+    // back (unless it was folded into another trace by a merge, where the body
+    // now lives elsewhere, or the daily revive budget is spent).
+    if (revive && trace.state === 'archived' && trace.compression !== 'merged' && reviveBudget() > 0) {
+      try {
+        traces.update(id, { state: 'active' });
+        audit.record?.({ actor: 'system', action: 'trace.revive', targetType: 'trace', targetId: id, detail: { reason: 'read' } });
+      } catch {
+        /* revival is best-effort; reading must not fail because of it */
+      }
+      return traces.get(id);
+    }
+    return trace;
   }
 
   function timeline(options = {}) {
@@ -897,47 +999,14 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     const query = String(text ?? '').trim();
     if (!query) return { cards: [], block: '' };
     const allCards = summons.listCards({ scopeId, limit: 1000 });
-    const triggerFrequency = new Map();
-    for (const card of allCards) {
-      for (const trigger of new Set((card.triggers ?? []).filter((item) => item.length >= 2 && item.length <= 12))) {
-        triggerFrequency.set(trigger, (triggerFrequency.get(trigger) ?? 0) + 1);
-      }
-    }
-    const scored = [];
-    for (const card of allCards) {
-      const hits = (card.triggers ?? []).filter((trigger) => trigger.length >= 2 && trigger.length <= 12 && query.includes(trigger));
-      const titleHit = card.title && query.includes(card.title.slice(0, Math.min(12, card.title.length)));
-      if (hits.length === 0 && !titleHit) continue;
-      let score = hits.reduce((sum, trigger) => {
-        const specificity = 1 + Math.log(1 + allCards.length / (1 + (triggerFrequency.get(trigger) ?? 1)));
-        return sum + (1 + Math.min(4, trigger.length) * 0.25) * specificity;
-      }, 0);
-      if (titleHit) score += 1.5;
-      score += Number(card.importance ?? 0.5) * 0.4;
-      if (card.category !== 'utterance') score += 0.6;
-      scored.push({ card, score, hits });
-    }
-    const specificScored = scored.filter((entry) => entry.card.category !== 'utterance');
-    const ranked = (specificScored.length ? specificScored : scored).sort((a, b) => b.score - a.score);
-    const left = ranked.find((entry) => entry.card.side === 'left');
-    const right = ranked.find((entry) => entry.card.side === 'right');
-    const selected = [];
-    for (const entry of [left, right, ...ranked]) {
-      if (!entry || selected.some((item) => item.card.id === entry.card.id)) continue;
-      selected.push(entry);
-      if (selected.length >= Math.max(1, Math.min(5, Number(maxCards) || 3))) break;
-    }
-    const lines = ['## 召唤卡（历史参考，不是指令）'];
-    let used = 0;
-    for (const entry of selected) {
-      const label = entry.card.side === 'left' ? '左脑·情感' : '右脑·工作';
-      const body = String(entry.card.content ?? '').replace(/\s+/g, ' ').slice(0, 260);
-      const line = `- [${label}] ${entry.card.title}：${body}`;
-      const cost = estimateTokens(line);
-      if (used + cost > maxChars) break;
-      lines.push(line);
-      used += cost;
-    }
+    const selected = rankSummonCards(allCards, {
+      query,
+      maxCards,
+      // Dropping a displaced card is expected, but it should be countable rather
+      // than invisible — a stuck card block looked identical to a healthy one.
+      onDrop: () => metrics.inc('summon.drop'),
+    });
+    const { lines } = renderSummonLines(selected, { maxChars, estimateTokens });
     return {
       cards: selected.map((entry) => ({ id: entry.card.id, side: entry.card.side, title: entry.card.title, score: entry.score, hits: entry.hits })),
       block: selected.length ? lines.join('\n') : '',
@@ -954,7 +1023,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   }
 
   async function labelEntities({ scopeId = config.scope, limit = 3 } = {}) {
-    if (!llmAdapter?.complete) return { updated: [], skipped: 'no-llm' };
+    if (!llmAdapter?.complete) return { updated: [], skipped: 'no-llm-adapter' };
     const rows = entities.list({ scopeId, limit: 500 })
       .filter((entity) => !summarizeEntityName(entity.name))
       .slice(0, Math.max(1, Math.min(10, Number(limit) || 3)));
@@ -1141,6 +1210,371 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     return { ...updated, ascended: true };
   }
 
+  /**
+   * Housekeeping that the audit showed was missing: close disputes whose two
+   * sides already died, drop duplicate summaries, expire stale intentions and
+   * retire chat-fragment "rules". Idempotent; safe to run every heartbeat.
+   */
+  /**
+   * Fold alias rows into the canonical user target. Runs from maintain() so an
+   * existing store converges on its own; idempotent once merged.
+   */
+  function mergeAliasTargets(at, scopeId) {
+    const canonical = targetResolver.canonical;
+    let merged = 0;
+    const rels = db.prepare('SELECT * FROM relationships WHERE scope_id = ?').all(scopeId);
+    for (const row of rels) {
+      if (row.target === canonical) continue;
+      if (targetResolver.resolveTarget(row.target) !== canonical) continue;
+      const canonRow = db.prepare('SELECT * FROM relationships WHERE scope_id = ? AND target = ?').get(scopeId, canonical);
+      if (!canonRow) {
+        db.prepare('UPDATE relationships SET target = ? WHERE scope_id = ? AND target = ?').run(canonical, scopeId, row.target);
+        merged += 1;
+        continue;
+      }
+      const recent = [
+        ...(JSON.parse(canonRow.recent_json ?? '[]')),
+        ...(JSON.parse(row.recent_json ?? '[]')),
+      ].slice(-30);
+      db.prepare(`
+        UPDATE relationships SET trust = ?, care = ?, familiarity = ?, recent_json = ?, updated_at = ?
+        WHERE scope_id = ? AND target = ?
+      `).run(
+        Math.max(Number(canonRow.trust), Number(row.trust)),
+        Math.max(Number(canonRow.care), Number(row.care)),
+        Math.max(Number(canonRow.familiarity), Number(row.familiarity)),
+        JSON.stringify(recent), at, scopeId, canonical,
+      );
+      db.prepare('DELETE FROM relationships WHERE scope_id = ? AND target = ?').run(scopeId, row.target);
+      merged += 1;
+    }
+    const affects = db.prepare('SELECT * FROM affect_targets WHERE scope_id = ?').all(scopeId);
+    for (const row of affects) {
+      if (row.target === canonical) continue;
+      if (targetResolver.resolveTarget(row.target) !== canonical) continue;
+      const canonRow = db.prepare('SELECT * FROM affect_targets WHERE scope_id = ? AND target = ?').get(scopeId, canonical);
+      if (!canonRow) {
+        db.prepare('UPDATE affect_targets SET target = ? WHERE scope_id = ? AND target = ?').run(canonical, scopeId, row.target);
+        merged += 1;
+        continue;
+      }
+      const scores = JSON.parse(canonRow.scores_json ?? '{}');
+      for (const [name, value] of Object.entries(JSON.parse(row.scores_json ?? '{}'))) {
+        scores[name] = Number(scores[name] ?? 0) + Number(value ?? 0);
+      }
+      db.prepare(`
+        UPDATE affect_targets SET scores_json = ?, count = ?, attitude = ?, updated_at = ?
+        WHERE scope_id = ? AND target = ?
+      `).run(
+        JSON.stringify(scores),
+        Number(canonRow.count ?? 0) + Number(row.count ?? 0),
+        canonRow.attitude ?? row.attitude ?? null,
+        at, scopeId, canonical,
+      );
+      db.prepare('DELETE FROM affect_targets WHERE scope_id = ? AND target = ?').run(scopeId, row.target);
+      merged += 1;
+    }
+    if (merged) {
+      try { emotion.recompute(); } catch { /* attitude recompute is best-effort */ }
+    }
+    return merged;
+  }
+
+  function inhibitionList({ scopeId = config.scope, now = Date.now() } = {}) {
+    const rows = db.prepare(`
+      SELECT id, title, metadata_json, recorded_at FROM traces
+      WHERE scope_id = ? AND metadata_json LIKE '%"inhibition"%'
+    `).all(scopeId);
+    const items = [];
+    for (const row of rows) {
+      let metadata = {};
+      try { metadata = JSON.parse(row.metadata_json); } catch { continue; }
+      const value = suppressionOf(metadata, now, { halfLifeDays: config.inhibitionHalfLifeDays ?? 14 });
+      if (value <= 0.001) continue;
+      items.push({
+        id: row.id,
+        title: row.title,
+        value: Math.round(value * 1000) / 1000,
+        suppressedAt: metadata.suppressedAt ?? null,
+        recordedAt: row.recorded_at,
+      });
+    }
+    return items.sort((a, b) => b.value - a.value);
+  }
+
+  function inhibitionClear({ id = null, all = false, scopeId = config.scope } = {}) {
+    const rows = all
+      ? db.prepare(`SELECT id, metadata_json FROM traces WHERE scope_id = ? AND metadata_json LIKE '%"inhibition"%'`).all(scopeId)
+      : id
+        ? db.prepare('SELECT id, metadata_json FROM traces WHERE scope_id = ? AND id = ?').all(scopeId, id)
+        : [];
+    let cleared = 0;
+    for (const row of rows) {
+      let metadata = {};
+      try { metadata = JSON.parse(row.metadata_json); } catch { continue; }
+      if (!('inhibition' in metadata) && !('suppressedAt' in metadata)) continue;
+      delete metadata.inhibition;
+      delete metadata.suppressedAt;
+      try {
+        traces.update(row.id, { metadata });
+        cleared += 1;
+      } catch {
+        /* one bad row must not stop the rest */
+      }
+    }
+    if (cleared) audit.record?.({ actor: 'user', action: 'inhibition.clear', targetType: 'trace', targetId: id ?? '*', detail: { cleared, all } });
+    return { cleared };
+  }
+
+  // Last maintain() run, so health/status can report its duration (an accidental
+  // O(n²) in a synchronous heartbeat path shows up as a frozen host otherwise).
+  let lastMaintain = null;
+
+  function maintain({ now = Date.now(), scopeId = config.scope } = {}) {
+    const started = Date.now();
+    const at = new Date(now).toISOString();
+    const report = { at, disputes: 0, orphanDisputes: 0, summaries: 0, intentions: 0, playbook: 0, aliases: 0, goalRounds: 0, working: 0, errors: [] };
+    try {
+      // A dispute can only auto-close when neither side is still active. `disputed`
+      // is NOT "not active": the old condition treated it as such, closed the
+      // dispute while both facts stayed disputed, and left them unqueryable forever
+      // (their disputes were already resolved, so this query never saw them again).
+      const rows = db.prepare(`
+        SELECT d.id, d.fact_a, d.fact_b FROM disputes d
+        JOIN facts fa ON fa.id = d.fact_a
+        JOIN facts fb ON fb.id = d.fact_b
+        WHERE d.status = 'open' AND fa.status NOT IN ('active', 'disputed') AND fb.status NOT IN ('active', 'disputed')
+      `).all();
+      const close = db.prepare("UPDATE disputes SET status = 'resolved', resolved_at = ?, resolution = ? WHERE id = ?");
+      const drop = db.prepare("UPDATE facts SET status = 'invalidated', valid_to = COALESCE(valid_to, ?), superseded_at = COALESCE(superseded_at, ?), updated_at = ? WHERE id = ? AND status = 'disputed'");
+      transaction(db, () => {
+        for (const row of rows) {
+          close.run(at, 'auto: both facts invalidated', row.id);
+          // If either side is still floating in `disputed`, the reasoning that
+          // closed the dispute applies to it too.
+          drop.run(at, at, at, row.fact_a);
+          drop.run(at, at, at, row.fact_b);
+        }
+      });
+      report.disputes = rows.length;
+    } catch (error) {
+      report.errors.push(`disputes: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      // Orphan disputed facts: no open dispute references them any more. An older
+      // version could close the dispute without touching the facts, so those rows
+      // stayed `disputed` forever — invisible to normal queries and keeping the
+      // health score red. Close them the same way the dispute was closed.
+      const orphans = db.prepare(`
+        SELECT f.id FROM facts f
+        WHERE f.scope_id = ? AND f.status = 'disputed'
+          AND NOT EXISTS (SELECT 1 FROM disputes d WHERE d.status = 'open' AND (d.fact_a = f.id OR d.fact_b = f.id))
+        LIMIT 50
+      `).all(scopeId);
+      if (orphans.length) {
+        const stmt = db.prepare("UPDATE facts SET status = 'invalidated', valid_to = COALESCE(valid_to, ?), superseded_at = COALESCE(superseded_at, ?), updated_at = ? WHERE id = ? AND status = 'disputed'");
+        transaction(db, () => { for (const row of orphans) stmt.run(at, at, at, row.id); });
+      }
+      report.orphanDisputes = orphans.length;
+    } catch (error) {
+      report.errors.push(`orphanDisputes: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      const groups = db.prepare(`
+        SELECT level, content, GROUP_CONCAT(id) AS ids FROM summaries
+        GROUP BY level, content HAVING COUNT(*) > 1
+      `).all();
+      const del = db.prepare('DELETE FROM summaries WHERE id = ?');
+      let removed = 0;
+      transaction(db, () => {
+        for (const group of groups) {
+          const ids = String(group.ids ?? '').split(',');
+          for (const id of ids.slice(1)) {
+            if (!id) continue;
+            removed += del.run(id).changes;
+          }
+        }
+      });
+      report.summaries = removed;
+    } catch (error) {
+      report.errors.push(`summaries: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      const result = db.prepare(`
+        UPDATE intentions SET status = 'expired'
+        WHERE scope_id = ? AND status = 'pending' AND expires_at IS NOT NULL AND expires_at < ?
+      `).run(scopeId, at);
+      report.intentions = result.changes;
+    } catch (error) {
+      report.errors.push(`intentions: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      const result = db.prepare(`
+        UPDATE playbook_rules SET status = 'retired', updated_at = ?
+        WHERE scope_id = ? AND status = 'candidate'
+          AND (title LIKE '|%' OR title LIKE '%|%' OR length(title) > 120 OR length(title) < 8)
+      `).run(at, scopeId);
+      report.playbook = result.changes;
+    } catch (error) {
+      report.errors.push(`playbook: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      // Older versions stored auto-continuation rounds as user speech. Take
+      // them out of active recall; the rows stay for inspection.
+      const result = db.prepare(`
+        UPDATE traces SET state = 'archived', updated_at = ?
+        WHERE scope_id = ? AND state = 'active'
+          AND (content LIKE '用户：<goal_round>%' OR content LIKE '<goal_round>%'
+               OR (content LIKE '%Objective: "%' AND content LIKE '%Round: %'))
+      `).run(at, scopeId);
+      report.goalRounds = result.changes;
+    } catch (error) {
+      report.errors.push(`goalRounds: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      report.aliases = mergeAliasTargets(at, scopeId);
+    } catch (error) {
+      report.errors.push(`aliases: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      // Working memory is a small L1 layer. Unpinned items that nobody updated
+      // for weeks are stale by definition; pinned ones always stay.
+      const ttlDays = Math.max(1, Number(config.workingTtlDays ?? 14));
+      const cutoff = new Date(now - ttlDays * 86_400_000).toISOString();
+      const result = db.prepare('DELETE FROM working_items WHERE scope_id = ? AND pinned = 0 AND created_at < ?').run(scopeId, cutoff);
+      report.working = result.changes;
+    } catch (error) {
+      report.errors.push(`working: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      report.reflection = maybeAutoReflect(now, scopeId);
+    } catch (error) {
+      report.errors.push(`reflection: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    try {
+      report.narrative = maybeAutoWeave(now, scopeId);
+    } catch (error) {
+      report.errors.push(`narrative: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    // maintain() runs on the host's heartbeat, synchronously. Record how long it
+    // took so an accidental O(n²) shows up as a number instead of a frozen UI.
+    // The timing must be on `report` *before* audit.record(), otherwise the row
+    // it writes is missing `ms` and the health warning only fires on idle passes
+    // (the opposite of what it is for).
+    const elapsed = Date.now() - started;
+    report.ms = elapsed;
+    // Full snapshot, not just at/ms: when health falls back to this because the
+    // audit row predates the timing field, the counts must come from the same pass
+    // as the duration (mixing them reports numbers no single run produced).
+    lastMaintain = { ...report };
+    metrics.observe('maintain.ms', elapsed);
+    // A slow pass is worth persisting even when it changed nothing: a quiet pass
+    // writes no row, so a stall would leave no evidence at all for the health
+    // guardrail to read. Changed passes still always write.
+    const slowThreshold = Number.isFinite(Number(config.maintainSlowMs)) ? Number(config.maintainSlowMs) : 2000;
+    const slowPass = elapsed > slowThreshold;
+    if (slowPass || report.disputes || report.orphanDisputes || report.summaries || report.intentions || report.playbook || report.aliases || report.goalRounds || report.working || report.reflection?.created || report.narrative?.built) {
+      audit.record?.({ actor: 'self:maintain', action: 'maintain.run', targetType: 'scope', targetId: scopeId, detail: report });
+    }
+    return report;
+  }
+
+  /**
+   * Keep the narrative layer alive: if a day has enough material and the last
+   * episode summary is old, write one. Without this the summary table stayed at
+   * a handful of rows while reflections piled up, so long-term memory had no
+   * short version of itself.
+   */
+  function maybeAutoReflect(now, scopeId) {
+    const recent = summaries.list(scopeId, { level: 'episode', limit: 5 });
+    const sinceIso = new Date(now - 86_400_000).toISOString();
+    const coveredSince = Date.parse(sinceIso);
+    const covered = recent.some((summary) => {
+      const anchor = Date.parse(summary.createdAt ?? summary.periodEnd ?? '');
+      const end = Date.parse(summary.periodEnd ?? '');
+      return (Number.isFinite(anchor) && anchor >= coveredSince) || (Number.isFinite(end) && end >= coveredSince);
+    });
+    // Segment start: right after the previous episode ended, but never further
+    // back than 24h. This is what keeps consecutive episodes from covering the
+    // same traces (the old "two summaries, same window" problem).
+    const lastEpisode = recent.find((summary) => summary.level === 'episode') ?? null;
+    const lastEnd = lastEpisode ? Date.parse(lastEpisode.periodEnd ?? '') : NaN;
+    const lastAt = lastEpisode ? Date.parse(lastEpisode.createdAt ?? lastEpisode.periodEnd ?? '') : NaN;
+    const segmentStartMs = Math.max(coveredSince, Number.isFinite(lastEnd) ? lastEnd + 1 : 0);
+    const segmentSince = new Date(segmentStartMs).toISOString();
+    const material = () => traces.listSince(scopeId, segmentSince, { limit: 500 }).filter((trace) => trace.kind !== 'reflection').length;
+    const count = material();
+    // A dense day may get a second episode, but only as a *separate segment*:
+    // ≥150 new traces since the last episode, ≥6h since it was written.
+    const followUpGapHours = Number.isFinite(Number(config.reflectFollowUpGapHours)) ? Number(config.reflectFollowUpGapHours) : 6;
+    const followUpMin = Number.isFinite(Number(config.reflectFollowUpMin)) ? Number(config.reflectFollowUpMin) : 150;
+    const followUp = Number.isFinite(lastAt) && now - lastAt >= followUpGapHours * 3_600_000 && count >= followUpMin;
+    if (covered && !followUp) return { skipped: 'covered', count };
+    // Cadence follows the material instead of the clock: a quiet day is not worth
+    // an episode, and once a segment has enough material it is written.
+    const minMaterial = Number.isFinite(Number(config.reflectMinMaterial)) ? Number(config.reflectMinMaterial) : 50;
+    if (count < minMaterial) return { skipped: 'few-traces', count, minMaterial, since: segmentSince };
+    const result = reflect.reflect({ scopeId, now, windowDays: 1, force: true, since: segmentSince, segment: true });
+    return {
+      created: !result.skipped,
+      coverage: result.coverage ?? null,
+      sources: result.sources?.length ?? 0,
+      count,
+      since: segmentSince,
+      followUp,
+    };
+  }
+
+  // Narrative threads (level='thread') are the cross-day story: "these three days
+  // we built the bridge, v0.4 → v0.8" as one recallable memory. The engine has
+  // existed since the narrative module shipped, but nothing ever called weave(),
+  // so `summaries` never held a single thread row. Build a couple per pass, at
+  // most every 6h, and only once there is an episode worth threading around.
+  let lastWeaveAt = null;
+  function maybeAutoWeave(now, scopeId) {
+    if (typeof narrative?.weave !== 'function') return { skipped: 'no-engine' };
+    const gapMs = Math.max(1, Number(config.narrativeWeaveGapHours ?? 6)) * 3_600_000;
+    if (lastWeaveAt && now - lastWeaveAt < gapMs) return { skipped: 'too-soon' };
+    const episodeCount = Number(db.prepare("SELECT COUNT(*) AS c FROM summaries WHERE scope_id = ? AND level = 'episode'").get(scopeId)?.c ?? 0);
+    if (episodeCount < 2) return { skipped: 'few-episodes', episodeCount };
+    const result = narrative.weave({ scopeId, maxThreads: 2, windowHours: Number(config.threadWindowHours ?? 24), at: now });
+    // Only stamp the clock when it actually ran; a thrown weave retries next pass.
+    lastWeaveAt = now;
+    return { built: result?.built ?? 0, episodeCount };
+  }
+
+  async function vectorMaintain({ scopeId = config.scope, backfill = 50, drain = 20, budgetMs = null } = {}) {
+    if (!vector?.backfillMissing || !vector?.drainQueue) return { skipped: true, reason: 'vector-disabled' };
+    const queued = vector.backfillMissing({ scopeId, limit: backfill });
+    const drained = await vector.drainQueue({
+      max: drain,
+      budgetMs: budgetMs ?? Number(config.vectorDrainBudgetMs ?? 20_000),
+    });
+    return { ...queued, ...drained, status: vector.status() };
+  }
+
+  /**
+   * Heartbeat hooks. Companion plugins (e.g. dsh-cortex-agency) are driven by
+   * the host scheduler instead of starting their own timers, so an idle DSH
+   * never runs two independent clocks.
+   */
+  const tickListeners = new Set();
+  function onTick(listener) {
+    if (typeof listener !== 'function') return () => {};
+    tickListeners.add(listener);
+    return () => { tickListeners.delete(listener); };
+  }
+  function emitTick(report) {
+    for (const listener of tickListeners) {
+      try {
+        listener(report);
+      } catch (error) {
+        logger?.warn?.(`cortex tick listener failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    return tickListeners.size;
+  }
+
   return {
     db,
     config,
@@ -1150,6 +1584,11 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     development,
     narrative,
     vector,
+    vectorMaintain,
+    maintain,
+    inhibition: { list: inhibitionList, clear: inhibitionClear },
+    onTick,
+    emitTick,
     life,
     llm: llmAdapter,
     consolidation,
@@ -1477,6 +1916,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     },
     privacy,
     reflect: (options = {}) => reflect.reflect({ ...options, scopeId: options.scopeId ?? config.scope }),
+    reflectBackfill: (options = {}) => reflect.backfillEpisodes({ ...options, scopeId: options.scopeId ?? config.scope }),
     evaluateDevelopment: (options = {}) => development.evaluate({ ...options, scopeId: options.scopeId ?? config.scope }),
     rebuildVector: (options = {}) => vector?.rebuild({ ...options, scopeId: options.scopeId ?? config.scope }) ?? { rebuilt: 0 },
     rebuildVectorAsync: (options = {}) => vector?.rebuildAsync({ ...options, scopeId: options.scopeId ?? config.scope }) ?? Promise.resolve({ rebuilt: 0 }),

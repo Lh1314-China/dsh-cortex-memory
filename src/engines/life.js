@@ -22,6 +22,7 @@ export function createLifeEngine({
   working = null,
   emotion = null,
   consolidation = null,
+  narrative = null,
   features = {},
   llm = null,
   diaryLlm = null,
@@ -293,10 +294,19 @@ export function createLifeEngine({
     let consolidationRun = null;
     if (consolidation && features?.llm === true && features?.consolidateOnSleep !== false) {
       try {
-        consolidationRun = await consolidation.run({ scopeId, now: at, limit: 10 });
+        consolidationRun = await consolidation.run({ scopeId, now: at, limit: 10, caller: 'sleep' });
       } catch {
         consolidationRun = null;
       }
+    }
+    // Sleep is when the day gets woven together: build a couple of narrative
+    // threads from the episodes that now exist. Idempotent — weave() skips seeds
+    // an existing thread already cites.
+    let narrativeRun = null;
+    try {
+      narrativeRun = narrative?.weave?.({ scopeId, maxThreads: 2, windowHours: Number(features?.threadWindowHours ?? 24), at }) ?? null;
+    } catch {
+      narrativeRun = null;
     }
     const report = {
       at: new Date(at).toISOString(),
@@ -306,6 +316,7 @@ export function createLifeEngine({
       affectTargets: affect?.length ?? 0,
       consolidation: consolidationRun?.run?.status ?? null,
       consolidated: consolidationRun?.applied?.length ?? 0,
+      narrative: narrativeRun?.built ?? null,
     };
     const id = makeId('slp');
     db.prepare('INSERT INTO sleep_runs(id, scope_id, at, report_json) VALUES (?, ?, ?, ?)')

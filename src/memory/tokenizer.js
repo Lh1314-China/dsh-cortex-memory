@@ -25,7 +25,7 @@ export function tokens(text) {
 
 export function ftsTokenList(text) {
   // Bigrams preserve phrase specificity; single non-stop CJK chars act as a
-  // cheap fuzzy fallback for near-synonyms that share a character (米饭/白饭).
+  // cheap fuzzy fallback for near-synonyms that share a character (米饭/饭).
   const out = tokenList(text);
   const value = String(text ?? '');
   for (const run of value.match(HAN) ?? []) {

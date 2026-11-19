@@ -164,7 +164,7 @@ test('POST write sends JSON, x-cortex and the exact body', async () => {
   const { client, calls, queue } = harness();
   queue.push(ok({ trace: { id: 'tr1' } }));
 
-  const input = { text: '用户说会买白饭。', tags: ['白饭'], explicit: true };
+  const input = { text: '用户说会买米饭。', tags: ['米饭'], explicit: true };
   const result = await client.write(input);
 
   assert.deepEqual(result, { trace: { id: 'tr1' } });
@@ -188,7 +188,7 @@ test('custom tokenHeader is sent as the x-cortex value', async () => {
 test('scopeId is sent on every request and validated', async () => {
   const { client, calls, queue } = harness({ scopeId: 'session:42' });
   queue.push(ok({ items: [] }));
-  await client.search('白饭');
+  await client.search('米饭');
   assert.equal(calls[0].init.headers['x-cortex-scope'], 'session:42');
   assert.throws(() => createApiClient({ fetchImpl: async () => new Response('{}'), scopeId: 'bad scope' }), /scopeId/);
 });
@@ -240,7 +240,7 @@ test('feedback, forget, reflect and compress send only supported fields', async 
   await client.compress();
   assert.deepEqual(parseBody(calls.at(-1)), {});
 
-  queue.push(ok({ answer: '白饭 [1]', mode: 'extractive' }));
+  queue.push(ok({ answer: '米饭 [1]', mode: 'extractive' }));
   await client.qa({ question: '用户喜欢什么？' });
   assert.equal(pathOf(calls.at(-1)), '/api/cortex/qa');
   assert.deepEqual(parseBody(calls.at(-1)), { question: '用户喜欢什么？' });

@@ -72,7 +72,7 @@ test('scope isolation keeps writes, search, working memory and goals inside thei
   const context = makeCortex();
   const { cortex } = context;
   try {
-    const shared = '用户喜欢白饭，这是同一条跨 scope 文本。';
+    const shared = '用户喜欢米饭，这是同一条跨 scope 文本。';
     const globalWrite = cortex.write({ text: shared, title: 'global copy', explicit: true, scopeId: 'global', now: BASE_MS });
     const s2Write = cortex.write({ text: shared, title: 's2 copy', explicit: true, scopeId: 's2', now: BASE_MS + 1_000 });
     const s2Extra = cortex.write({ text: '只有 s2 能看到的技术记录。', title: 's2 tech', explicit: true, scopeId: 's2', now: BASE_MS + 2_000 });
@@ -96,9 +96,9 @@ test('scope isolation keeps writes, search, working memory and goals inside thei
     assert.equal(cortex.repos.events.count('s2'), 3);
     assert.equal(cortex.repos.events.count(), 4);
 
-    const globalHits = cortex.search('白饭', { scopeId: 'global', now: BASE_MS + 4_000, limit: 10 });
-    const s2Hits = cortex.search('白饭', { scopeId: 's2', now: BASE_MS + 4_000, limit: 10 });
-    const defaultHits = cortex.search('白饭', { now: BASE_MS + 4_000, limit: 10 });
+    const globalHits = cortex.search('米饭', { scopeId: 'global', now: BASE_MS + 4_000, limit: 10 });
+    const s2Hits = cortex.search('米饭', { scopeId: 's2', now: BASE_MS + 4_000, limit: 10 });
+    const defaultHits = cortex.search('米饭', { now: BASE_MS + 4_000, limit: 10 });
     assert.equal(globalHits.scopeId, 'global');
     assert.equal(s2Hits.scopeId, 's2');
     // Retrieval merges a scoped recency source, so assert scope membership
@@ -387,11 +387,11 @@ test('privacy.deleteScope wipes diary, dreams, sleep, emotion, feedback and fact
   const { cortex } = context;
   try {
     const first = cortex.write({
-      text: '用户答应买白饭，这是隐私删除测试。',
-      title: '白饭承诺',
+      text: '用户答应买米饭，这是隐私删除测试。',
+      title: '米饭承诺',
       explicit: true,
       now: BASE_MS,
-      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买白饭', confidence: 0.9 }],
+      facts: [{ subject: '用户', predicate: '答应', objectLiteral: '买米饭', confidence: 0.9 }],
     });
     const second = cortex.write({
       text: '用户想给助手一个实体。',
@@ -445,7 +445,8 @@ test('privacy.deleteScope wipes diary, dreams, sleep, emotion, feedback and fact
     assert.equal(before.traces, 3, 'two writes plus one reflection');
     assert.equal(before.facts, 2);
     assert.equal(before.entities, 2);
-    assert.equal(before.summaries, 1);
+    // episode（sleep 里的 reflect）+ 一条叙事线（sleep 里的 weave）
+    assert.equal(before.summaries, 2);
     assert.equal(before.feedback, 1);
     assert.equal(before.emotionEvents, 2);
     assert.equal(before.working, 1, 'sleep purged the expired item');
@@ -479,7 +480,7 @@ test('privacy.deleteScope wipes diary, dreams, sleep, emotion, feedback and fact
     assert.equal(eventsBefore, 4);
     assert.equal(globalEventsBefore, 3);
     assert.equal(s2EventsBefore, 1);
-    assert.equal(JSON.stringify(cortex.repos.events.list({ limit: 100 }).map((event) => event.payload)).includes('白饭'), false);
+    assert.equal(JSON.stringify(cortex.repos.events.list({ limit: 100 }).map((event) => event.payload)).includes('米饭'), false);
 
     const deleted = cortex.privacy.deleteScope('global', { actor: 'user', reason: 'edge-privacy' });
     assert.equal(deleted.scopeId, 'global');
@@ -526,7 +527,7 @@ test('privacy.deleteScope wipes diary, dreams, sleep, emotion, feedback and fact
     const chain = cortex.repos.events.verifyChain();
     assert.equal(chain.ok, true);
     assert.equal(chain.count, eventsBefore);
-    assert.equal(JSON.stringify(cortex.repos.events.list({ limit: 100 }).map((event) => event.payload)).includes('白饭'), false);
+    assert.equal(JSON.stringify(cortex.repos.events.list({ limit: 100 }).map((event) => event.payload)).includes('米饭'), false);
 
     // The deletion is audited with the exact counts returned.
     const auditRecord = cortex.repos.audit.list({ limit: 200 })
@@ -795,7 +796,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
   const { cortex } = context;
   try {
     const first = cortex.write({
-      text: '重复测试：用户喜欢白饭。',
+      text: '重复测试：用户喜欢米饭。',
       title: '重复',
       explicit: true,
       operationId: 'edge:dup-1',
@@ -803,7 +804,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
     });
     assert.equal(first.skipped, false);
     const replay = cortex.write({
-      text: '重复测试：用户喜欢白饭。',
+      text: '重复测试：用户喜欢米饭。',
       title: '重复',
       explicit: true,
       operationId: 'edge:dup-1',
@@ -816,7 +817,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
     assert.equal(cortex.repos.events.count(), 1);
 
     const duplicate = cortex.write({
-      text: '重复测试：用户喜欢白饭。',
+      text: '重复测试：用户喜欢米饭。',
       explicit: true,
       operationId: 'edge:dup-2',
       now: BASE_MS + 2_000,
@@ -848,7 +849,7 @@ test('duplicate operationIds and duplicate content keep traces unique and metric
 
     // Dedupe is scoped: identical text in a second scope is a real new trace.
     const scoped = cortex.write({
-      text: '重复测试：用户喜欢白饭。',
+      text: '重复测试：用户喜欢米饭。',
       explicit: true,
       scopeId: 's2',
       now: BASE_MS + 3_000,
@@ -874,7 +875,7 @@ test('vector failures never fail writes or searches and surface in the search so
   const { cortex } = context;
   try {
     assert.ok(cortex.vector);
-    const first = cortex.write({ text: '向量失败测试：用户喜欢白饭。', title: '向量一', explicit: true, now: BASE_MS });
+    const first = cortex.write({ text: '向量失败测试：用户喜欢米饭。', title: '向量一', explicit: true, now: BASE_MS });
     assert.equal(first.skipped, false);
     assert.equal(cortex.vector.status().count, 1);
 

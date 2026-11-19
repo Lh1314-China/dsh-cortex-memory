@@ -18,7 +18,7 @@ test('all tools are present and have text output', () => {
   try {
     const names = Object.keys(tools).sort();
     assert.deepEqual(names, [
-      'cortex_as_of', 'cortex_compress', 'cortex_consolidate', 'cortex_digest', 'cortex_emotion', 'cortex_evolve', 'cortex_feedback', 'cortex_forget', 'cortex_get', 'cortex_goal', 'cortex_guard', 'cortex_health',
+      'cortex_as_of', 'cortex_compress', 'cortex_consolidate', 'cortex_digest', 'cortex_emotion', 'cortex_evolve', 'cortex_feedback', 'cortex_forget', 'cortex_get', 'cortex_goal', 'cortex_guard', 'cortex_health', 'cortex_inhibition',
       'cortex_life', 'cortex_playbook', 'cortex_reflect', 'cortex_search', 'cortex_self', 'cortex_tick', 'cortex_timeline', 'cortex_working', 'cortex_write',
     ]);
     for (const tool of Object.values(tools)) {
@@ -78,17 +78,17 @@ test('write/search/get/self/health return readable text', async () => {
   const { dir, cortex, tools } = setup();
   try {
     const write = await tools.cortex_write.execute({
-      text: '用户说会买白饭，助手会一直等。',
+      text: '用户说会买米饭，助手会一直等。',
       explicit: true,
-      facts: [{ subject: '用户', predicate: 'likes', object: '白饭' }],
+      facts: [{ subject: '用户', predicate: 'likes', object: '米饭' }],
     });
     assert.match(write.text, /已写入/);
     const id = write.text.match(/trc_[a-z0-9]+/)?.[0];
     assert.ok(id);
-    const search = await tools.cortex_search.execute({ query: '白饭' });
+    const search = await tools.cortex_search.execute({ query: '米饭' });
     assert.match(search.text, /意图/);
     const get = await tools.cortex_get.execute({ id });
-    assert.match(get.text, /白饭/);
+    assert.match(get.text, /米饭/);
     const self = await tools.cortex_self.execute({});
     assert.match(self.text, /驱力/);
     const health = await tools.cortex_health.execute({});

@@ -36,6 +36,26 @@ function combineConfidence(a, b) {
   return Math.min(1, 1 - (1 - Number(a || 0)) * (1 - Number(b || 0)));
 }
 
+const NEGATION_HEAD = /^(?:不|没|未|别|没有|不会|不是)/;
+
+function normalizeLiteral(value) {
+  return String(value ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
+}
+
+/**
+ * Same subject + same predicate does not automatically mean a conflict.
+ * "一直在" and "一直存在着" say compatible things. Only a negation that flips
+ * the claim ("会一直在" vs "不会一直在") is treated as a real dispute; the
+ * negation must lead the literal, otherwise it is part of the object itself
+ * ("记忆不丢"), not a contradiction.
+ */
+export function negationFlip(a, b) {
+  const left = normalizeLiteral(a);
+  const right = normalizeLiteral(b);
+  if (!left || !right) return false;
+  return NEGATION_HEAD.test(left) !== NEGATION_HEAD.test(right);
+}
+
 export function createFactRepository(db) {
   function get(id) {
     return rowToFact(db.prepare('SELECT * FROM facts WHERE id = ?').get(id));
@@ -120,7 +140,20 @@ export function createFactRepository(db) {
     const later = existing.filter((fact) => fact.validFrom <= validFrom).at(-1);
     if (later) {
       if (later.validFrom === validFrom) {
-        // Same start, different object: keep both but mark them disputed and
+        // Same start, different object. The compatibility rule only applies
+        // when both sides are free text: "一直在" and "一直存在着" can coexist.
+        // Entity-to-entity conflicts (likes 咖啡 vs likes 茶) still dispute.
+        const newLiteral = objectLiteral ?? null;
+        const allLiterals = Boolean(newLiteral) && existing.every((fact) => Boolean(fact.objectLiteral));
+        const flip = allLiterals && existing.some((fact) => negationFlip(fact.objectLiteral, newLiteral));
+        if (allLiterals && !flip) {
+          const fact = insertFact({
+            scopeId, subjectId, predicate, objectId, objectLiteral, validFrom, validTo,
+            recordedAt, confidence, status: 'active', sourceEventId, evidence,
+          });
+          return { action: 'compatible', fact, invalidated: [] };
+        }
+        // Genuinely contradictory: keep both but mark them disputed and
         // record the dispute. A later reflection/verification can resolve it.
         const disputed = existing.map((fact) => {
           db.prepare("UPDATE facts SET status = 'disputed', updated_at = ? WHERE id = ?").run(nowIso(), fact.id);

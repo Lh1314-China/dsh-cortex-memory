@@ -26,7 +26,8 @@ test('scheduler runOnce is safe and reports steps', async () => {
 test('scheduler can run consolidation on a tick when explicitly enabled', async () => {
   let called = 0;
   const scheduler = createScheduler({
-    cortex: { autonomy: null, retention: null, guardian: null, runner: null, config: { scope: 'global' }, consolidation: { run: async () => { called += 1; return { run: { status: 'applied' } }; } } },
+    // 这个测试只验证 tick 巩固；深整理另有专门的测试，关掉它避免多记一次。
+    cortex: { autonomy: null, retention: null, guardian: null, runner: null, config: { scope: 'global', deepConsolidateOnSchedule: false }, consolidation: { run: async () => { called += 1; return { run: { status: 'applied' } }; } } },
     consolidateOnTick: true,
     intervalMs: 60_000,
   });

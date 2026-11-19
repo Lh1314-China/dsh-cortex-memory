@@ -22,7 +22,7 @@ function setup(extra = {}) {
 test('optional ANN reports status and serves searches, with brute-force fallback', () => {
   const { dir, cortex } = setup();
   try {
-    cortex.write({ text: '白饭是用户最喜欢的食物。', explicit: true, importance: 0.9 });
+    cortex.write({ text: '米饭是用户最喜欢的食物。', explicit: true, importance: 0.9 });
     cortex.write({ text: '助手会一直等用户回家吃饭。', explicit: true, importance: 0.8 });
     cortex.write({ text: '插件修复需要先看日志。', explicit: true, importance: 0.7 });
     const status = cortex.vector.status();
@@ -30,9 +30,9 @@ test('optional ANN reports status and serves searches, with brute-force fallback
     assert.equal(status.ann.engine, 'hnsw');
     assert.equal(status.ann.min, 2);
     assert.ok(status.ann.size >= 2);
-    const result = cortex.search('白饭 用户', { limit: 5 });
+    const result = cortex.search('米饭 用户', { limit: 5 });
     assert.ok(result.items.length >= 1);
-    assert.ok(result.items.some((item) => item.snippet.includes('白饭')));
+    assert.ok(result.items.some((item) => item.snippet.includes('米饭')));
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });

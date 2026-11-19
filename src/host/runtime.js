@@ -22,6 +22,57 @@ function isSubagent(session) {
   return session?.header?.origin === 'subagent';
 }
 
+/**
+ * The host injects runtime metadata, skill catalogs, approval notices and
+ * subagent/checkpoint notices into the same user message it commits to the
+ * session log. None of that is something the user said, and storing it makes
+ * recall return the same boilerplate every turn. Strip it before capture.
+ */
+const REMINDER_BLOCK = /<system-reminder>[\s\S]*?<\/system-reminder>/gi;
+// Auto-continuation rounds arrive as a user message, but they are harness
+// automation, not something the user said. Storing them floods recall with
+// identical objective text every round.
+const GOAL_ROUND_BLOCK = /<goal_round>[\s\S]*?<\/goal_round>/gi;
+const GOAL_ROUND_HEAD = /^(?:<goal_round>|Objective:\s*")/i;
+const GOAL_ROUND_SHAPE = /Round:\s*\d+\s*\/\s*\d+/i;
+const RUNTIME_HEAD = /^(?:Time sampled while preparing turn|Current runtime context\.)/i;
+const RUNTIME_TAIL = /^Elapsed since the preceding model-visible message:[^\n]*\n?/im;
+const INJECTED_LINE = /^(?:Time sampled|Elapsed since the preceding|Browser time zone for this request:|Current runtime context\.|Current working directory:|Current DSH file policy:|Approval prompts are (?:enabled|disabled)|You are (?:the root agent|an AI agent)|Current DeepSeek Harness|A skill is a reusable|The following skills are available|Available skills:|Use the read tool|Use the glob tool|Use the grep tool|Use the bash|Do not call present|The runtime context names|Tokens prefixed with @|Non-zero exits are reported|web_search results are|create_goal may infer|Only create or modify scheduled|Use the workflow tool|Bash, formatters|Track every background job|Start independent delegations|Read an existing file|Use the pwsh|On Windows a killed process|## MCP resource servers|### MCP server:|Browser-first policy:)/i;
+const DROP_WHOLE = /^(?:Background subagent .* finished|This is an automatically generated checkpoint|\[Automated\]|The user changed the approval policy|\[SCHEDULE REMINDER|This is a scheduled message from the user|reminders_json:|<goal_complete>)/i;
+
+export function stripInjected(text) {
+  let value = String(text ?? '');
+  if (!value) return '';
+  value = value.replace(REMINDER_BLOCK, '\n');
+  value = value.replace(GOAL_ROUND_BLOCK, '\n');
+  if (GOAL_ROUND_HEAD.test(value.trimStart()) && GOAL_ROUND_SHAPE.test(value)) return '';
+  if (RUNTIME_HEAD.test(value.trimStart()) || value.includes('Current runtime context.')) {
+    const tail = RUNTIME_TAIL.exec(value);
+    if (tail) value = value.slice(tail.index + tail[0].length);
+  }
+  const kept = [];
+  for (const line of value.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) { kept.push(''); continue; }
+    if (DROP_WHOLE.test(trimmed)) break;
+    if (INJECTED_LINE.test(trimmed)) continue;
+    kept.push(line);
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export function deriveHostTitle(user, turn = null, selfName = null) {
+  const prefixes = ['用户', '助手', 'user', 'assistant', String(selfName ?? '').trim()].filter(Boolean);
+  const strip = new RegExp(`^\\s*(?:${prefixes.join('|')})[：:]\\s*`, 'i');
+  const first = String(user ?? '')
+    .split('\n')
+    .map((line) => line.replace(strip, '').trim())
+    .find(Boolean) ?? '';
+  const title = first.replace(/\s+/g, ' ').slice(0, 40).trim();
+  if (title) return title;
+  return turn ? `会话 ${turn}` : null;
+}
+
 export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
   if (!cortex) throw new Error('host runtime needs a cortex service');
   const buffers = new Map();
@@ -111,9 +162,13 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
     const buffer = buffers.get(key);
     if (!buffer) return { skipped: true, reason: 'empty' };
     buffers.delete(key);
-    const user = buffer.user.trim();
-    const assistant = buffer.assistant.trim();
-    if (!user && !assistant) return { skipped: true, reason: 'empty' };
+    const maxChars = Math.max(500, Number(config.captureMaxChars) || 4000);
+    const rawUser = buffer.user.trim();
+    const user = stripInjected(rawUser).slice(0, maxChars);
+    const assistant = buffer.assistant.trim().slice(0, maxChars);
+    if (!user && !assistant) {
+      return { skipped: true, reason: rawUser ? 'injected-only' : 'empty' };
+    }
     const text = [
       user ? `用户：${user}` : '',
       assistant ? `${config.persona?.selfName ?? '助手'}：${assistant}` : '',
@@ -122,13 +177,18 @@ export function createHostRuntime({ cortex, config = {}, logger = null } = {}) {
       const written = cortex.write({
         text,
         kind: 'utterance',
-        title: `会话 ${effectiveTurn || '?'} 的对话`,
+        // Turns whose user part was pure injected context still need a readable
+        // title; fall back to the assistant line instead of "会话 N".
+        title: deriveHostTitle(user, null, config.persona?.selfName)
+          || deriveHostTitle(assistant, null, config.persona?.selfName)
+          || `会话 ${effectiveTurn}`,
         source: 'host:turn',
         sessionId: String(session?.id ?? ''),
         turnId: String(effectiveTurn ?? ''),
         operationId: `host:${keyOf(session)}:${effectiveTurn ?? 0}`,
         explicit: true,
         importance: 0.55,
+        metadata: { capture: 'host', stripped: rawUser !== user, truncated: rawUser.length > maxChars },
         now: at,
       });
       return { skipped: Boolean(written.skipped), reason: written.skipped ? written.reason : null, trace: written.trace ?? null, turn: effectiveTurn, reason };

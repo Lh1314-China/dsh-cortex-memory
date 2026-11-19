@@ -17,8 +17,8 @@ function setup() {
 test('jobs are idempotent by operationId and can be claimed/completed', () => {
   const { dir, db, queue } = setup();
   try {
-    const first = queue.enqueue({ kind: 'extract', payload: { text: '白饭' }, operationId: 'op-1' });
-    const replay = queue.enqueue({ kind: 'extract', payload: { text: '白饭' }, operationId: 'op-1' });
+    const first = queue.enqueue({ kind: 'extract', payload: { text: '米饭' }, operationId: 'op-1' });
+    const replay = queue.enqueue({ kind: 'extract', payload: { text: '米饭' }, operationId: 'op-1' });
     assert.equal(replay.id, first.id);
     assert.equal(queue.counts().pending, 1);
     const claimed = queue.claimNext({ now: Date.now() + 1000 });
@@ -61,12 +61,12 @@ test('a failed job retries and eventually becomes failed', () => {
 test('runner executes a handler and records the result', async () => {
   const { dir, db, queue } = setup();
   try {
-    queue.enqueue({ kind: 'echo', payload: { text: '白饭' } });
+    queue.enqueue({ kind: 'echo', payload: { text: '米饭' } });
     const runner = createJobRunner({ queue, handlers: { echo: async (payload) => ({ echoed: payload.text }) } });
     const result = await runner.runUntilIdle();
     assert.equal(result.ran, 1);
     assert.equal(result.results[0].ok, true);
-    assert.equal(queue.list({ status: 'done' })[0].result.echoed, '白饭');
+    assert.equal(queue.list({ status: 'done' })[0].result.echoed, '米饭');
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });

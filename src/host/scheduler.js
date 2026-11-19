@@ -19,7 +19,19 @@ export function createScheduler({
   let autoEvolveAt = 0;
   let lastReviewAt = 0;
   let lastSummonSyncAt = 0;
+  let lastMaintenanceAt = 0;
+  // While the vector queue still has a backlog the pass runs every two minutes
+  // (each pass only drains for a bounded slice, so it needs repetition); once
+  // the queue is empty it falls back to the normal ten-minute cadence.
+  let maintenanceGapMs = 10 * 60_000;
   let lastGuardianDeepAt = 0;
+  // Near-duplicate merging is cheap to check and expensive to forget: without a
+  // periodic pass the merge layer stayed empty forever (dedupe only ran when a
+  // caller asked for it by hand).
+  let lastDedupeAt = 0;
+  // One wider consolidation pass a day, so the 30-minute delta trigger is not the
+  // only thing that ever looks at the store.
+  let lastDeepDay = '';
   const autoDreamDays = new Set();
   const edgeReviewSeen = new Set();
 
@@ -30,7 +42,7 @@ export function createScheduler({
 
   async function runLifeAutomation(report) {
     const features = cortex.config?.features ?? {};
-    if (!cortex.life || (features.autoDiary !== true && features.autoDream !== true && features.autoFeeling !== true)) return;
+    if (!cortex.life || (features.autoDiary !== true && features.autoDream !== true && features.autoFeeling !== true && features.autoSleep !== true)) return;
     if (typeof cortex.scopeWritable === 'function' && !cortex.scopeWritable(cortex.config?.scope ?? 'global')) return;
     const at = now();
     const date = new Date(at);
@@ -83,6 +95,21 @@ export function createScheduler({
         autoDreamDays.add(day);
       } catch (error) {
         report.steps.autoDream = { error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+
+    // Nothing used to call life.sleep() on a schedule, so `consolidateOnSleep`
+    // never had a chance to run. Sleep is only started when the host is idle and
+    // the previous sleep is at least 20h old (or none exists).
+    if (features.autoSleep === true && isIdle()) {
+      try {
+        const latestSleep = cortex.life.sleepRuns({ limit: 1 })[0] ?? null;
+        const lastAt = latestSleep ? Date.parse(latestSleep.at) : NaN;
+        if (!Number.isFinite(lastAt) || at - lastAt >= 20 * 3_600_000) {
+          report.steps.autoSleep = await cortex.life.sleep({ at });
+        }
+      } catch (error) {
+        report.steps.autoSleep = { error: error instanceof Error ? error.message : String(error) };
       }
     }
   }
@@ -155,6 +182,61 @@ export function createScheduler({
     }
   }
 
+  /**
+   * Timestamp of the last consolidation that was NOT caused by the per-tick path.
+   * The tick path has no interval gate, so when features.consolidateOnTick is on
+   * it writes a run every minute and a naive "last run" would make the delta
+   * trigger permanently "too soon".
+   */
+  function lastRealConsolidationAt(scopeId) {
+    try {
+      // audit has no scope column, so resolve the scope through dream_runs.
+      const row = cortex.db?.prepare?.(
+        "SELECT a.at FROM audit a JOIN dream_runs d ON d.id = a.target_id WHERE a.action = 'consolidation.run' AND a.detail_json NOT LIKE '%\"caller\":\"tick\"%' AND d.scope_id = ? ORDER BY a.at DESC LIMIT 1",
+      )?.get?.(scopeId);
+      if (row?.at) return Date.parse(row.at);
+    } catch { /* fall back to the run table */ }
+    const last = cortex.consolidation.list?.({ scopeId, limit: 1 })?.[0] ?? null;
+    return last?.at ? Date.parse(last.at) : null;
+  }
+
+  async function runAutoConsolidate(report) {
+    const features = cortex.config?.features ?? {};
+    if (features.consolidateOnTraceDelta !== true || !cortex.consolidation?.run) return;
+    const scopeId = cortex.config?.scope ?? 'global';
+    if (typeof cortex.scopeWritable === 'function' && !cortex.scopeWritable(scopeId)) return;
+    const at = now();
+    const lastAt = lastRealConsolidationAt(scopeId);
+    // minutes → ms; the floor is one minute, not 60_000 (that would be 3.6e9 ms).
+    const minGapMs = Math.max(1, Number(features.consolidateTraceGapMinutes ?? 30)) * 60_000;
+    if (lastAt && Number.isFinite(lastAt) && at - lastAt < minGapMs) {
+      report.steps.autoConsolidate = { skipped: 'too-soon', minutesSinceLast: Math.round((at - lastAt) / 60_000) };
+      return;
+    }
+    const minNewTraces = Math.max(1, Number(features.consolidateTraceDelta ?? 20));
+    const since = lastAt && Number.isFinite(lastAt) ? new Date(lastAt + 1).toISOString() : new Date(at - 24 * 3_600_000).toISOString();
+    let fresh = 0;
+    try {
+      fresh = cortex.repos?.traces?.listSince?.(scopeId, since, { limit: 500 })?.length ?? 0;
+    } catch (error) {
+      report.steps.autoConsolidate = { error: error instanceof Error ? error.message : String(error) };
+      return;
+    }
+    if (fresh < minNewTraces) {
+      report.steps.autoConsolidate = { skipped: 'not-enough-new-traces', fresh, need: minNewTraces };
+      return;
+    }
+    const result = await cortex.consolidation.run({ scopeId, limit: 30, now: at, caller: 'auto-trace-delta' });
+    report.steps.autoConsolidate = {
+      fresh,
+      status: result.run.status,
+      model: result.run.model,
+      decisions: result.decisions.length,
+      applied: result.applied.length,
+      error: result.run.error ?? null,
+    };
+  }
+
   async function runAutoEvolve(report) {
     const features = cortex.config?.features ?? {};
     if (features.autoEvolve !== true || !cortex.evolution?.autoEvolve) return;
@@ -166,6 +248,109 @@ export function createScheduler({
       autoEvolveAt = at;
     } catch (error) {
       report.steps.autoEvolve = { error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  function localDayOf(value) {
+    const date = new Date(value);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
+   * One deep pass a day, after deepConsolidateHour (local). The regular delta
+   * trigger only sees "20 new traces since the last real run" and 30 candidates;
+   * a day's housekeeping deserves a wider window. A fixed hour keeps the extra
+   * LLM cost predictable, and the audit row (caller=deep-daily) prevents a
+   * restart from running it twice in one day.
+   */
+  async function runDeepConsolidate(report) {
+    if (!cortex.consolidation?.run) return;
+    if (cortex.config?.deepConsolidateOnSchedule === false) return;
+    const scopeId = cortex.config?.scope ?? 'global';
+    if (typeof cortex.scopeWritable === 'function' && !cortex.scopeWritable(scopeId)) return;
+    const at = now();
+    const hour = Math.max(0, Math.min(23, Number(cortex.config?.deepConsolidateHour ?? 4)));
+    if (new Date(at).getHours() < hour) return;
+    const day = localDayOf(at);
+    if (lastDeepDay === day) return;
+    let alreadyToday = false;
+    try {
+      const row = cortex.db?.prepare?.("SELECT at FROM audit WHERE action = 'consolidation.run' AND detail_json LIKE '%\"caller\":\"deep-daily\"%' ORDER BY at DESC LIMIT 1")?.get?.();
+      if (row?.at) alreadyToday = localDayOf(row.at) === day;
+    } catch { /* fall through to the in-memory guard */ }
+    if (alreadyToday) { lastDeepDay = day; return; }
+    try {
+      const result = await cortex.consolidation.run({
+        scopeId,
+        now: at,
+        limit: Math.max(1, Math.min(80, Number(cortex.config?.deepConsolidateLimit ?? 60))),
+        caller: 'deep-daily',
+        spread: true,
+      });
+      lastDeepDay = day;
+      report.steps.deepConsolidate = {
+        status: result.run?.status ?? null,
+        decisions: result.decisions?.length ?? 0,
+        applied: result.applied?.length ?? 0,
+        skipped: result.skipped ?? null,
+      };
+    } catch (error) {
+      report.steps.deepConsolidate = { error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async function runAutoDedupe(report) {
+    if (!cortex.consolidation?.dedupe) return;
+    if (cortex.config?.dedupeOnSchedule === false) return;
+    const scopeId = cortex.config?.scope ?? 'global';
+    if (typeof cortex.scopeWritable === 'function' && !cortex.scopeWritable(scopeId)) return;
+    const at = now();
+    const gapHours = Math.max(1, Number(cortex.config?.dedupeGapHours ?? 6));
+    if (lastDedupeAt && at - lastDedupeAt < gapHours * 3_600_000) return;
+    try {
+      const result = await cortex.consolidation.dedupe({
+        scopeId,
+        now: at,
+        limit: Number(cortex.config?.dedupeLimit ?? 200),
+        threshold: 0.8,
+        caller: 'auto-dedupe',
+      });
+      lastDedupeAt = at;
+      report.steps.autoDedupe = {
+        status: result.run?.status ?? null,
+        applied: result.applied?.length ?? 0,
+        groups: result.decisions?.length ?? 0,
+        skipped: result.skipped ?? null,
+      };
+    } catch (error) {
+      report.steps.autoDedupe = { error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  async function runMaintenance(report) {
+    const at = now();
+    if (lastMaintenanceAt && at - lastMaintenanceAt < maintenanceGapMs) return;
+    if (typeof cortex.scopeWritable === 'function' && !cortex.scopeWritable(cortex.config?.scope ?? 'global')) return;
+    const scopeId = cortex.config?.scope ?? 'global';
+    try {
+      if (cortex.maintain) report.steps.maintain = cortex.maintain({ now: at, scopeId });
+      if (cortex.vectorMaintain) {
+        // A thousand+ traces can be missing embeddings after an upgrade. The
+        // old 40/20 per pass needed hours; the queue is cheap to drain in bigger
+        // batches because embedding is async and the pass is rare.
+        report.steps.vectorMaintain = await cortex.vectorMaintain({
+          scopeId,
+          backfill: Number(cortex.config?.vectorBackfillBatch ?? 200),
+          drain: Number(cortex.config?.vectorDrainBatch ?? 50),
+          budgetMs: Number(cortex.config?.vectorDrainBudgetMs ?? 45000),
+        });
+        const pending = Number(report.steps.vectorMaintain?.pending ?? 0);
+        const queued = Number(report.steps.vectorMaintain?.queued ?? 0);
+        maintenanceGapMs = (pending > 0 || queued > 0) ? 2 * 60_000 : 10 * 60_000;
+      }
+      lastMaintenanceAt = at;
+    } catch (error) {
+      report.steps.maintain = { error: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -196,10 +381,31 @@ export function createScheduler({
     }
     if (consolidateOnTick && cortex.consolidation?.run) {
       try {
-        report.steps.consolidation = await cortex.consolidation.run({ scopeId: cortex.config?.scope ?? 'global', now: now(), limit: 10 });
+        // The tick path used to fire on every tick (once a minute with the live
+        // interval) — 1921 no-llm rows prove it. Even with the flag on, honour the
+        // same gap so enabling it cannot turn into a per-minute LLM call.
+        const scopeId = cortex.config?.scope ?? 'global';
+        const gapMs = Math.max(1, Number(cortex.config?.features?.consolidateTraceGapMinutes ?? 30)) * 60_000;
+        const recent = cortex.consolidation.list?.({ scopeId, limit: 1 })?.[0] ?? null;
+        const recentAt = recent?.at ? Date.parse(recent.at) : null;
+        if (recentAt && Number.isFinite(recentAt) && now() - recentAt < gapMs) {
+          report.steps.consolidation = { skipped: 'too-soon', minutesSinceLast: Math.round((now() - recentAt) / 60_000) };
+        } else {
+          report.steps.consolidation = await cortex.consolidation.run({ scopeId, now: now(), limit: 10, caller: 'tick' });
+        }
       } catch (error) {
         report.steps.consolidation = { error: error instanceof Error ? error.message : String(error) };
       }
+    }
+    try {
+      await runAutoConsolidate(report);
+    } catch (error) {
+      report.steps.autoConsolidate = { error: error instanceof Error ? error.message : String(error) };
+    }
+    try {
+      await runDeepConsolidate(report);
+    } catch (error) {
+      report.steps.deepConsolidate = { error: error instanceof Error ? error.message : String(error) };
     }
     try {
       await runAutoEvolve(report);
@@ -207,9 +413,19 @@ export function createScheduler({
       report.steps.autoEvolve = { error: error instanceof Error ? error.message : String(error) };
     }
     try {
+      await runAutoDedupe(report);
+    } catch (error) {
+      report.steps.autoDedupe = { error: error instanceof Error ? error.message : String(error) };
+    }
+    try {
       await runGraphAuto(report);
     } catch (error) {
       report.steps.autoGraph = { error: error instanceof Error ? error.message : String(error) };
+    }
+    try {
+      await runMaintenance(report);
+    } catch (error) {
+      report.steps.maintain = { error: error instanceof Error ? error.message : String(error) };
     }
     try {
       await runLifeAutomation(report);
@@ -237,6 +453,11 @@ export function createScheduler({
     } catch (error) {
       report.steps.guardian = { error: error instanceof Error ? error.message : String(error) };
     }
+    try {
+      if (cortex.emitTick) cortex.emitTick(report);
+    } catch (error) {
+      report.steps.tick = { error: error instanceof Error ? error.message : String(error) };
+    }
     running = false;
     return report;
   }
@@ -259,5 +480,5 @@ export function createScheduler({
     return true;
   }
 
-  return { start, stop, runOnce, status: () => ({ running: Boolean(timer), intervalMs: Math.max(5_000, Number(intervalMs) || 60_000) }) };
+  return { start, stop, runOnce, status: () => ({ running: Boolean(timer), intervalMs: Math.max(5_000, Number(intervalMs) || 60_000), maintenanceGapMs }) };
 }

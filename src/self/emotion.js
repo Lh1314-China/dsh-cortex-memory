@@ -40,8 +40,9 @@ function detectWithLexicon(text, lexicon) {
   return Object.entries(scores).sort((a, b) => b[1] - a[1]).map(([name, score]) => ({ name, score }));
 }
 
-export function createEmotionModel({ db, scopeId = 'global' } = {}) {
+export function createEmotionModel({ db, scopeId = 'global', resolveTarget = null } = {}) {
   if (!db) throw new Error('emotion model needs db');
+  const targetOf = typeof resolveTarget === 'function' ? resolveTarget : (value) => String(value ?? '').trim();
 
   function detect(text) {
     const emotions = detectWithLexicon(text, EMOTIONS);
@@ -56,6 +57,7 @@ export function createEmotionModel({ db, scopeId = 'global' } = {}) {
   }
 
   function record({ text, target = '用户', traceId = null, source = 'user', at = nowIso(), emotions = null } = {}) {
+    target = targetOf(target);
     const result = Array.isArray(emotions) && emotions.length
       ? { text: String(text ?? ''), emotions, top: emotions[0]?.name ?? null }
       : detect(text);

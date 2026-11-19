@@ -14,7 +14,7 @@ test('extracted text becomes a derived trace without mutating the target', () =>
     const before = cortex.get(targetId);
     const result = cortex.ingestExtractedText({
       targetTraceId: targetId,
-      text: '白饭 HELLO 123',
+      text: '米饭 HELLO 123',
       uri: 'file:///C:/tmp/frame.png',
       mode: 'ocr',
       engine: 'windows-ocr',
@@ -24,10 +24,10 @@ test('extracted text becomes a derived trace without mutating the target', () =>
     const after = cortex.get(targetId);
     assert.equal(after.content, before.content);
     const extracted = cortex.get(result.extractedTraceId);
-    assert.equal(extracted.content, '白饭 HELLO 123');
+    assert.equal(extracted.content, '米饭 HELLO 123');
     assert.equal(extracted.metadata.derivedFrom, targetId);
     assert.equal(extracted.metadata.extractor.mode, 'ocr');
-    assert.ok(cortex.search('白饭').items.some((item) => item.id === result.extractedTraceId));
+    assert.ok(cortex.search('米饭').items.some((item) => item.id === result.extractedTraceId));
   } finally {
     cortex.close();
     rmSync(dir, { recursive: true, force: true });

@@ -59,13 +59,13 @@ test('canaries survive a restart and still roll back an active policy', () => {
 test('recallSharing is opt-in and shares the block across sessions', () => {
   const ctx = setup();
   try {
-    ctx.cortex.write({ text: '主人说会买白饭。', explicit: true });
+    ctx.cortex.write({ text: '用户说会买米饭。', explicit: true });
     const runtime = createHostRuntime({ cortex: ctx.cortex, config: { recallSharing: true } });
     const s1 = { id: 's1', header: {} };
     const s2 = { id: 's2', header: {} };
     runtime.onSessionEvent(s1, { type: 'turn/start', data: { turn: 1 }, time: Date.now() });
-    runtime.onSessionEvent(s1, { type: 'user/message', data: { content: '白饭还算数吗？' }, time: Date.now() });
-    assert.match(runtime.recallText({ session: s1 }), /白饭/);
+    runtime.onSessionEvent(s1, { type: 'user/message', data: { content: '米饭还算数吗？' }, time: Date.now() });
+    assert.match(runtime.recallText({ session: s1 }), /米饭/);
     assert.equal(runtime.recallText({ session: s1 }), runtime.recallText({ session: s2 }));
   } finally {
     teardown(ctx);
@@ -73,8 +73,8 @@ test('recallSharing is opt-in and shares the block across sessions', () => {
 });
 
 test('first-person extraction follows persona names while keeping markdown rejection', () => {
-  const custom = extractFactCandidates('本鲸喜欢安静', { selfName: '小鲸', userAddress: '主人' });
-  assert.equal(custom[0].subject, '小鲸');
+  const custom = extractFactCandidates('小忆喜欢安静', { selfName: '小忆', userAddress: '用户' });
+  assert.equal(custom[0].subject, '小忆');
   assert.equal(custom[0].predicate, 'likes');
 
   const neutral = extractFactCandidates('我喜欢便宜平替', { selfName: '助手', userAddress: '用户' });

@@ -77,9 +77,27 @@ export function driftMood(mood, { elapsedHours = 0, baseline = DEFAULT_MOOD } = 
 export function applyMood(mood, { valence = 0, arousal = 0, salience = 0.5, weight = 0.35 } = {}) {
   const current = normalizeMood(mood);
   const w = clamp(weight * (0.5 + salience), 0, 0.8);
+  // Saturating response: each event moves the mood a fraction of the remaining
+  // distance to its bound, so repeated same-direction news approaches the limit
+  // without ever parking there (and the tenth good thing matters less than the
+  // first). Pure addition used to hit the clamp and stop carrying information.
+  const push = (value, delta, bound) => {
+    const amount = Number(delta) || 0;
+    if (!amount) return value;
+    const k = Math.min(1, Math.abs(amount) * w);
+    const target = amount > 0 ? bound : -bound;
+    return clamp(value + (target - value) * k, -bound, bound);
+  };
+  const pushUnit = (value, delta) => {
+    const amount = Number(delta) || 0;
+    if (!amount) return value;
+    const k = Math.min(1, Math.abs(amount) * w);
+    const target = amount > 0 ? 1 : 0;
+    return clamp(value + (target - value) * k, 0, 1);
+  };
   return {
-    valence: clamp(current.valence + (Number(valence) || 0) * w, -1, 1),
-    arousal: clamp(current.arousal + (Number(arousal) || 0) * w, 0, 1),
+    valence: push(current.valence, valence, 1),
+    arousal: pushUnit(current.arousal, arousal),
     energy: clamp(current.energy - 0.02 * (Number(arousal) || 0), 0, 1),
   };
 }

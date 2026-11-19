@@ -34,6 +34,25 @@ test('working memory orders pinned/high-priority and purges expired', () => {
   }
 });
 
+test('a near-duplicate working item refreshes instead of piling up', () => {
+  const { dir, db, working } = setup();
+  try {
+    const now = Date.parse('2026-11-15T12:00:00+08:00');
+    const first = working.add({ text: '创造模式待办：①鱼塘 caps 放开；②shiori 残留清理', priority: 0.6, at: now });
+    const second = working.add({ text: '创造模式待办：①鱼塘 caps 放开；②shiori 残留清理。', priority: 0.9, at: now + 1000 });
+    assert.equal(second.id, first.id, 'the same todo must not be stored twice');
+    assert.equal(working.list({ at: now + 2000 }).length, 1);
+    assert.equal(working.get(first.id).priority, 0.9, 'priority is refreshed to the higher value');
+    const distinct = working.add({ text: '完全不同的另一件事：给 agency 加抑制实验。', priority: 0.5, at: now + 2000 });
+    assert.notEqual(distinct.id, first.id);
+    const forced = working.add({ text: '创造模式待办：①鱼塘 caps 放开；②shiori 残留清理', priority: 0.4, at: now + 3000, dedupe: false });
+    assert.notEqual(forced.id, first.id, 'dedupe:false still allows an explicit duplicate');
+  } finally {
+    closeDatabase(db);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('working memory render respects the token budget', () => {
   const { dir, db, working } = setup();
   try {

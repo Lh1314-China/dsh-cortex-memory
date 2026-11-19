@@ -34,10 +34,10 @@ test('policies are versioned, activated and rolled back', () => {
 test('approved retrieval policy changes the live retrieval budget', () => {
   const { dir, cortex } = setup();
   try {
-    cortex.write({ text: '用户说会买白饭。', explicit: true });
+    cortex.write({ text: '用户说会买米饭。', explicit: true });
     const policy = cortex.evolution.propose({ kind: 'retrieval', config: { budget: 100 }, rationale: 'small budget' });
     cortex.evolution.approve(policy.id);
-    const result = cortex.search('白饭', { budget: 5000 });
+    const result = cortex.search('米饭', { budget: 5000 });
     assert.equal(result.budget.total, 100);
   } finally {
     cortex.close();
@@ -100,12 +100,12 @@ test('evolution can evaluate a candidate policy and persist metrics', async () =
   const { dir, cortex } = setup();
   try {
     const policy = cortex.evolution.propose({ kind: 'retrieval', config: { budget: 300 }, rationale: 'evaluate me' });
-    const queries = [{ query: '白饭', relevant: ['a'] }, { query: '插件', relevant: ['b'] }];
+    const queries = [{ query: '米饭', relevant: ['a'] }, { query: '插件', relevant: ['b'] }];
     const evaluated = await cortex.evolution.evaluate({
       id: policy.id,
       queries,
-      current: async (query) => ({ items: query === '白饭' ? [{ id: 'x' }] : [{ id: 'b' }] }),
-      candidate: async (query) => ({ items: query === '白饭' ? [{ id: 'a' }] : [{ id: 'b' }] }),
+      current: async (query) => ({ items: query === '米饭' ? [{ id: 'x' }] : [{ id: 'b' }] }),
+      candidate: async (query) => ({ items: query === '米饭' ? [{ id: 'a' }] : [{ id: 'b' }] }),
     });
     assert.ok(evaluated.metrics);
     assert.ok(evaluated.comparison.delta.recallAtK > 0);

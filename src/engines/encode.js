@@ -19,6 +19,15 @@ const EMOTION_VALENCE = [
 
 const STOP_PHRASES = new Set(['嗯', '好', '好的', '谢谢', '在吗', '收到', 'ok', 'okay']);
 
+// Second line of defense: capture paths that bypass the host runtime must not
+// store raw host-injected context. Only a strong marker at the very start
+// counts, so a user talking *about* these markers is still stored.
+const INJECTED_HEAD = /^(?:Time sampled|Elapsed since the preceding|Current runtime context\.|Browser time zone for this request:|<system-reminder>|<goal_round>|<goal_complete|\[SCHEDULE REMINDER|This is a scheduled message from the user|reminders_json:|Objective:\s*")/i;
+
+export function isInjectedNoise(value) {
+  return INJECTED_HEAD.test(String(value ?? '').trimStart().slice(0, 160));
+}
+
 export function scoreTraceText(text, { kind = null, importance = null } = {}) {
   const value = String(text ?? '').trim();
   let importanceScore = Number.isFinite(importance) ? clamp(importance, 0, 1) : 0.42;
@@ -125,9 +134,13 @@ export function createEncodeEngine({
   function encode(input = {}) {
     const original = String(input.text ?? input.content ?? '').trim();
     const scanned = scanText(original);
-    const text = scanned.text.trim();
+    let text = scanned.text.trim();
     if (text.length < minChars) return { skipped: true, reason: 'too-short' };
     if (STOP_PHRASES.has(text.toLowerCase())) return { skipped: true, reason: 'stop-phrase' };
+    if (!input.explicit && isInjectedNoise(text)) return { skipped: true, reason: 'injected-context' };
+    const maxChars = Math.max(500, Number(config.maxContentChars) || 8000);
+    const truncated = text.length > maxChars;
+    if (truncated) text = `${text.slice(0, maxChars)} [truncated]`;
     const sensitivity = scanned.hasSecret ? 'secret' : (input.sensitivity || 'personal');
     const scopeId = input.scopeId || 'global';
     const now = input.now || Date.now();
@@ -208,7 +221,7 @@ export function createEncodeEngine({
       action: 'trace.create',
       targetType: 'trace',
       targetId: trace.id,
-      detail: { eventId: event.id, kind: trace.kind, compression, findings: scanned.findings.map((item) => ({ type: item.type, rule: item.rule, severity: item.severity })) },
+      detail: { eventId: event.id, kind: trace.kind, compression, truncated, findings: scanned.findings.map((item) => ({ type: item.type, rule: item.rule, severity: item.severity })) },
     });
 
     for (const resolution of resolvedFacts) {
@@ -230,7 +243,7 @@ export function createEncodeEngine({
       }
     }
 
-    return { skipped: false, event, trace, facts: resolvedFacts, edgeCandidates, compression, score: scored };
+    return { skipped: false, event, trace, facts: resolvedFacts, edgeCandidates, compression, score: scored, truncated };
   }
 
   return { encode, scoreTraceText, compressionValue };

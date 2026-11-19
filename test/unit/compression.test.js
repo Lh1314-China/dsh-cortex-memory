@@ -8,8 +8,8 @@ import { extractFactCandidates } from '../../src/engines/extract.js';
 import { coverageOf } from '../../src/engines/compression.js';
 
 test('fact extraction finds preferences, states and plans', () => {
-  const candidates = extractFactCandidates('用户喜欢白饭，助手会在明天继续修插件，白饭是主食。');
-  assert.ok(candidates.some((item) => item.predicate === 'likes' && item.object.includes('白饭')));
+  const candidates = extractFactCandidates('用户喜欢米饭，助手会在明天继续修插件，米饭是主食。');
+  assert.ok(candidates.some((item) => item.predicate === 'likes' && item.object.includes('米饭')));
   assert.ok(candidates.some((item) => item.predicate === 'will'));
   assert.ok(candidates.some((item) => item.predicate === 'is'));
 });
@@ -25,7 +25,7 @@ test('negated predicates are not also extracted as their positive form', () => {
 });
 
 test('coverage prefers source pointers over token overlap', () => {
-  const trace = { id: 't1', eventId: 'e1', content: '白饭 承诺 用户' };
+  const trace = { id: 't1', eventId: 'e1', content: '米饭 承诺 用户' };
   const bySource = coverageOf(trace, { summaries: [{ id: 's1', sourceIds: ['t1'], content: '完全不同的摘要' }], facts: [] });
   assert.equal(bySource.coverage, 1);
   assert.equal(bySource.by, 'summary-source');
@@ -65,7 +65,7 @@ test('autoFacts writes semantic facts when enabled', () => {
     config: { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), features: { autoFacts: true } },
   });
   try {
-    const result = cortex.write({ text: '用户喜欢白饭。', explicit: true });
+    const result = cortex.write({ text: '用户喜欢米饭。', explicit: true });
     assert.ok(result.autoFacts);
     assert.ok(result.autoFacts.resolved.length >= 1);
     assert.ok(cortex.repos.facts.list({ limit: 10 }).length >= 1);

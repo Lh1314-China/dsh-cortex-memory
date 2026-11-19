@@ -58,7 +58,10 @@ test('consolidation dry-run and invalid/protected decisions do not mutate', with
   const { createConsolidationEngine } = await import('../../src/engines/consolidate.js');
   const engine = createConsolidationEngine({ db: cortex.db, traces: cortex.repos.traces, summaries: cortex.repos.summaries, audit: cortex.repos.audit, llm: cortex.llm });
   const result = await engine.run({ scopeId: 'global', dryRun: true });
-  assert.equal(result.run.status, 'rejected');
+  // 预演现在明确标成 preview，而不是把「有决策被拒」误报成 rejected：
+  // 预演不应用任何东西，也不该被当成一次真实的巩固。
+  assert.equal(result.run.status, 'preview');
+  assert.match(String(result.run.error), /dry-run/);
   assert.equal(result.applied.length, 0);
   assert.equal(cortex.get(ids.d).state, 'active');
   assert.equal(cortex.get(ids.a).state, 'active');
@@ -68,7 +71,8 @@ test('consolidation without an LLM records skipped and changes nothing', withCor
   const ids = seed(cortex);
   const result = await cortex.consolidation.run({ scopeId: 'global' });
   assert.equal(result.run.status, 'skipped');
-  assert.equal(result.run.error, 'no-llm');
+  // 0.4.97 起「没有 adapter」和「adapter 回了空」分开标了，旧断言没跟上。
+  assert.equal(result.run.error, 'no-llm-adapter');
   assert.equal(result.applied.length, 0);
   assert.equal(cortex.get(ids.a).state, 'active');
   assert.equal(cortex.consolidation.list({ scopeId: 'global' }).length, 1);

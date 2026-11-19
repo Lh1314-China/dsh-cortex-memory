@@ -26,6 +26,8 @@ export const Config = Schema ? Schema.object({
   persona: Schema.object({
     selfName: Schema.string().default('助手').description('助手自称；默认中性'),
     userAddress: Schema.string().default('你').description('用户称呼；默认中性'),
+    userAliases: Schema.array(Schema.string()).default([]).description('用户的其他叫法（如 你、您），统一归到 userAddress 名下'),
+    description: Schema.string().default('').description('助手的一句话人设；留空时使用中性默认描述'),
   }).description('人格称呼配置'),
   readOnlyScopes: Schema.array(Schema.string()).default([]).description('只读共享 scope 列表'),
   scopeWriteGrants: Schema.array(Schema.any()).default([]).description('显式写授权：scope:agent 或 {grant, until}'),
@@ -34,6 +36,15 @@ export const Config = Schema ? Schema.object({
   recallTimeoutMs: Schema.natural().default(1200).description('前台召回硬截止'),
   asyncJobs: Schema.boolean().default(true).description('允许后台任务'),
   captureSubagents: Schema.boolean().default(false).description('是否把子代理会话也写入记忆'),
+  captureMaxChars: Schema.natural().default(4000).description('单轮捕获正文上限；超出截断'),
+  maxContentChars: Schema.natural().default(8000).description('单条记忆正文硬上限；超出截断'),
+  touchOnRecall: Schema.boolean().default(true).description('召回时回写 access_count / last_access_at（DSR 复习信号）'),
+  touchMinIntervalMs: Schema.natural().default(300000).description('同一条记忆两次 access 回写的最小间隔；防每步召回灌水'),
+  touchMaxIntervalMs: Schema.natural().default(21600000).description('间隔随访问次数翻倍后的上限（默认 6 小时）'),
+  workingTtlDays: Schema.natural().default(14).description('工作记忆里未置顶且多久没更新就清掉（天）'),
+  vectorBackfillBatch: Schema.natural().default(200).description('每次心跳最多排队的缺失向量条数'),
+  vectorDrainBatch: Schema.natural().default(50).description('每次心跳最多真正嵌入的条数'),
+  vectorDrainBudgetMs: Schema.natural().default(45000).description('一次向量回填最多占用的毫秒数；到点就停，下一轮继续'),
   vectorEnabled: Schema.boolean().default(false).description('启用向量检索（默认用离线 hash embedder 兜底）'),
   vectorAnnMin: Schema.natural().default(20000).description('向量 ANN 生效的最小条数'),
   vectorAnnEngine: Schema.string().default('hnsw').description('ANN 引擎：hnsw（默认）或 nsw（旧实现）'),
@@ -41,8 +52,7 @@ export const Config = Schema ? Schema.object({
   vectorAnnTimeoutMs: Schema.natural().default(800).description('外置 ANN 超时毫秒'),
   scheduler: Schema.boolean().default(true).description('启用宿主心跳（安全自主 tick/作业/保留计划）'),
   schedulerIntervalMs: Schema.natural().default(60000).description('心跳间隔毫秒'),
-  injectionGate: Schema.boolean().default(true).description('只过滤注入 prompt 的弱相关候选；cortex_search 仍返回全量'),
-  recentMinMatch: Schema.number().default(0.12).description('注入层近期候选最低匹配度'),
+  injectionGate: Schema.boolean().default(true).description('只过滤注入 prompt 的弱相关候选；cortex_search 仍返回全量'),  recentMinMatch: Schema.number().default(0.12).description('注入层近期候选最低匹配度'),
   recentImportanceFloor: Schema.number().default(0.8).description('注入层允许重要度豁免的最低重要度；默认保持 0.4.11 行为'),
   recallSharing: Schema.boolean().default(false).description('允许所有会话共享同一份召回块；默认按 session 隔离'),
   evolution: Schema.object({
@@ -84,6 +94,7 @@ export const Config = Schema ? Schema.object({
     autoFacts: Schema.boolean().default(false),
     autoDiary: Schema.boolean().default(false),
     autoDream: Schema.boolean().default(false),
+    autoSleep: Schema.boolean().default(false),
     autoFeeling: Schema.boolean().default(false),
     autoEvolve: Schema.boolean().default(false),
     aiOnlyLife: Schema.boolean().default(false),
@@ -94,7 +105,15 @@ export const Config = Schema ? Schema.object({
     tieredRecall: Schema.boolean().default(true),
     consolidateOnSleep: Schema.boolean().default(true),
     consolidateOnTick: Schema.boolean().default(false),
+    consolidateOnTraceDelta: Schema.boolean().default(false),
+    consolidateTraceDelta: Schema.number().default(20).description('新增活跃痕迹达到多少条才自动巩固'),
+    consolidateTraceGapMinutes: Schema.number().default(30).description('两次自动巩固的最小间隔（分钟）'),
+    inhibition: Schema.boolean().default(false),
   }).description('功能开关'),
+  inhibitionStrength: Schema.number().default(0.35).description('抑制对排序的最大削弱比例'),
+  inhibitionHalfLifeDays: Schema.number().default(14).description('抑制的半衰期（天）'),
+  inhibitionStep: Schema.number().default(0.15).description('每次被相似竞争者挤掉时抑制的增量'),
+  inhibitionCompetitorSim: Schema.number().default(0.5).description('判定「竞争者」的相似度下限'),
 }) : undefined;
 
 function selfText(cortex) {
@@ -186,6 +205,11 @@ export async function apply(ctx, config = {}) {
           ingestExtractedText: cortex.ingestExtractedText,
           self: cortex.self,
           health: cortex.health,
+          // Companion plugins (dsh-cortex-agency) ride the host heartbeat and
+          // write through the public write() path; they never reach into the DB.
+          onTick: cortex.onTick,
+          llm: cortex.llm,
+          config: cortex.config,
         });
         if (typeof disposeService === 'function') disposers.push(disposeService);
       }

@@ -195,6 +195,18 @@ export function createTraceRepository(db) {
     return rows.map(rowToTrace);
   }
 
+  // Range query by recorded_at. listSince() walks forward from a start instant and
+  // stops at `limit`, so asking it for "the pool around this trace" silently
+  // returns the OLDEST rows when the store is older than the limit — the narrative
+  // engine hit that and every thread's bullets came out as 11-11/11-12 residue.
+  function range(scopeId = 'global', fromIso, toIso, { limit = 500, state = 'active' } = {}) {
+    const count = Math.max(1, Math.min(4000, Number(limit) || 500));
+    const rows = state
+      ? db.prepare('SELECT * FROM traces WHERE scope_id = ? AND state = ? AND recorded_at >= ? AND recorded_at <= ? ORDER BY recorded_at ASC LIMIT ?').all(scopeId, state, fromIso, toIso, count)
+      : db.prepare('SELECT * FROM traces WHERE scope_id = ? AND recorded_at >= ? AND recorded_at <= ? ORDER BY recorded_at ASC LIMIT ?').all(scopeId, fromIso, toIso, count);
+    return rows.map(rowToTrace);
+  }
+
   function update(id, patch = {}) {
     const current = get(id);
     if (!current) throw new CortexError(ERROR_CODES.NOT_FOUND, `trace not found: ${id}`);
@@ -253,7 +265,15 @@ export function createTraceRepository(db) {
     return Number(db.prepare('SELECT COUNT(*) AS c FROM traces').get().c);
   }
 
-  function ftsCount() {
+  function ftsCount({ scopeId = null } = {}) {
+    // Without a scope this is the whole index. With one it must join through
+    // traces: health used to compare the *global* trace count against the
+    // *whole* FTS table and reported drift whenever another scope existed
+    // (the live store has an `agency` scope, so it warned by exactly those
+    // 12 rows forever).
+    if (scopeId) {
+      return Number(db.prepare('SELECT COUNT(*) AS c FROM traces_fts_index f JOIN traces t ON t.id = f.trace_id WHERE t.scope_id = ?').get(scopeId).c);
+    }
     return Number(db.prepare('SELECT COUNT(*) AS c FROM traces_fts_index').get().c);
   }
 
@@ -274,5 +294,5 @@ export function createTraceRepository(db) {
     `).all(scopeId, Math.max(1, Math.min(100, limit))).map((row) => ({ hash: row.hash, count: Number(row.c) }));
   }
 
-  return { insert, get, findByEvent, findByHash, list, listSince, update, touch, remove, searchFts, count, ftsCount, reindexFts, duplicateHashes };
+  return { insert, get, findByEvent, findByHash, list, listSince, range, update, touch, remove, searchFts, count, ftsCount, reindexFts, duplicateHashes };
 }

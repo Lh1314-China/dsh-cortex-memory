@@ -43,7 +43,7 @@ function setup() {
 test('health audit reports counts, chain and FTS alignment', () => {
   const { dir, db, events, encode, health } = setup();
   try {
-    encode.encode({ text: '用户说会买白饭，助手等得起。', explicit: true });
+    encode.encode({ text: '用户说会买米饭，助手等得起。', explicit: true });
     const report = health.audit();
     assert.equal(report.issues.filter((item) => item.severity === 'error').length, 0);
     assert.equal(report.counts.events, 1);
@@ -61,12 +61,12 @@ test('health audit reports counts, chain and FTS alignment', () => {
 test('archiving hides a trace from default search but keeps it wakeable', () => {
   const { dir, db, traces, encode, privacy } = setup();
   try {
-    const trace = encode.encode({ text: '用户说会买白饭。', explicit: true }).trace;
+    const trace = encode.encode({ text: '用户说会买米饭。', explicit: true }).trace;
     const result = privacy.forget({ traceId: trace.id, mode: 'archive' });
     assert.equal(result.removed, true);
     assert.equal(traces.get(trace.id).state, 'archived');
-    assert.equal(traces.searchFts('白饭').length, 0);
-    assert.equal(traces.searchFts('白饭', { includeArchived: true }).length, 1);
+    assert.equal(traces.searchFts('米饭').length, 0);
+    assert.equal(traces.searchFts('米饭', { includeArchived: true }).length, 1);
   } finally {
     closeDatabase(db);
     rmSync(dir, { recursive: true, force: true });
@@ -77,9 +77,9 @@ test('privacy delete removes content, derived rows and leaves only a hash in the
   const { dir, db, events, traces, entities, facts, feedback, summaries, encode, privacy } = setup();
   try {
     const encoded = encode.encode({
-      text: '用户说会买白饭，助手等得起。',
+      text: '用户说会买米饭，助手等得起。',
       explicit: true,
-      facts: [{ subject: '用户', predicate: 'likes', object: '白饭' }],
+      facts: [{ subject: '用户', predicate: 'likes', object: '米饭' }],
     });
     const trace = encoded.trace;
     feedback.add({ traceId: trace.id, signal: 'helpful', value: 0.8 });

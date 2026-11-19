@@ -16,7 +16,7 @@ test('tiers classify by importance and respect per-tier budgets', () => {
   assert.equal(selection.perm.length, 1);
   assert.equal(selection.hot.length, 1);
   assert.equal(selection.cold.length, 1);
-  assert.match(selection.cold[0].render, /正文按需取回/);
+  assert.match(selection.cold[0].render, /正文按需 cortex_get/);
   assert.doesNotMatch(selection.cold[0].render, /冷正文/);
 });
 

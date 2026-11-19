@@ -50,6 +50,47 @@ function formatSelf(snapshot) {
 
 function formatHealth(report) {
   const lines = [`健康分：${report.score}/100`, `事件 ${report.counts.events} · 痕迹 ${report.counts.traces.total}（active ${report.counts.traces.active}）· 事实 ${report.counts.facts.active} · 技能 ${report.counts.skills}`];
+  if (report.inhibition?.enabled) lines.push(`抑制：${report.inhibition.count} 条 · 均值 ${report.inhibition.average}`);
+  if (report.capture?.total) lines.push(`捕获：${report.capture.total} 轮 · 剥掉 ${report.capture.stripped} · 截断 ${report.capture.truncated}`);
+  if (report.capture?.days?.length) lines.push(`按天：${report.capture.days.slice(0, 3).map((day) => `${day.day} ${day.total}轮/剥${day.stripped}`).join(' · ')}`);
+  if (report.vectors) lines.push(`向量：${Math.round(report.vectors.coverage * 100)}%（${report.vectors.embedded}/${report.counts.traces.active}）`);
+  if (report.consolidation?.dream || report.consolidation?.sleep) {
+    const dream = report.consolidation.dream;
+    const sleep = report.consolidation.sleep;
+    const stamp = (value) => (typeof value === 'string' ? value.slice(0, 19) : '—');
+    const dreamText = dream
+      ? `巩固 ${stamp(dream.at)} ${dream.error
+        ? `空转（${dream.error}）`
+        : `${dream.status ?? 'done'}，决策 ${dream.decisions}（keep ${dream.keep ?? 0}）· 应用 ${dream.applied}`}`
+      : '巩固 还没跑过';
+    const sleepText = sleep
+      ? `睡眠 ${stamp(sleep.at)}（${sleep.consolidation ?? '—'}，反思 ${sleep.reflected}）`
+      : '睡眠 还没有记录';
+    lines.push(`${dreamText} · ${sleepText}`);
+    const today = report.consolidation?.today;
+    if (today && (today.archived || today.merged)) {
+      lines.push(`今日整理：${today.runs} 趟 · 归档 ${today.archived} 条 · 合并 ${today.merged} 条`);
+    } else {
+      lines.push('今日整理：暂无改动');
+    }
+  }
+  if (report.summaryLayers) {
+    const layers = report.summaryLayers;
+    const last = layers.lastEpisodeAt ? layers.lastEpisodeAt.slice(0, 16) : '—';
+    lines.push(`摘要：每日 ${layers.episode} 条（最近 ${last}）· 合并记录 ${layers.merge} · 线 ${layers.thread}`);
+  }
+  if (report.maintain) {
+    const maintain = report.maintain;
+    const ms = Number.isFinite(maintain.ms) ? ` · ${maintain.ms}ms` : '';
+    lines.push(`维护：最近一趟 ${String(maintain.at).slice(0, 19)}（意图 ${maintain.intentions} · 工作记忆 ${maintain.working}${ms}）`);
+    // A quiet pass leaves the newest audit row stale; name it separately so the
+    // timestamp above is not read as "nothing has run in hours".
+    const changed = report.maintainLastChanged;
+    const changedAt = changed?.passAt ?? changed?.at ?? null;
+    if (changedAt && changedAt !== maintain.at) {
+      lines.push(`      最近一次有变更：${String(changedAt).slice(0, 19)}（意图 ${changed.intentions} · 工作记忆 ${changed.working}）`);
+    }
+  }
   if (report.issues.length) {
     lines.push('问题：');
     for (const issue of report.issues) lines.push(`- [${issue.severity}] ${issue.message}`);
@@ -85,6 +126,33 @@ export function createToolDefinitions(service) {
         return { text: `执行 ${result.executed.length} 条，提案 ${result.proposals.length} 条。${result.proposals.map((item) => `\n- ${item.kind}：${item.reason}（需要 ${item.requires}）`).join('')}` };
       },
       presentCall: () => ({ card: 'generic', title: '自主 tick', kind: 'other' }),
+    },
+    {
+      name: 'cortex_inhibition',
+      description: 'Inspect or clear the retrieval-induced-forgetting marks. list shows suppressed traces with their decayed strength; clear removes the mark from one trace (id) or all of them (all: true).',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['action'],
+        properties: {
+          action: { type: 'string', enum: ['list', 'clear'] },
+          id: { type: 'string', description: '要清除的记忆 id（clear 时用）' },
+          all: { type: 'boolean', description: 'clear 时清全部' },
+        },
+      },
+      output: TEXT_OUTPUT,
+      isConcurrencySafe: () => false,
+      async execute(args = {}) {
+        if (args.action === 'list') {
+          const items = service.inhibition.list({});
+          if (!items.length) return { text: '没有被抑制的记忆。' };
+          return { text: items.slice(0, 20).map((item) => `- ${item.id} · ${item.title ?? '(untitled)'} · 强度 ${item.value}`).join('\n') };
+        }
+        if (!args.id && args.all !== true) return { text: 'clear 需要 id，或者 all: true。' };
+        const result = service.inhibition.clear({ id: args.id ?? null, all: args.all === true });
+        return { text: `已清除 ${result.cleared} 条抑制标记。` };
+      },
+      presentCall: () => ({ card: 'generic', title: '记忆抑制', kind: 'other' }),
     },
     {
       name: 'cortex_digest',
@@ -581,15 +649,21 @@ export function createToolDefinitions(service) {
     },
     {
       name: 'cortex_consolidate',
-      description: 'Run LLM memory consolidation (keep/merge/archive/update/conflict) with validation and a replayable dream_runs record. Without an LLM it records a skipped run and changes nothing. Use list to inspect past runs.',
+      description: 'Run LLM memory consolidation (keep/merge/archive/update/conflict) with validation and a replayable dream_runs record. Without an LLM it records a skipped run and changes nothing. action=dedupe merges near-duplicate traces deterministically (no LLM; dryRun defaults to true). Use list to inspect past runs.',
       parameters: {
         type: 'object',
         additionalProperties: false,
         required: ['action'],
         properties: {
-          action: { type: 'string', enum: ['run', 'list'] },
+          action: { type: 'string', enum: ['run', 'list', 'dedupe', 'preview', 'backfill'] },
           limit: { type: 'number' },
           dryRun: { type: 'boolean' },
+          threshold: { type: 'number', minimum: 0.5, maximum: 0.99, description: 'dedupe 相似度阈值（2-gram Jaccard），默认 0.8，超出 0.5–0.99 会被夹住' },
+          coverageThreshold: { type: 'number', minimum: 0.2, maximum: 0.9, description: '覆盖预演阈值（默认 0.35，超出 0.2–0.9 会被夹住）' },
+          windowSize: { type: 'number', minimum: 32, maximum: 60, description: '窗口补齐：每段痕迹数（32–60，默认 40）' },
+          maxWindows: { type: 'number', minimum: 1, maximum: 64, description: '窗口补齐：本次最多补几段（默认 8）' },
+          force: { type: 'boolean', description: '窗口补齐：同一窗口已存在摘要时是否重写（默认 false，幂等跳过）' },
+          since: { type: 'string', description: '窗口补齐：从哪个时间点续跑（传上一批的 until；不传则从最早痕迹开始）' },
           scope: { type: 'string' },
         },
       },
@@ -600,7 +674,47 @@ export function createToolDefinitions(service) {
           const runs = service.consolidation.list({ scopeId: args.scope, limit: args.limit });
           return { text: runs.length ? runs.map((run) => `- ${run.id} · ${run.at} · ${run.status} · applied ${run.applied.length} · ${run.inputDigest.slice(0, 12)}`).join('\n') : '（还没有巩固记录）' };
         }
-        const result = await service.consolidation.run({ scopeId: args.scope, limit: args.limit ?? 30, dryRun: args.dryRun === true });
+        if (args.action === 'backfill') {
+          const report = await service.reflectBackfill({
+            scopeId: args.scope ?? service.settings().scope,
+            windowSize: args.windowSize ?? 40,
+            maxWindows: args.maxWindows ?? 8,
+            dryRun: args.dryRun !== false,
+            force: args.force === true,
+            since: args.since ?? null,
+          });
+          // The last entry can be { skipped: 'not-enough-traces' } with no window.
+          const windows = report.plan.filter((row) => row.since && row.until);
+          const first = windows[0];
+          const last = windows[windows.length - 1];
+          const span = first && last ? `${first.since.slice(0, 16)} → ${last.until.slice(0, 16)}` : '—';
+          const made = report.results.filter((row) => row.summaryId).length;
+          return { text: `窗口补齐${report.dryRun ? '预演' : ''}：每段 ${report.windowSize} 条 · 计划 ${report.planned} 段 · 跨度 ${span}${report.dryRun ? '' : ` · 新摘要 ${made}`}` };
+        }
+        if (args.action === 'preview') {
+          const report = service.compression.previewCoverage({ scopeId: args.scope ?? service.settings().scope, limit: args.limit ?? 5000, threshold: args.coverageThreshold ?? 0.35 });
+          const top = report.top.slice(0, 5).map((row) => `- ${row.r} · ${row.title}（${row.basis}，命中 ${row.hit}，覆盖 ${(row.rate * 100).toFixed(0)}%）`).join('\n');
+          return {
+            text: `覆盖预演（不改库）：扫描 ${report.scanned} · 跳过 保护 ${report.protectedSkipped}/近访问 ${report.recentSkipped} · 摘要覆盖 ${report.summaryCovered} · 事实覆盖 ${report.factCovered}（两类都有 ${report.bothCovered}）· 摘要 ${report.summaries}/事实 ${report.facts}\n分布 p50 ${report.percentiles.p50} / p90 ${report.percentiles.p90}（p90−p50 ${report.percentiles.spread}）· 阈值 ${report.threshold} · 池 ${report.pool}（两类 ${report.strongPool}）· 可用 ${report.usable}${report.reason ? `（${report.reason}）` : ''}\n${top || '（没有可核验的覆盖候选）'}`,
+          };
+        }
+        if (args.action === 'dedupe') {
+          if (args.dryRun === false && typeof service.scopeWritable === 'function' && !service.scopeWritable(args.scope ?? service.settings().scope)) {
+            return { text: '未执行：该 scope 只读共享。' };
+          }
+          const result = await service.consolidation.dedupe({
+            scopeId: args.scope,
+            limit: args.limit ?? 30,
+            threshold: args.threshold ?? 0.8,
+            dryRun: args.dryRun !== false,
+            caller: 'tool',
+          });
+          return { text: `去重 ${result.dryRun ? '预演' : result.run.status}：${result.run.id} · 可合并组 ${result.decisions.length} · 归档 ${result.applied.length}${result.run.groupsDropped ? ` · 跳过组 ${result.run.groupsDropped}` : ''}` };
+        }
+        if (args.dryRun !== true && typeof service.scopeWritable === 'function' && !service.scopeWritable(args.scope ?? service.settings().scope)) {
+          return { text: '未执行：该 scope 只读共享。' };
+        }
+        const result = await service.consolidation.run({ scopeId: args.scope, limit: args.limit ?? 30, dryRun: args.dryRun === true, caller: 'tool' });
         return { text: `巩固 ${result.run.status}：${result.run.id} · 决策 ${result.decisions.length} · 应用 ${result.applied.length}${result.run.error ? ` · ${result.run.error}` : ''}` };
       },
       presentCall: () => ({ card: 'generic', title: '记忆巩固', kind: 'other' }),
@@ -618,7 +732,7 @@ export function createToolDefinitions(service) {
       isConcurrencySafe: () => true,
       async execute(args = {}) {
         if (!args.id || !String(args.id).trim()) return { text: `没有这条记忆：${args.id}` };
-        const trace = service.get(args.id);
+        const trace = service.get(args.id, { revive: true });
         if (!trace) return { text: `没有这条记忆：${args.id}` };
         return {
           text: [

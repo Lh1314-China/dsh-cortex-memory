@@ -1,6 +1,8 @@
 import { makeId } from '../core/ids.js';
 import { clamp, nowIso } from '../core/time.js';
-import { estimateTokens, truncate } from '../memory/tokenizer.js';
+import { estimateTokens, truncate, jaccard } from '../memory/tokenizer.js';
+
+const DEDUPE_THRESHOLD = 0.82;
 
 function rowToWorking(row) {
   if (!row) return null;
@@ -19,11 +21,40 @@ function rowToWorking(row) {
 }
 
 export function createWorkingStore(db) {
-  function add({ scopeId = 'global', kind = 'focus', text, priority = 0.5, pinned = false, sourceTraceId = null, ttlMs = null, at = Date.now() } = {}) {
+  /**
+   * Working memory used to accumulate near-duplicates (the same todo written
+   * twice by two sessions). Adding a near-duplicate now refreshes the existing
+   * item instead of piling up another line.
+   */
+  function nearDuplicate(scopeId, value) {
+    if (!value) return null;
+    const rows = db.prepare('SELECT * FROM working_items WHERE scope_id = ?').all(scopeId);
+    let best = null;
+    let bestScore = 0;
+    for (const row of rows) {
+      const score = jaccard(value, row.text);
+      if (score > bestScore) {
+        bestScore = score;
+        best = row;
+      }
+    }
+    return bestScore >= DEDUPE_THRESHOLD ? rowToWorking(best) : null;
+  }
+
+  function add({ scopeId = 'global', kind = 'focus', text, priority = 0.5, pinned = false, sourceTraceId = null, ttlMs = null, at = Date.now(), dedupe = true } = {}) {
     const value = String(text ?? '').trim();
     if (!value) throw new Error('working item text is required');
-    const id = makeId('wrk');
     const now = nowIso(at);
+    if (dedupe !== false) {
+      const existing = nearDuplicate(scopeId, value);
+      if (existing) {
+        const keepText = value.length >= existing.text.length ? value : existing.text;
+        db.prepare('UPDATE working_items SET priority = ?, pinned = ?, text = ?, updated_at = ? WHERE id = ?')
+          .run(Math.max(clamp(priority, 0, 1), existing.priority), pinned || existing.pinned ? 1 : 0, keepText, now, existing.id);
+        return get(existing.id);
+      }
+    }
+    const id = makeId('wrk');
     const expiresAt = ttlMs ? new Date(at + Math.max(0, Number(ttlMs))).toISOString() : null;
     db.prepare(`
       INSERT INTO working_items(id, scope_id, kind, text, priority, pinned, source_trace_id, created_at, updated_at, expires_at)

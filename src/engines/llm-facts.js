@@ -1,5 +1,6 @@
-function stripJson(text) {
-  const source = String(text ?? '').trim();
+import { guardFactCandidate } from './fact-guard.js';
+
+function stripJson(text) {  const source = String(text ?? '').trim();
   const start = source.indexOf('{');
   const end = source.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
@@ -34,15 +35,17 @@ export async function extractFactsWithLlm({ llm, text, maxFacts = 8 } = {}) {
   const candidates = [];
   for (const item of parsed.facts.slice(0, Math.max(1, Math.min(20, maxFacts)))) {
     if (!item || typeof item !== 'object') continue;
-    const subject = String(item.subject ?? '').trim().slice(0, 40);
-    const predicate = String(item.predicate ?? '').trim().slice(0, 60);
-    const object = String(item.object ?? '').trim().slice(0, 120);
-    const confidence = Number(item.confidence);
-    if (!subject || !predicate || !object || !Number.isFinite(confidence) || confidence < 0.6) continue;
-    const key = `${subject}|${predicate}|${object}`;
+    const guarded = guardFactCandidate({
+      subject: item.subject,
+      predicate: item.predicate,
+      object: item.object,
+      confidence: item.confidence,
+    });
+    if (!guarded || guarded.confidence < 0.6) continue;
+    const key = `${guarded.subject}|${guarded.predicate}|${guarded.object}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    candidates.push({ subject, predicate, object, confidence: Math.min(1, confidence) });
+    candidates.push(guarded);
   }
   return { candidates, error: null };
 }

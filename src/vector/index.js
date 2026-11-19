@@ -32,6 +32,8 @@ export function createVectorIndex({
   annOptions = {},
   externalAnnEnabled = false,
   externalAnnOptions = {},
+  logger = null,
+  queueMaxAttempts = 4,
 } = {}) {
   if (!db || !embedder) throw new Error('vector index needs db and embedder');
   const effectiveModel = model ?? embedder.model ?? 'unknown';
@@ -45,6 +47,79 @@ export function createVectorIndex({
     ? createExternalAnnClient(externalAnnOptions)
     : null;
   let annBuilt = false;
+  // Async embedders used to fire-and-forget: a failed call left the trace with
+  // no vector and nobody noticed. Keep a small persistent-in-process queue with
+  // backoff so a temporary outage heals itself instead of silently rotting.
+  const pending = new Map();
+  const failed = new Set();
+  const maxAttempts = Math.max(1, Number(queueMaxAttempts) || 4);
+  const isAsyncEmbedder = () => embedder.kind === 'openai-embedding' || embedder.async === true;
+
+  function enqueue(traceId, text) {
+    if (!traceId) return;
+    failed.delete(traceId);
+    pending.set(traceId, { text: String(text ?? ''), attempts: 0, nextAt: Date.now() });
+  }
+
+  async function drainQueue({ max = 20, budgetMs = 0 } = {}) {
+    const started = Date.now();
+    const now = Date.now();
+    const ready = [...pending.entries()]
+      .filter(([, task]) => task.nextAt <= now)
+      .slice(0, Math.max(1, Math.min(2000, Number(max) || 20)));
+    let ok = 0;
+    let gaveUp = 0;
+    let stoppedBy = 'done';
+    const budget = Math.max(0, Number(budgetMs) || 0);
+    for (const [traceId, task] of ready) {
+      if (budget > 0 && Date.now() - started >= budget) {
+        stoppedBy = 'time';
+        break;
+      }
+      try {
+        const vector = await embedder.embed(task.text);
+        // Remote embedders hand back a Float32Array, not a plain Array; the old
+        // Array.isArray() check rejected every real embedding, so the backfill
+        // queue retried forever and coverage never moved.
+        const length = vector && typeof vector.length === 'number' ? vector.length : -1;
+        if (length !== effectiveDim) throw new Error(`embedding dimension mismatch (${length} vs ${effectiveDim})`);
+        store(traceId, task.text, vector);
+        pending.delete(traceId);
+        ok += 1;
+      } catch (error) {
+        task.attempts += 1;
+        logger?.debug?.(`cortex vector attempt ${task.attempts} failed for ${traceId}: ${error instanceof Error ? error.message : String(error)}`);
+        if (task.attempts >= maxAttempts) {
+          pending.delete(traceId);
+          failed.add(traceId);
+          gaveUp += 1;
+          logger?.warn?.(`cortex vector failed after ${task.attempts} attempts for ${traceId}: ${error instanceof Error ? error.message : String(error)}`);
+        } else {
+          task.nextAt = now + Math.min(300_000, 1000 * (3 ** task.attempts));
+          // A single retryable failure must not stop the whole drain: the old code
+          // broke out here, so one bad item starved every other pending vector.
+          logger?.info?.(`cortex vector retry scheduled for ${traceId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+    return { ok, failed: gaveUp, pending: pending.size, elapsedMs: Date.now() - started, stoppedBy };
+  }
+
+  /**
+   * Queue every active trace that has no embedding yet. This is what makes a
+   * recovery possible: the index can lag behind the trace table without
+   * needing a full, expensive rebuild.
+   */
+  function backfillMissing({ scopeId = 'global', limit = 50 } = {}) {
+    const rows = db.prepare(`
+      SELECT t.id, t.title, t.content, t.summary FROM traces t
+      LEFT JOIN embeddings e ON e.trace_id = t.id
+      WHERE t.scope_id = ? AND t.state = 'active' AND e.trace_id IS NULL
+      ORDER BY t.recorded_at DESC LIMIT ?
+    `).all(scopeId, Math.max(1, Math.min(2000, Number(limit) || 50)));
+    for (const row of rows) enqueue(row.id, `${row.title ?? ''} ${row.content ?? ''} ${row.summary ?? ''}`);
+    return { queued: rows.length, pending: pending.size };
+  }
 
   function ensureAnn() {
     if (!ann || annBuilt) return;
@@ -55,11 +130,11 @@ export function createVectorIndex({
 
   function upsert(traceId, text) {
     if (!traceId) return null;
-    // Remote providers are async. A write must not block on the network: kick
-    // off the embedding and let it land later. Callers that need completion
-    // use upsertAsync().
-    if (embedder.kind === 'openai-embedding' || embedder.async === true) {
-      upsertAsync(traceId, text).catch(() => null);
+    // Remote providers are async. A write must not block on the network: queue
+    // it, and let the scheduler drain the queue with retries. Callers that need
+    // completion use upsertAsync().
+    if (isAsyncEmbedder()) {
+      enqueue(traceId, text);
       return { traceId, pending: true };
     }
     const vector = embedder.embed(String(text ?? ''));
@@ -100,7 +175,8 @@ export function createVectorIndex({
       model: effectiveModel,
       dim: effectiveDim,
       count: Number(row?.c ?? 0),
-      async: embedder.kind === 'openai-embedding' || embedder.async === true,
+      async: isAsyncEmbedder(),
+      queue: { pending: pending.size, failed: failed.size, maxAttempts },
       ann: ann ? { enabled: true, engine: annEngine === 'nsw' ? 'nsw' : 'hnsw', size: ann.size(), min: annMinCount, built: annBuilt } : { enabled: false },
       externalAnn: externalAnn ? { enabled: true, endpoint: externalAnn.endpoint } : { enabled: false },
     };
@@ -205,5 +281,18 @@ export function createVectorIndex({
     return { rebuilt, ...status() };
   }
 
-  return { upsert, upsertAsync, remove, search, searchAsync, status, rebuild, rebuildAsync, model: effectiveModel, dim: effectiveDim };
+  return {
+    upsert,
+    upsertAsync,
+    remove,
+    search,
+    searchAsync,
+    status,
+    rebuild,
+    rebuildAsync,
+    backfillMissing,
+    drainQueue,
+    model: effectiveModel,
+    dim: effectiveDim,
+  };
 }

@@ -2,6 +2,7 @@ import { retrievability } from '../memory/dsr.js';
 import { estimateTokens, jaccard, overlapScore, tokens } from '../memory/tokenizer.js';
 import { daysBetween, nowIso } from '../core/time.js';
 import { matchesFilters } from '../memory/query.js';
+import { competingFactor, withSuppression } from './inhibition.js';
 
 const INTENT_RULES = [
   [/昨天|今天|明天|上周|上个月|去年|什么时候|多久|时间|日期|几点|temporal/i, 'temporal'],
@@ -65,7 +66,7 @@ function queryCoverage(wanted, present) {
   return shared / wanted.size;
 }
 
-function candidateFromTrace(trace, fusion, intent, now, decay, weights = null, queryTokens = null) {
+function candidateFromTrace(trace, fusion, intent, now, decay, weights = null, queryTokens = null, inhibition = null) {
   const recency = retrievability(trace.stability, daysBetween(trace.lastAccessAt || trace.recordedAt, now), decay);
   const access = Math.log1p(Number(trace.accessCount) || 0) / Math.log1p(50);
   const w = { ...(INTENT_WEIGHTS[intent] || INTENT_WEIGHTS.fact), ...(weights ?? {}) };
@@ -73,13 +74,13 @@ function candidateFromTrace(trace, fusion, intent, now, decay, weights = null, q
   const text = `${trace.title ?? ''} ${trace.content ?? ''} ${trace.summary ?? ''}`;
   const textTokens = tokens(text);
   const match = queryCoverage(queryTokens, textTokens);
-  const utility = w.fusion * fusionScore
+  const utility = (w.fusion * fusionScore
     + w.importance * Number(trace.importance || 0)
     + w.recency * recency
     + w.confidence * Number(trace.confidence || 0)
     + w.access * access
     + w.match * match
-    + w.exact * (match >= 0.999 ? 1 : 0);
+    + w.exact * (match >= 0.999 ? 1 : 0)) * (inhibition ? competingFactor(trace.metadata, now, inhibition) : 1);
   return {
     id: trace.id,
     type: 'trace',
@@ -155,6 +156,14 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     recentMinMatch: config.recentMinMatch ?? 0.12,
     recentImportanceFloor: config.recentImportanceFloor ?? 0.8,
     decay: config.dsr?.decay ?? -0.5,
+    inhibition: config.features?.inhibition === true
+      ? {
+        strength: config.inhibitionStrength ?? 0.35,
+        halfLifeDays: config.inhibitionHalfLifeDays ?? 14,
+        step: config.inhibitionStep ?? 0.15,
+        competitorSim: config.inhibitionCompetitorSim ?? 0.5,
+      }
+      : null,
   };
 
   function searchSources(query, { scopeId = 'global', limit = 12, now = Date.now(), includeArchived = false, weights = null, filters = null, vectorHits = null, gate = 'none' } = {}, intent = 'fact') {
@@ -168,7 +177,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       let sourceName = 'fts';
       if (!hits.length) {
         // Character fallback: only when the exact bigram query has no hits.
-        // This keeps normal FTS precision and lets 米饭 find 白饭 via 饭.
+        // This keeps normal FTS precision and lets 米饭 find 饭 via 饭.
         hits = traces.searchFts(query, {
           scopeId,
           limit: Math.max(limit * 3, defaults.ftsLimit),
@@ -239,7 +248,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       const trace = traces.get(id);
       if (!trace || trace.state === 'archived' && !includeArchived) continue;
       if (filters && !matchesFilters(trace, filters)) continue;
-      const candidate = candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights, queryTokens);
+      const candidate = candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights, queryTokens, defaults.inhibition);
       // Prompt-injection gate: only weaken candidates that entered solely via
       // the recency list or the soft FTS fallback. Strong sources still pass.
       // High importance is allowed to bypass the match floor, preserving the
@@ -292,6 +301,36 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       lambda: defaults.lambda,
       mu: defaults.mu,
     });
+    if (defaults.inhibition) {
+      // Suppress only semantic competitors: candidates that lost the recall and
+      // are near-duplicates of something that was selected. At most three per
+      // recall, and at most once per 24h per trace so a busy loop cannot bury a
+      // memory permanently.
+      const selectedTexts = portfolio.selected.map((item) => item.text ?? '');
+      let suppressed = 0;
+      for (const candidate of sources.candidates) {
+        if (suppressed >= 3) break;
+        if (portfolio.selected.some((item) => item.id === candidate.id)) continue;
+        const text = candidate.text ?? '';
+        const similarity = selectedTexts.reduce((max, other) => (other ? Math.max(max, jaccard(text, other)) : max), 0);
+        if (similarity < (defaults.inhibition.competitorSim ?? 0.5)) continue;
+        const trace = traces.get(candidate.id);
+        if (!trace) continue;
+        const last = Date.parse(trace.metadata?.suppressedAt ?? '');
+        if (Number.isFinite(last) && now - last < 86_400_000) continue;
+        try {
+          traces.update(trace.id, {
+            metadata: withSuppression(trace.metadata, now, {
+              step: defaults.inhibition.step,
+              halfLifeDays: defaults.inhibition.halfLifeDays,
+            }),
+          });
+          suppressed += 1;
+        } catch {
+          /* suppression is best-effort; a recall must never fail because of it */
+        }
+      }
+    }
     const items = portfolio.selected.map((item) => ({
       id: item.id,
       type: item.type,

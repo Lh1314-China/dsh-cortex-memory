@@ -41,7 +41,7 @@ test('host plugin registers tools, a prompt section and cleans up', async () => 
   };
   try {
     await apply(ctx, { dataRoot: dir, dbFile: path.join(dir, 'cortex.sqlite'), scope: 'global' });
-    assert.equal(registered.length, 21);
+    assert.equal(registered.length, 22);
     assert.ok(registered.some((tool) => tool.name === 'cortex_search'));
     assert.ok(handlers.some((entry) => entry.name === 'session/event'));
     assert.ok(section);

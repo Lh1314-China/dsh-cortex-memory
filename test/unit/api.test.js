@@ -55,10 +55,10 @@ test('api serves health/self/search and writes through POST', async () => {
     const health = await invoke(handler, { route: '/health' });
     assert.equal(health.status, 200);
     assert.ok(health.json.data.score > 0);
-    const write = await invoke(handler, { method: 'POST', route: '/write', body: { text: '用户说会买白饭。', explicit: true } });
+    const write = await invoke(handler, { method: 'POST', route: '/write', body: { text: '用户说会买米饭。', explicit: true } });
     assert.equal(write.status, 200);
-    assert.equal(write.json.data.trace.content, '用户说会买白饭。');
-    const search = await invoke(handler, { route: '/search?q=白饭' });
+    assert.equal(write.json.data.trace.content, '用户说会买米饭。');
+    const search = await invoke(handler, { route: '/search?q=米饭' });
     assert.equal(search.status, 200);
     assert.ok(search.json.data.items.length >= 1);
 

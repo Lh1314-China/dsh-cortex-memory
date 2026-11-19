@@ -7,11 +7,11 @@
 ## 当前版本
 
 ```text
-主包：dsh-cortex-memory@0.4.22
+主包：dsh-cortex-memory@0.4.146
 提取器：dsh-cortex-extractors@0.3.5
-DSH：>=0.2.1-rc.2 <0.4.0
+DSH：>=0.2.1-rc.2 <0.5.0
 Node：>=24
-测试：440/440
+测试：520/520
 ```
 
 ## 现在能做什么
@@ -34,7 +34,7 @@ Node：>=24
 先关闭 DSH，再安装并重启：
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.22
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.146
 dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 
@@ -45,7 +45,7 @@ dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 GitHub Release 提供：
 
 ```text
-cortex-memory-oneclick-0.4.21.zip
+cortex-memory-oneclick-0.4.146.zip
 ```
 
 解压后双击 `install.cmd`。安装器会做 profile 检查、备份、SHA256 校验和可选路径迁移。
@@ -87,7 +87,7 @@ CLI 默认读取 `~/.dsh/cortex-memory`；需要指定其他库时显式传 `--d
 已做：
 
 ```text
-主包测试：440/440
+主包测试：520/520
 受控中文语义探针：recall@3 1.000 / MRR@3 0.917 / nDCG@3 0.938
 受控探针延迟：p50 1.31ms / p95 4.07ms
 真实图片 OCR：已跑通
@@ -125,9 +125,9 @@ Cortex 的定位是“本地可解释、可回滚、能长期长”的记忆系�
 
 ## 下载
 
-- npm 主包：`dsh-cortex-memory@0.4.22`
+- npm 主包：`dsh-cortex-memory@0.4.146`
 - npm 提取器：`dsh-cortex-extractors@0.3.5`
-- GitHub Release：`v0.4.21`
-- Windows 一键包：`cortex-memory-oneclick-0.4.21.zip`
+- GitHub Release：`v0.4.146`
+- Windows 一键包：`cortex-memory-oneclick-0.4.146.zip`
 
 安装后重启 DSH，左侧出现「Cortex 记忆」入口。

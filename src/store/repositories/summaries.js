@@ -48,5 +48,12 @@ export function createSummaryRepository(db) {
     return rows.map(rowToSummary);
   }
 
-  return { insert, get, findPeriod, list };
+  // Narrative threads need a retention knob: they are rebuilt from the same
+  // recurring topics, so without a cap the table grows forever.
+  function remove(id) {
+    const result = db.prepare('DELETE FROM summaries WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
+
+  return { insert, get, findPeriod, list, remove };
 }

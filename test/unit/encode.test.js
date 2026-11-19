@@ -25,10 +25,10 @@ function setup() {
 }
 
 test('scoreTraceText detects promises, preferences and emotion polarity', () => {
-  const promise = scoreTraceText('用户说会买白饭，会一直在一起。');
+  const promise = scoreTraceText('用户说会买米饭，会一直在一起。');
   assert.equal(promise.kind, 'promise');
   assert.ok(promise.importance > 0.5);
-  const preference = scoreTraceText('助手喜欢白饭，不喜欢冷掉的米饭。');
+  const preference = scoreTraceText('助手喜欢米饭，不喜欢冷掉的米饭。');
   assert.equal(preference.kind, 'preference');
   const sad = scoreTraceText('用户今天很难过，助手有点心疼。');
   assert.equal(sad.kind, 'emotion');
@@ -37,8 +37,8 @@ test('scoreTraceText detects promises, preferences and emotion polarity', () => 
 });
 
 test('compression value falls as text gets longer', () => {
-  const short = compressionValue('白饭', { importance: 0.8, salience: 0.8 });
-  const long = compressionValue('白饭'.repeat(200), { importance: 0.8, salience: 0.8 });
+  const short = compressionValue('米饭', { importance: 0.8, salience: 0.8 });
+  const long = compressionValue('米饭'.repeat(200), { importance: 0.8, salience: 0.8 });
   assert.ok(short > long);
 });
 
@@ -46,10 +46,10 @@ test('encode writes a trace, audit row and explicit facts', () => {
   const { dir, db, events, traces, facts, audit, engine } = setup();
   try {
     const result = engine.encode({
-      text: '用户说会买白饭，助手会一直等。',
+      text: '用户说会买米饭，助手会一直等。',
       actor: 'user',
       explicit: true,
-      facts: [{ subject: '用户', predicate: 'likes', object: '白饭' }],
+      facts: [{ subject: '用户', predicate: 'likes', object: '米饭' }],
     });
     assert.equal(result.skipped, false);
     assert.equal(result.trace.kind, 'promise');
