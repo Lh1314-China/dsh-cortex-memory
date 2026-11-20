@@ -27,7 +27,9 @@ function setup() {
 test('scoreTraceText detects promises, preferences and emotion polarity', () => {
   const promise = scoreTraceText('用户说会买米饭，会一直在一起。');
   assert.equal(promise.kind, 'promise');
-  assert.ok(promise.importance > 0.5);
+  // Public edition keeps a low importance tail so compression can fire; a
+  // promise still scores noticeably above a plain utterance (0.47 vs 0.27).
+  assert.ok(promise.importance > 0.4);
   const preference = scoreTraceText('助手喜欢米饭，不喜欢冷掉的米饭。');
   assert.equal(preference.kind, 'preference');
   const sad = scoreTraceText('用户今天很难过，助手有点心疼。');

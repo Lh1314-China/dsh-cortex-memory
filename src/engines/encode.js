@@ -30,7 +30,10 @@ export function isInjectedNoise(value) {
 
 export function scoreTraceText(text, { kind = null, importance = null } = {}) {
   const value = String(text ?? '').trim();
-  let importanceScore = Number.isFinite(importance) ? clamp(importance, 0, 1) : 0.42;
+  // Public edition: importance must keep a low tail so compression has
+  // something to archive. The private edition intentionally scores every
+  // moment high; this is the one place the two editions differ.
+  let importanceScore = Number.isFinite(importance) ? clamp(importance, 0, 1) : 0.26;
   let candidateKind = kind || 'utterance';
   let valence = 0;
   if (!kind) {
@@ -47,8 +50,8 @@ export function scoreTraceText(text, { kind = null, importance = null } = {}) {
     if (pattern.test(value)) valence = v;
   }
   const salience = clamp(0.3 + Math.abs(valence) * 0.6 + Math.min(0.2, value.length / 500), 0, 1);
-  importanceScore += Math.min(0.15, value.length / 400);
-  if (salience > 0.6) importanceScore += 0.08;
+  importanceScore += Math.min(0.06, value.length / 1000);
+  if (salience > 0.6) importanceScore += 0.05;
   return {
     kind: candidateKind,
     importance: clamp(importanceScore, 0, 1),
