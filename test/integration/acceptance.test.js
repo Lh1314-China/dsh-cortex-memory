@@ -343,13 +343,20 @@ test('journey 4: conflicting facts supersede by date, dispute when simultaneous,
     });
     assert.deepEqual(atOldEra.map((fact) => fact.id), [oldFactId]);
 
-    // Search ranks the current preference ahead of the invalidated one.
+    // Default recall answers with the current preference and drops the retired
+    // trace; the audit path brings it back, ranked below the live one.
     const searched = harness.cortex.search('咖啡', { now: BASE_MS, limit: 8 });
     const newIndex = searched.items.findIndex((item) => item.id === newWrite.trace.id);
     const oldIndex = searched.items.findIndex((item) => item.id === oldWrite.trace.id);
     assert.ok(newIndex >= 0, 'the current preference should be searchable');
-    assert.ok(oldIndex >= 0, 'the historical trace remains searchable for audit');
-    assert.ok(newIndex < oldIndex, 'the current preference should rank before the old one');
+    assert.equal(oldIndex, -1, 'a retired trace is not recalled by default');
+    assert.ok(searched.trace.retiredSkipped >= 1, 'the retired trace is counted as skipped');
+
+    const withRetired = harness.cortex.search('咖啡', { now: BASE_MS, limit: 8, includeRetired: true });
+    const auditNew = withRetired.items.findIndex((item) => item.id === newWrite.trace.id);
+    const auditOld = withRetired.items.findIndex((item) => item.id === oldWrite.trace.id);
+    assert.ok(auditOld >= 0, 'the historical trace remains searchable for audit');
+    assert.ok(auditNew < auditOld, 'the current preference should rank before the old one');
 
     const auditTargets = harness.cortex.repos.audit.list({ limit: 50 })
       .filter((item) => item.action === 'trace.create')

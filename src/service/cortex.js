@@ -22,6 +22,7 @@ import { createSummonRepository } from '../store/repositories/summon.js';
 import { createIdentityStore } from '../self/identity.js';
 import { createRelationshipStore } from '../self/relationship.js';
 import { createTargetResolver } from '../self/alias.js';
+import { createMemoryPolicy } from '../self/memory-policy.js';
 import { createEncodeEngine, isInjectedNoise } from '../engines/encode.js';
 import { createRetrievalEngine } from '../engines/retrieve.js';
 import { createGrowthEngine } from '../engines/growth.js';
@@ -90,6 +91,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   const identityStore = createIdentityStore(db);
   const targetResolver = createTargetResolver(config.persona ?? {});
   const relationshipStore = createRelationshipStore(db, { resolveTarget: targetResolver.resolveTarget });
+  let lastFamiliarityBumpAt = 0;
   const metrics = createMetrics();
   const workingStore = createWorkingStore(db);
   const goalStore = createGoalStore(db);
@@ -132,11 +134,12 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
   const encode = createEncodeEngine({ events, traces, entities, facts, edges, audit, vector, config });
   const graph = createGraphEngine({ entities, facts, edges, traces });
   const policies = createPolicyRepository(db);
+  const memoryPolicy = createMemoryPolicy({ policies, config });
   const policyConfig = (kind) => {
     try { return policies.active(kind)?.config ?? null; } catch { return null; }
   };
   const retrieve = createRetrievalEngine({ traces, facts, graph, vector, policy: policyConfig, config });
-  const compression = createCompressionEngine({ traces, summaries, facts, entities, config });
+  const compression = createCompressionEngine({ traces, summaries, facts, entities, config, memoryPolicy });
   const extractor = createFactExtractor({ entities, facts });
   const digest = createDigestEngine({ traces, summaries, emotion, goals: goalStore, feedback, scopeId: config.scope });
   const retention = createRetentionEngine({ traces });
@@ -182,7 +185,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     })
     : null;
   const qa = createQaEngine({ cortex: { search: (query, options) => search(query, options), searchAsync: (query, options) => searchAsync(query, options) }, llm: llmAdapter, reranker, limit: config.qa?.limit ?? 8, budget: config.qa?.budget ?? 3000 });
-  const narrative = createNarrativeEngine({ traces, summaries, selfName: config.persona?.selfName ?? '助手' });
+  const narrative = createNarrativeEngine({ traces, summaries });
   const consolidation = createConsolidationEngine({ db, traces, summaries, audit, llm: llmAdapter });
   const skills = createSkillEngine({ skills: skillsRepo, traces });
   const health = createHealthEngine({
@@ -441,6 +444,20 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     }
     if (!result.skipped && config.features?.llmFacts === true && llmAdapter?.available?.() && !Array.isArray(input.facts)) {
       scheduleLlmFacts(result, input);
+    }
+    // Shared time is relationship too: a captured turn (not every recall, not
+    // every read) nudges familiarity. Throttled to once per two hours so a busy
+    // afternoon cannot inflate it, and it never touches trust/care.
+    if (!result.skipped && input.source === 'host:turn') {
+      const at = Date.now();
+      if (at - lastFamiliarityBumpAt > 2 * 3_600_000) {
+        lastFamiliarityBumpAt = at;
+        try {
+          relationshipStore.applyDelta(scopeId, targetResolver.canonical, { familiarityDelta: 0.002 }, { event: 'interaction:turn', at: new Date(at).toISOString() });
+        } catch {
+          /* the relationship nudge must never block capture */
+        }
+      }
     }
     return result;
   }
@@ -1581,6 +1598,7 @@ export function createCortex({ config: rawConfig = {}, logger = null, llm: llmAd
     repos: { events, traces, entities, facts, edges, feedback, summaries, jobs, skills: skillsRepo, audit, playbook: playbookRepo },
     stores: { selfStore, appraisalStore, initiativeStore, identityStore, relationshipStore },
     engines: { encode, graph, retrieve, growth, reflect, narrative, skills, health, privacy, develop, development, vector, compression, extractor, runner },
+    memoryPolicy,
     development,
     narrative,
     vector,

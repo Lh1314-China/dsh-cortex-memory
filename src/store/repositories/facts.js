@@ -142,7 +142,7 @@ export function createFactRepository(db) {
       if (later.validFrom === validFrom) {
         // Same start, different object. The compatibility rule only applies
         // when both sides are free text: "一直在" and "一直存在着" can coexist.
-        // Entity-to-entity conflicts (likes 咖啡 vs likes 茶) still dispute.
+        // Entity-to-entity conflicts (likes 米饭 vs likes 米饭) still dispute.
         const newLiteral = objectLiteral ?? null;
         const allLiterals = Boolean(newLiteral) && existing.every((fact) => Boolean(fact.objectLiteral));
         const flip = allLiterals && existing.some((fact) => negationFlip(fact.objectLiteral, newLiteral));

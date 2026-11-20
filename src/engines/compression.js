@@ -23,22 +23,27 @@ export function coverageOf(trace, { summaries = [], facts = [] } = {}) {
   return { coverage: Math.min(1, best), by };
 }
 
-export function createCompressionEngine({ traces, summaries, facts = null, entities = null, config = {} } = {}) {
+export function createCompressionEngine({ traces, summaries, facts = null, entities = null, config = {}, memoryPolicy = null } = {}) {
   if (!traces || !summaries) throw new Error('compression engine needs traces and summaries');
 
   function evaluate({ scopeId = 'global', now = Date.now() } = {}) {
     const active = traces.list({ scopeId, state: 'active', limit: 5000 });
     const threadSummaries = summaries.list(scopeId, { limit: 200 });
     const factList = facts?.list?.({ scopeId, limit: 5000 }) ?? [];
+    // Evergreen kinds are the owner's decision, not a heuristic: compression
+    // never auto-archives them even when coverage and decay say it could.
+    const evergreenKinds = memoryPolicy?.current?.().evergreenKinds ?? [];
     const rows = active.map((trace) => {
       const ageDays = daysBetween(trace.lastAccessAt || trace.recordedAt, now);
       const retrievability = computeRetrievability(trace, now, config.dsr?.decay ?? -0.5);
       const covered = coverageOf(trace, { summaries: threadSummaries, facts: factList });
-      const eligible = ageDays >= (config.compression?.minAgeDays ?? 7)
+      const evergreen = evergreenKinds.includes(String(trace.kind ?? ''));
+      const eligible = !evergreen
+        && ageDays >= (config.compression?.minAgeDays ?? 7)
         && retrievability < (config.compression?.retrievability ?? 0.5)
         && Number(trace.importance) < (config.compression?.importance ?? 0.35)
         && covered.coverage >= (config.compression?.coverageThreshold ?? 0.8);
-      return { trace, ageDays, retrievability, coverage: covered.coverage, by: covered.by, eligible, cost: estimateTokens(trace.content) };
+      return { trace, ageDays, retrievability, coverage: covered.coverage, by: covered.by, evergreen, eligible, cost: estimateTokens(trace.content) };
     });
     return rows;
   }

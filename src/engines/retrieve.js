@@ -155,6 +155,11 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     mu: config.costPenalty ?? 0.08,
     recentMinMatch: config.recentMinMatch ?? 0.12,
     recentImportanceFloor: config.recentImportanceFloor ?? 0.8,
+    // A trace whose fact was superseded (its event is the source of an
+    // invalidated fact) is historical: keep it searchable but rank it below the
+    // replacement. Without this, overwrite correctness lived only in the fact
+    // layer while retrieval still surfaced the old sentence.
+    retiredPenalty: config.retiredPenalty ?? 0.25,
     decay: config.dsr?.decay ?? -0.5,
     inhibition: config.features?.inhibition === true
       ? {
@@ -166,18 +171,35 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       : null,
   };
 
-  function searchSources(query, { scopeId = 'global', limit = 12, now = Date.now(), includeArchived = false, weights = null, filters = null, vectorHits = null, gate = 'none' } = {}, intent = 'fact') {
+  function searchSources(query, { scopeId = 'global', limit = 12, now = Date.now(), includeArchived = false, includeRetired = false, weights = null, filters = null, vectorHits = null, gate = 'none' } = {}, intent = 'fact') {
     const queryTokens = tokens(query);
     const sourceTrace = [];
     const lists = [];
     let ftsCount = 0;
     let recentCount = 0;
+    // Retired facts are the write-side truth: collect the events they came from
+    // so the matching traces can be demoted below their replacements.
+    const retiredEvents = (() => {
+      if (!facts || typeof facts.list !== 'function') return null;
+      try {
+        const rows = facts.list({ scopeId, status: 'invalidated', limit: 2000 });
+        if (!rows.length) return null;
+        const set = new Set();
+        for (const row of rows) {
+          const eventId = row?.sourceEventId ?? null;
+          if (eventId) set.add(eventId);
+        }
+        return set.size ? set : null;
+      } catch {
+        return null;
+      }
+    })();
     try {
       let hits = traces.searchFts(query, { scopeId, limit: Math.max(limit * 3, defaults.ftsLimit), includeArchived });
       let sourceName = 'fts';
       if (!hits.length) {
         // Character fallback: only when the exact bigram query has no hits.
-        // This keeps normal FTS precision and lets 米饭 find 饭 via 饭.
+        // This keeps normal FTS precision and lets 米饭 find 米饭 via 饭.
         hits = traces.searchFts(query, {
           scopeId,
           limit: Math.max(limit * 3, defaults.ftsLimit),
@@ -244,11 +266,23 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     const candidates = [];
     const fallbacks = [];
     let gated = 0;
+    let retiredSkipped = 0;
     for (const [id, entry] of fused) {
       const trace = traces.get(id);
       if (!trace || trace.state === 'archived' && !includeArchived) continue;
       if (filters && !matchesFilters(trace, filters)) continue;
       const candidate = candidateFromTrace(trace, { ...entry, score: normalize(entry.score, maxFusion) }, intent, now, defaults.decay, weights, queryTokens, defaults.inhibition);
+      // Historical sentence whose fact was superseded. Default recall drops it
+      // (the replacement answers the question); an explicit includeRetired keeps
+      // it, ranked below live memories.
+      if (retiredEvents && retiredEvents.has(trace.eventId)) {
+        if (!includeRetired) {
+          retiredSkipped += 1;
+          continue;
+        }
+        candidate.utility *= defaults.retiredPenalty;
+        candidate.retired = true;
+      }
       // Prompt-injection gate: only weaken candidates that entered solely via
       // the recency list or the soft FTS fallback. Strong sources still pass.
       // High importance is allowed to bypass the match floor, preserving the
@@ -272,7 +306,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     for (const list of lists) {
       sourceTrace.push({ source: list.name, ok: true, count: list.items.length });
     }
-    return { candidates, sourceTrace, ftsCount, recentCount, gated };
+    return { candidates, sourceTrace, ftsCount, recentCount, gated, retiredSkipped };
   }
 
   function search(query, {
@@ -281,6 +315,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     limit = defaults.limit,
     now = Date.now(),
     includeArchived = false,
+    includeRetired = false,
     filters = null,
     vectorHits = null,
     gate = 'none',
@@ -294,7 +329,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
     const effectiveBudget = activePolicy?.budget != null
       ? Math.max(64, Math.min(20000, Number(activePolicy.budget)))
       : budget;
-    const sources = searchSources(query, { scopeId, limit, now, includeArchived, weights: policyWeights, filters, vectorHits, gate }, intent);
+    const sources = searchSources(query, { scopeId, limit, now, includeArchived, includeRetired, weights: policyWeights, filters, vectorHits, gate }, intent);
     const portfolio = selectPortfolio(sources.candidates, {
       budget: effectiveBudget,
       limit,
@@ -346,6 +381,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
       confidence: Number(item.confidence ?? 0),
       match: Number(item.match ?? 0),
       kind: item.trace?.kind ?? null,
+      retired: item.retired === true,
       why: item.sources.map((source) => `${source.name}#${source.rank}`).join(','),
       attachments: item.attachments ?? 0,
     }));
@@ -359,6 +395,7 @@ export function createRetrievalEngine({ traces, facts = null, graph = null, vect
         elapsedMs: Date.now() - started,
         candidates: sources.candidates.length,
         gated: sources.gated ?? 0,
+        retiredSkipped: sources.retiredSkipped ?? 0,
         selected: items.length,
         dropped: portfolio.dropped.length,
         sources: sources.sourceTrace,

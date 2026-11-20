@@ -163,7 +163,7 @@ function validateDecision(decision, byId, protect = PROTECTED_IMPORTANCE, { allo
     //
     // Selection is the opposite of 0.4.116→0.4.130: those versions sorted by
     // importance descending, so the model was always handed the batch its own
-    // prompt protects (99% of a production store is >= 0.7 and the top slice is all
+    // prompt protects (99% of the production store is >= 0.7 and the top slice is all
     // 1.0) and could only answer keep. Rank the other end first instead:
     //   1. no summary covers the trace yet,
     //   2. it was not shown to the model in the last 24h,
@@ -470,7 +470,7 @@ function validateDecision(decision, byId, protect = PROTECTED_IMPORTANCE, { allo
     let droppedGroups = 0;
     for (const group of clusters.values()) {
       if (group.length < 2) continue;
-      // A production store has 75% of active traces at importance >= 0.95, so "two protected
+      // Live store has 75% of active traces at importance >= 0.95, so "two protected
       // members" is the normal case, not the exception. Dedupe has already proved the
       // members are near-duplicates (Jaccard >= simThreshold), so keeping N copies buys
       // nothing; reflections were excluded from the pool above.

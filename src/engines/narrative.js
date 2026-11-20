@@ -15,7 +15,7 @@ function sentence(text, max = 140) {
  * around a seed memory, linked by time, tags and content. They are stored as
  * `summaries` with level=thread, so they can be recalled as one memory.
  */
-export function createNarrativeEngine({ traces, summaries, selfName = '助手', now = () => Date.now() } = {}) {
+export function createNarrativeEngine({ traces, summaries, now = () => Date.now() } = {}) {
   if (!traces || !summaries) throw new Error('narrative engine needs traces and summaries');
 
   function buildThread({ scopeId = 'global', seedTraceId, windowDays = 7, windowHours = 24, max = 8, at = now() } = {}) {
@@ -98,12 +98,8 @@ export function createNarrativeEngine({ traces, summaries, selfName = '助手', 
     };
     // Capture stores a 40-char title (it stops mid-parenthesis: "…验收（工具名：desk")
     // while the content holds the whole turn. Read the content first and strip the
-    // speaker prefix ("用户：" / the assistant's own name) capture writes in front of it.
-    const speakerPrefix = ['用户', '助手', '系统', selfName, 'user', 'assistant']
-      .filter((item) => typeof item === 'string' && item.trim())
-      .map((item) => item.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      .join('|');
-    const stripSpeaker = (text) => String(text ?? '').replace(new RegExp(`^(?:${speakerPrefix})\\s*[：:]\\s*`, 'i'), '');
+    // "用户：" / "助手：" speaker prefix capture writes in front of it.
+    const stripSpeaker = (text) => String(text ?? '').replace(/^(?:用户|助手|助手|系统|我|user|assistant)\s*[：:]\s*/i, '');
     // A quoted turn arrives as "用户：> …": the speaker prefix hides the quote marker, so
     // both have to come off together — one pass strips only the prefix and leaves "> ".
     const stripDecoration = (text) => {
@@ -161,7 +157,7 @@ export function createNarrativeEngine({ traces, summaries, selfName = '助手', 
       : '只留下了这一个种子，附近还没别的痕迹。';
     const seedTopic = cleanTitle(trimAtBoundary(String(seed.content || seed.title || '').replace(/\s+/g, ' ').trim(), 60))
       || sentence(seed.content, 40);
-    const content = `一段关于…${seedTopic}」的经历：${body}`;
+    const content = `一段关于「${seedTopic}」的经历：${body}`;
     const summary = summaries.insert({
       scopeId,
       level: 'thread',

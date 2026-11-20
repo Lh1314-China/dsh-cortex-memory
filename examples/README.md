@@ -13,7 +13,7 @@
 powershell -ExecutionPolicy Bypass -File .\examples\setup-cortex-bge.ps1 `
   -Dsh "D:\path\to\dsh.cmd" `
   -Profile cortex-bge `
-  -Package "C:\path\to\dsh-cortex-memory-0.4.147.tgz"
+  -Package "C:\path\to\dsh-cortex-memory-0.1.0.tgz"
 ```
 
 首次先用 Ollama 启动模型服务：

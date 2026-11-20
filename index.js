@@ -26,8 +26,7 @@ export const Config = Schema ? Schema.object({
   persona: Schema.object({
     selfName: Schema.string().default('助手').description('助手自称；默认中性'),
     userAddress: Schema.string().default('你').description('用户称呼；默认中性'),
-    userAliases: Schema.array(Schema.string()).default([]).description('用户的其他叫法（如 你、您），统一归到 userAddress 名下'),
-    description: Schema.string().default('').description('助手的一句话人设；留空时使用中性默认描述'),
+    userAliases: Schema.array(Schema.string()).default([]).description('用户的其他叫法（如 用户），统一归到 userAddress 名下'),
   }).description('人格称呼配置'),
   readOnlyScopes: Schema.array(Schema.string()).default([]).description('只读共享 scope 列表'),
   scopeWriteGrants: Schema.array(Schema.any()).default([]).description('显式写授权：scope:agent 或 {grant, until}'),

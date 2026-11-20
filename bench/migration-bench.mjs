@@ -18,7 +18,7 @@ try {
   const texts = [];
   for (let i = 0; i < count; i += 1) {
     texts.push({
-      text: i === 0 ? '米饭：升级后仍然应该能通过“饭”的 soft 查询找到。' : `老库迁移样本 ${i}：普通记忆内容。`,
+      text: i === 0 ? '米饭：升级后仍然应该能通过“米饭”的 soft 查询找到。' : `老库迁移样本 ${i}：普通记忆内容。`,
       title: `迁移样本 #${i}`,
       explicit: true,
       operationId: `migrate:${count}:${i}`,

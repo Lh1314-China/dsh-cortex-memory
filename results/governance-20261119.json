@@ -1,0 +1,49 @@
+{
+  "bench": "governance",
+  "engine": "dsh-cortex",
+  "generatedAt": "2026-11-19T14:59:12.582Z",
+  "protocol": {
+    "facts": 30,
+    "overwrites": 10,
+    "passes": 2,
+    "topk": 5,
+    "capMs": 60000
+  },
+  "passes": [
+    {
+      "pass": 1,
+      "lagP50s": 0.009,
+      "lagP95s": 0.017,
+      "timeouts": 0,
+      "timeoutIds": [],
+      "cleanRecallAt1": 1,
+      "factRetired": "10/10",
+      "factStale": "0/10",
+      "staleHits": "0/10",
+      "storeBytes": 552960,
+      "traceCount": 40,
+      "factActive": 30
+    },
+    {
+      "pass": 2,
+      "lagP50s": 0.013,
+      "lagP95s": 0.017,
+      "timeouts": 0,
+      "timeoutIds": [],
+      "cleanRecallAt1": 1,
+      "factRetired": "10/10",
+      "factStale": "0/10",
+      "staleHits": "0/10",
+      "storeBytes": 675840,
+      "traceCount": 70,
+      "factActive": 30
+    }
+  ],
+  "median": {
+    "lagP50s": 0.011,
+    "lagP95s": 0.017,
+    "cleanRecallAt1": 1,
+    "storeBytes": 614400
+  },
+  "note": "只测库的治理行为（写入可见、覆盖退役、干净召回），不含 LLM 作答，不构成 LoCoMo / LongMemEval 分数。"
+}

@@ -159,7 +159,7 @@ POST {baseUrl}/rerank
 
 ## 4. 本地 ONNX 模型（未内置）
 
-本项目没有把 `onnxruntime-node` 或 `@huggingface/transformers` 放进运行时依赖，原因：
+我没有把 `onnxruntime-node` 或 `@huggingface/transformers` 放进运行时依赖，原因：
 
 - 安装体积大（数百 MB）；
 - Windows 上原生二进制/驱动差异；

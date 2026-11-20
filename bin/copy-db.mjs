@@ -4,7 +4,7 @@
  * drills and offline inspection. Never writes to the source.
  *
  *   node bin/copy-db.mjs --source <db> --target <copy>
- *   node bin/copy-db.mjs                 # default store -> temp file
+ *   node bin/copy-db.mjs                 # default production store -> temp file
  */
 import fs from 'node:fs';
 import path from 'node:path';

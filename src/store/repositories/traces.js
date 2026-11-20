@@ -269,7 +269,7 @@ export function createTraceRepository(db) {
     // Without a scope this is the whole index. With one it must join through
     // traces: health used to compare the *global* trace count against the
     // *whole* FTS table and reported drift whenever another scope existed
-    // (a real store had an `agency` scope, so it warned by exactly those
+    // (the production store has an `agency` scope, so it warned by exactly those
     // 12 rows forever).
     if (scopeId) {
       return Number(db.prepare('SELECT COUNT(*) AS c FROM traces_fts_index f JOIN traces t ON t.id = f.trace_id WHERE t.scope_id = ?').get(scopeId).c);

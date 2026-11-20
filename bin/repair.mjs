@@ -7,9 +7,9 @@
  *
  *   node bin/repair.mjs                 # dry run: report only
  *   node bin/repair.mjs --apply         # back up (VACUUM INTO) then write
- *   node bin/repair.mjs --apply --user-address 用户 --alias 小名
+ *   node bin/repair.mjs --apply --user-address 用户 --alias 用户
  *
- * Also covers the identity-boundary rewrite that the 0.4.23 migration needed.
+ * Supersedes bin/migrate-0.4.23.mjs (kept for its identity-boundary step).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,7 +39,7 @@ const dbPath = argValue('--db')
     : path.join(home, '.dsh', 'cortex-memory', 'cortex.sqlite'));
 const scopeId = argValue('--scope', 'global');
 const userAddress = argValue('--user-address');
-const aliases = ['用户', '你', '您'];
+const aliases = ['用户', '用户', '你', '您'];
 for (let i = 0; i < args.length; i += 1) {
   if (args[i] === '--alias' && args[i + 1]) aliases.push(args[i + 1]);
 }
@@ -91,7 +91,7 @@ function run(sql, ...params) {
 
 function deriveTitle(content) {
   const text = String(content ?? '').replace(/^(用户|助手|User|Assistant)\s*[：:]\s*/, '').trim();
-  // Assistant-side captures start with the persona name ("<name>：…"); strip that
+  // Assistant-side captures start with the persona name ("助手：…"); strip that
   // short label too so the derived title is not just the name.
   const withoutName = text.replace(/^([^\s：:]{1,6})\s*[：:]\s*/, '');
   const candidate = withoutName.length >= 8 ? withoutName : text;

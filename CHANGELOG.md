@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.148 — 2026-11-20
+
+A governance self-test, retired-trace recall, and an importance score with a low tail.
+
+### Added
+- **`bench/governance.mjs`**: a read-only governance self-test. 30 synthetic facts,
+  10 overwrites, two passes; prints write-to-recall p50/p95, retired-fact count,
+  stale hits and clean recall@1. It builds a throwaway temp DB and refuses to run
+  against a real store (the db path must be under the OS temp dir, else exit 2).
+  CI runs it after the test suite, so the published table is reproducible with
+  one command: `node bench/governance.mjs`.
+- **Memory policy layer** (`src/self/memory-policy.js`): how memory flows is now a
+  policy row (kind `memory`) — propose → approve → rollback, every step audited.
+  `evergreenKinds` never auto-archive, and consolidation cadence reads the policy.
+- **Retired traces are not recalled by default**: a trace whose fact was
+  superseded is skipped (and counted as `retiredSkipped`); `includeRetired: true`
+  keeps it for audit, ranked below the live memory.
+
+### Changed
+- **Importance keeps a low tail** (public edition): the score starts at 0.26
+  instead of 0.42 with smaller boosts, so compression has something to archive.
+
+### Verified
+- Unit: 523/523.
+- Integration: 126/126.
+- Governance bench: retired 10/10, stale hits 0/10, write-to-recall p50 ~0.01s.
+
 ## 0.4.147 — 2026-11-19
 
 Second privacy pass: real-life wording out of the public text, a neutral icon and a smaller tarball.

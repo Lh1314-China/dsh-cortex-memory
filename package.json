@@ -1,6 +1,6 @@
 {
   "name": "dsh-cortex-memory",
-  "version": "0.4.147",
+  "version": "0.4.148",
   "description": "本地优先的分层记忆引擎：情景/语义/程序记忆、时序事实、DSR 遗忘、混合召回、自我状态、反思、守护与受控进化。",
   "type": "module",
   "main": "./index.js",
@@ -31,12 +31,6 @@
     "CHANGELOG.md",
     "docs"
   ],
-  "scripts": {
-    "test:unit": "node --test test/unit/*.test.js",
-    "bench": "node bench/run.js",
-    "check": "node --check index.js && node --check client.js",
-    "test": "node --test test/unit/*.test.js test/integration/*.test.js"
-  },
   "engines": {
     "node": ">=24",
     "dsh": ">=0.2.1-rc.2 <0.5.0"
@@ -87,5 +81,11 @@
   },
   "bugs": {
     "url": "https://github.com/Lh1314-China/dsh-cortex-memory/issues"
+  },
+  "scripts": {
+    "test:unit": "node --test test/unit/*.test.js",
+    "bench": "node bench/run.js",
+    "check": "node --check index.js && node --check client.js",
+    "test": "node --test test/unit/*.test.js test/integration/*.test.js"
   }
 }

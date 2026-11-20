@@ -81,7 +81,7 @@ export function extractFactCandidates(text, persona = {}) {
   }
   const inQuote = (index) => quoteSpans.some(([start, end]) => index >= start && index < end);
   const selfAliases = new Set(['你', selfName]);
-  const userAliases = new Set(['我', '自己', '我们', '咱', '用户', '您', userAddress]);
+  const userAliases = new Set(['我', '自己', '我们', '咱', '用户', '用户', '您', userAddress]);
   const out = [];
   const seen = new Set();
   for (const rule of RULES) {

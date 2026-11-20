@@ -1,11 +1,10 @@
 /**
  * Alias resolution for people.
  *
- * The same person can be stored under two targets (a nickname from the early
- * days and the configured address now), so the relationship model would never
- * accumulate and the affect counts would split. Everything that takes a target
- * name goes through this resolver first, so aliases converge on the configured
- * user address. `persona.userAliases` adds local nicknames.
+ * The same person was stored as two targets ("用户" from the early days and
+ * "用户" now), so the relationship model never accumulated and the affect
+ * counts split. Everything that takes a target name goes through this resolver
+ * first, so aliases converge on the configured user address.
  */
 const DEFAULT_USER_ALIASES = ['用户', '你', '您'];
 

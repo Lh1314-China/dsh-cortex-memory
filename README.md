@@ -7,21 +7,12 @@
 ## 当前版本
 
 ```text
-主包：dsh-cortex-memory@0.4.147
-提取器：dsh-cortex-extractors@0.3.6
+主包：dsh-cortex-memory@0.4.148
+提取器：dsh-cortex-extractors@0.3.5
 DSH：>=0.2.1-rc.2 <0.5.0
 Node：>=24
-测试：520/520
+测试：523/523
 ```
-
-## 前提
-
-- **Node `>=24`**：引擎用 `node:sqlite`，低版本会直接起不来。
-- **DSH `>=0.2.1-rc.2 <0.5.0`**：见 `package.json` 的 `dsh.compatibility`。
-- 一个 profile 同时只能挂一个 host id 为 `dsh-cortex-memory` 的插件
-  （旧版 id 是 `cortex`，升级要做一次迁移）。
-- 提取器是可选的；OCR / ASR 引擎与模型需自备，插件不自动下载。
-- 装完重启 DSH 才会加载。远程 LLM / 向量 / 重排默认关闭，需要时在设置里显式开启。
 
 ## 现在能做什么
 
@@ -43,8 +34,8 @@ Node：>=24
 先关闭 DSH，再安装并重启：
 
 ```powershell
-dsh plugin --profile desktop add dsh-cortex-memory@0.4.147
-dsh plugin --profile desktop add dsh-cortex-extractors@0.3.6
+dsh plugin --profile desktop add dsh-cortex-memory@0.4.148
+dsh plugin --profile desktop add dsh-cortex-extractors@0.3.5
 ```
 
 `dsh-cortex-extractors` 是可选的图片/音频入口；只做文字记忆时可以不装。
@@ -54,7 +45,7 @@ dsh plugin --profile desktop add dsh-cortex-extractors@0.3.6
 GitHub Release 提供：
 
 ```text
-cortex-memory-oneclick-0.4.147.zip
+cortex-memory-oneclick-0.4.148.zip
 ```
 
 解压后双击 `install.cmd`。安装器会做 profile 检查、备份、SHA256 校验和可选路径迁移。
@@ -84,8 +75,6 @@ PaddleOCR 需显式模型目录
 
 必须使用 DSH 自带的 **Node 24** 跑测试/bench。系统 PATH 上如果是 Node 22，会低于 `engines.node >=24`，`node --test` 可能直接失败。
 
-npm 包里不包含 `test/`（从 0.4.147 起）：测试在 GitHub 仓库与 CI 里跑，包体更小、审计面更窄。
-
 ```text
 DSH 运行时 Node：24.21.0
 系统 Node：仅作兼容性参考，不保证
@@ -98,7 +87,7 @@ CLI 默认读取 `~/.dsh/cortex-memory`；需要指定其他库时显式传 `--d
 已做：
 
 ```text
-主包测试：520/520
+主包测试：523/523
 受控中文语义探针：recall@3 1.000 / MRR@3 0.917 / nDCG@3 0.938
 受控探针延迟：p50 1.31ms / p95 4.07ms
 真实图片 OCR：已跑通
@@ -136,17 +125,9 @@ Cortex 的定位是“本地可解释、可回滚、能长期长”的记忆系�
 
 ## 下载
 
-- npm 主包：`dsh-cortex-memory@0.4.147`
-- npm 提取器：`dsh-cortex-extractors@0.3.6`
-- GitHub Release：`v0.4.147`
-- Windows 一键包：`cortex-memory-oneclick-0.4.147.zip`
+- npm 主包：`dsh-cortex-memory@0.4.148`
+- npm 提取器：`dsh-cortex-extractors@0.3.5`
+- GitHub Release：`v0.4.148`
+- Windows 一键包：`cortex-memory-oneclick-0.4.148.zip`
 
 安装后重启 DSH，左侧出现「Cortex 记忆」入口。
-
-## 许可与声明
-
-- **MIT**，见 [LICENSE](LICENSE)。
-- 数据只在本机 SQLite（`~/.dsh/cortex-memory`），不上传；远程 LLM / 向量 / 重排默认关闭，
-  需要时在设置里显式开启。
-- 提取器是可选依赖，默认不下载模型；Whisper / PaddleOCR 的模型需自备。
-- 核心引擎没有外部模型依赖；Node `>=24` 是硬要求（`node:sqlite`）。

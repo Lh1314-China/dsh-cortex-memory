@@ -21,3 +21,8 @@ jobs:
           Write-Host "node: $(node --version)"
           Write-Host "test files: $($files.Count)"
           node --test --test-isolation=none @files
+      - shell: pwsh
+        run: |
+          # Governance self-test: writes/overwrites/recalls on a throwaway temp DB
+          # (never the real store), then prints the three numbers.
+          node bench/governance.mjs --passes 2 --topk 5

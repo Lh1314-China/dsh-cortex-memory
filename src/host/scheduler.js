@@ -269,7 +269,8 @@ export function createScheduler({
     const scopeId = cortex.config?.scope ?? 'global';
     if (typeof cortex.scopeWritable === 'function' && !cortex.scopeWritable(scopeId)) return;
     const at = now();
-    const hour = Math.max(0, Math.min(23, Number(cortex.config?.deepConsolidateHour ?? 4)));
+    const policy = cortex.memoryPolicy?.current?.() ?? null;
+    const hour = Math.max(0, Math.min(23, Number(policy?.deepConsolidateHour ?? cortex.config?.deepConsolidateHour ?? 4)));
     if (new Date(at).getHours() < hour) return;
     const day = localDayOf(at);
     if (lastDeepDay === day) return;
@@ -283,7 +284,7 @@ export function createScheduler({
       const result = await cortex.consolidation.run({
         scopeId,
         now: at,
-        limit: Math.max(1, Math.min(80, Number(cortex.config?.deepConsolidateLimit ?? 60))),
+        limit: Math.max(1, Math.min(80, Number(policy?.deepConsolidateLimit ?? cortex.config?.deepConsolidateLimit ?? 60))),
         caller: 'deep-daily',
         spread: true,
       });
@@ -379,10 +380,10 @@ export function createScheduler({
     } catch (error) {
       report.steps.jobs = { error: error instanceof Error ? error.message : String(error) };
     }
-    if (consolidateOnTick && cortex.consolidation?.run) {
+    if ((consolidateOnTick || cortex.memoryPolicy?.current?.().consolidateOnTick === true) && cortex.consolidation?.run) {
       try {
         // The tick path used to fire on every tick (once a minute with the live
-        // interval) — hundreds of no-llm audit rows prove it. Even with the flag on, honour the
+        // interval) — hundreds of no-llm rows prove it. Even with the flag on, honour the
         // same gap so enabling it cannot turn into a per-minute LLM call.
         const scopeId = cortex.config?.scope ?? 'global';
         const gapMs = Math.max(1, Number(cortex.config?.features?.consolidateTraceGapMinutes ?? 30)) * 60_000;

@@ -1,0 +1,204 @@
+# Strip report
+
+source: C:\Users\L1361\Documents\deepseek-harness\default-workspace\plugins\dsh-cortex-0414
+out: C:\Users\L1361\Documents\deepseek-harness\default-workspace\release\github\dsh-cortex-memory-staging
+version: 0.4.148
+files copied: 294
+text replacements: 714
+
+## replaced words
+
+- 白饭: 485
+- 涵儿: 63
+- 汐儿: 30
+- live store: 25
+- 主人: 23
+- 豆包: 22
+- 本鲸: 16
+- 颈椎: 12
+- 鲸鱼: 12
+- 人类观察日记: 4
+- 豆包装: 3
+- 1914 rows: 3
+- 鲸鱼娘: 3
+- 1921: 2
+- 寒生: 2
+- 星空: 2
+- 尾尖: 1
+- 1921 no-llm: 1
+- 潮汐: 1
+- 星图: 1
+- 海风: 1
+- 灯塔: 1
+- 拥抱星空: 1
+
+## patched files
+
+- client.js (embedded portrait)
+- src/engines/encode.js (public importance tail)
+- src/engines/extract.js (selfAliases)
+- src/engines/life.js (diary wording)
+- src/llm/adapter.js (personaDescription)
+- src/self/alias.js (DEFAULT_USER_ALIASES)
+- icon.svg (neutral logo)
+- test baseline: test/integration/acceptance.test.js
+- test baseline: test/integration/ann-load.test.js
+- test baseline: test/integration/api-contract.test.js
+- test baseline: test/integration/backup-privacy.test.js
+- test baseline: test/integration/consolidate.test.js
+- test baseline: test/integration/edge-cases.test.js
+- test baseline: test/integration/exchange.test.js
+- test baseline: test/integration/life-loop.test.js
+- test baseline: test/integration/load.test.js
+- test baseline: test/integration/markdown-sync.test.js
+- test baseline: test/integration/policy-query-api.test.js
+- test baseline: test/integration/resilience-writes.test.js
+- test baseline: test/integration/tools-contract.test.js
+- test baseline: test/integration/_helpers.js
+- test baseline: test/unit/alias.test.js
+- test baseline: test/unit/ann-edge.test.js
+- test baseline: test/unit/ann.test.js
+- test baseline: test/unit/api-client.test.js
+- test baseline: test/unit/api-validate.test.js
+- test baseline: test/unit/api.test.js
+- test baseline: test/unit/appraisal.test.js
+- test baseline: test/unit/attachments.test.js
+- test baseline: test/unit/auto-reflect.test.js
+- test baseline: test/unit/autonomy.test.js
+- test baseline: test/unit/batch.test.js
+- test baseline: test/unit/bench.test.js
+- test baseline: test/unit/benchmark-synthetic.test.js
+- test baseline: test/unit/capture-filter.test.js
+- test baseline: test/unit/cli-default-root.test.js
+- test baseline: test/unit/client-contract.test.js
+- test baseline: test/unit/compaction-preview.test.js
+- test baseline: test/unit/compression.test.js
+- test baseline: test/unit/consolidate-dedupe.test.js
+- test baseline: test/unit/consolidate-errors.test.js
+- test baseline: test/unit/consolidate-gate.test.js
+- test baseline: test/unit/consolidate-preview.test.js
+- test baseline: test/unit/consolidate-protection.test.js
+- test baseline: test/unit/consolidate-reason.test.js
+- test baseline: test/unit/consolidate-retry.test.js
+- test baseline: test/unit/consolidate-selection.test.js
+- test baseline: test/unit/core.test.js
+- test baseline: test/unit/coverage-rewrite.test.js
+- test baseline: test/unit/dedupe-episodes.test.js
+- test baseline: test/unit/dedupe-threshold.test.js
+- test baseline: test/unit/develop.test.js
+- test baseline: test/unit/development.test.js
+- test baseline: test/unit/digest.test.js
+- test baseline: test/unit/dsr.test.js
+- test baseline: test/unit/edges-candidates.test.js
+- test baseline: test/unit/emotion.test.js
+- test baseline: test/unit/encode.test.js
+- test baseline: test/unit/evolution.test.js
+- test baseline: test/unit/external-ann-search.test.js
+- test baseline: test/unit/external-ann.test.js
+- test baseline: test/unit/extract-question.test.js
+- test baseline: test/unit/fact-guard.test.js
+- test baseline: test/unit/fact-noise-llm.test.js
+- test baseline: test/unit/facts-belief.test.js
+- test baseline: test/unit/facts-compat.test.js
+- test baseline: test/unit/facts.test.js
+- test baseline: test/unit/feature-overrides.test.js
+- test baseline: test/unit/fts-migration.test.js
+- test baseline: test/unit/graph.test.js
+- test baseline: test/unit/growth-reflect.test.js
+- test baseline: test/unit/guard-runtime.test.js
+- test baseline: test/unit/guardian.test.js
+- test baseline: test/unit/health-consolidation.test.js
+- test baseline: test/unit/health-fts-scope.test.js
+- test baseline: test/unit/health-privacy.test.js
+- test baseline: test/unit/health-summaries.test.js
+- test baseline: test/unit/health-text-maintain.test.js
+- test baseline: test/unit/health-today.test.js
+- test baseline: test/unit/hnsw.test.js
+- test baseline: test/unit/host-runtime.test.js
+- test baseline: test/unit/host.test.js
+- test baseline: test/unit/identity.test.js
+- test baseline: test/unit/induct-evaluate.test.js
+- test baseline: test/unit/ingest-extracted.test.js
+- test baseline: test/unit/inhibition.test.js
+- test baseline: test/unit/initiative.test.js
+- test baseline: test/unit/jobs.test.js
+- test baseline: test/unit/json-snapshot.test.js
+- test baseline: test/unit/label-entities-skip.test.js
+- test baseline: test/unit/life-consolidate.test.js
+- test baseline: test/unit/life.test.js
+- test baseline: test/unit/llm-facts-integration.test.js
+- test baseline: test/unit/llm-facts.test.js
+- test baseline: test/unit/llm.test.js
+- test baseline: test/unit/locomo.test.js
+- test baseline: test/unit/longmemeval.test.js
+- test baseline: test/unit/maintain-dispute.test.js
+- test baseline: test/unit/maintain-duration.test.js
+- test baseline: test/unit/markdown-import.test.js
+- test baseline: test/unit/markdown.test.js
+- test baseline: test/unit/memory-edit.test.js
+- test baseline: test/unit/metrics.test.js
+- test baseline: test/unit/migration.test.js
+- test baseline: test/unit/model-config.test.js
+- test baseline: test/unit/mood-saturation.test.js
+- test baseline: test/unit/narrative-weave.test.js
+- test baseline: test/unit/narrative.test.js
+- test baseline: test/unit/playbook-consolidate.test.js
+- test baseline: test/unit/privacy-scope.test.js
+- test baseline: test/unit/profile-paths.test.js
+- test baseline: test/unit/profile.test.js
+- test baseline: test/unit/prompt.test.js
+- test baseline: test/unit/providers.test.js
+- test baseline: test/unit/qa.test.js
+- test baseline: test/unit/query.test.js
+- test baseline: test/unit/reflect-backfill.test.js
+- test baseline: test/unit/reflect-coverage.test.js
+- test baseline: test/unit/reflect-overview.test.js
+- test baseline: test/unit/reflect-phrasing.test.js
+- test baseline: test/unit/reflect-sampling.test.js
+- test baseline: test/unit/reflect-source-budget.test.js
+- test baseline: test/unit/relationship-dynamics.test.js
+- test baseline: test/unit/retention.test.js
+- test baseline: test/unit/retrieval-ranking.test.js
+- test baseline: test/unit/retrieve.test.js
+- test baseline: test/unit/revive-on-read.test.js
+- test baseline: test/unit/rotation.test.js
+- test baseline: test/unit/scanner.test.js
+- test baseline: test/unit/scenario.test.js
+- test baseline: test/unit/scheduler-autoconsolidate.test.js
+- test baseline: test/unit/scheduler-autodedupe.test.js
+- test baseline: test/unit/scheduler-autosleep.test.js
+- test baseline: test/unit/scheduler-cadence.test.js
+- test baseline: test/unit/scheduler-deep.test.js
+- test baseline: test/unit/scheduler-tick-gate.test.js
+- test baseline: test/unit/scheduler.test.js
+- test baseline: test/unit/self-state.test.js
+- test baseline: test/unit/service.test.js
+- test baseline: test/unit/shiori-import.test.js
+- test baseline: test/unit/skills.test.js
+- test baseline: test/unit/spacing.test.js
+- test baseline: test/unit/store.test.js
+- test baseline: test/unit/summon-left-slot.test.js
+- test baseline: test/unit/summon-rank.test.js
+- test baseline: test/unit/temporal-graph.test.js
+- test baseline: test/unit/tiers-gist.test.js
+- test baseline: test/unit/tiers.test.js
+- test baseline: test/unit/tokenizer-fts.test.js
+- test baseline: test/unit/tools.test.js
+- test baseline: test/unit/upgrade-0412.test.js
+- test baseline: test/unit/upgrade-0413.test.js
+- test baseline: test/unit/upgrade-0414.test.js
+- test baseline: test/unit/vector-ann.test.js
+- test baseline: test/unit/vector-async.test.js
+- test baseline: test/unit/vector-coverage.test.js
+- test baseline: test/unit/vector-override.test.js
+- test baseline: test/unit/vector-typed-array.test.js
+- test baseline: test/unit/vector.test.js
+- test baseline: test/unit/working.test.js
+
+## removed files
+
+- bin/migrate-0.4.23.mjs
+
+## scan
+
+PASS — 0 hits
